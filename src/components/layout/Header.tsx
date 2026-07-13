@@ -10,10 +10,36 @@ import {
 } from "@/components/ui/sheet"
 import { NAV_LINKS } from "@/lib/constants"
 import { useNavigation } from "@/App"
+import { useAuth } from "@/context/AuthContext"
+import { AccountMenu } from "@/components/auth/AccountMenu"
 
 export function Header() {
   const [open, setOpen] = useState(false)
-  const { navigateTo } = useNavigation()
+  const { navigateTo, openAuthModal } = useNavigation()
+  const { session, loading } = useAuth()
+
+  const authButtons = session ? (
+    <AccountMenu />
+  ) : (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => openAuthModal("sign-in")}
+        disabled={loading}
+      >
+        Log In
+      </Button>
+      <Button
+        size="sm"
+        className="bg-primary hover:bg-primary/90"
+        onClick={() => openAuthModal("sign-up")}
+        disabled={loading}
+      >
+        Sign Up
+      </Button>
+    </div>
+  )
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
@@ -36,11 +62,12 @@ export function Header() {
           ))}
           <Button
             size="sm"
-            className="bg-primary hover:bg-primary/90"
+            variant="outline"
             onClick={() => navigateTo("editor")}
           >
             Start Watermarking
           </Button>
+          {authButtons}
         </nav>
 
         <Sheet open={open} onOpenChange={setOpen}>
@@ -68,7 +95,7 @@ export function Header() {
                 </a>
               ))}
               <Button
-                className="mt-4 bg-primary hover:bg-primary/90"
+                variant="outline"
                 onClick={() => {
                   setOpen(false)
                   navigateTo("editor")
@@ -76,6 +103,34 @@ export function Header() {
               >
                 Start Watermarking
               </Button>
+              {session ? (
+                <div onClick={() => setOpen(false)}>
+                  <AccountMenu />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setOpen(false)
+                      openAuthModal("sign-in")
+                    }}
+                    disabled={loading}
+                  >
+                    Log In
+                  </Button>
+                  <Button
+                    className="bg-primary hover:bg-primary/90"
+                    onClick={() => {
+                      setOpen(false)
+                      openAuthModal("sign-up")
+                    }}
+                    disabled={loading}
+                  >
+                    Sign Up Free
+                  </Button>
+                </div>
+              )}
             </nav>
           </SheetContent>
         </Sheet>

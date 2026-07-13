@@ -11,22 +11,25 @@ import {
   MAX_FILE_SIZE_BYTES,
   MAX_FILE_SIZE_MB,
 } from "@/lib/editor-types"
+import type { EditorInitialData } from "@/App"
 
-export function useEditorState() {
-  const [image, setImageFile] = useState<File | null>(null)
+export function useEditorState(initialData?: EditorInitialData) {
+  const init = initialData?.settings ?? {}
+
+  const [image, setImageFile] = useState<File | null>(initialData?.image ?? null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
-  const [watermarkText, setWatermarkText] = useState(DEFAULT_EDITOR_STATE.watermarkText)
-  const [fontFamily, setFontFamily] = useState(DEFAULT_EDITOR_STATE.fontFamily)
-  const [fontSize, setFontSize] = useState(DEFAULT_EDITOR_STATE.fontSize)
-  const [color, setColor] = useState(DEFAULT_EDITOR_STATE.color)
-  const [opacity, setOpacity] = useState(DEFAULT_EDITOR_STATE.opacity)
-  const [rotation, setRotation] = useState(DEFAULT_EDITOR_STATE.rotation)
-  const [placement, setPlacement] = useState<Placement>(DEFAULT_EDITOR_STATE.placement)
-  const [textDirection, setTextDirection] = useState<TextDirection>(DEFAULT_EDITOR_STATE.textDirection)
-  const [coverageMode, setCoverageMode] = useState<CoverageMode>(DEFAULT_EDITOR_STATE.coverageMode)
-  const [pattern, setPattern] = useState<Pattern>(DEFAULT_EDITOR_STATE.pattern)
-  const [density, setDensity] = useState(DEFAULT_EDITOR_STATE.density)
-  const [curveOrientation, setCurveOrientation] = useState<CurveOrientation>(DEFAULT_EDITOR_STATE.curveOrientation)
+  const [watermarkText, setWatermarkText] = useState(init.watermarkText ?? DEFAULT_EDITOR_STATE.watermarkText)
+  const [fontFamily, setFontFamily] = useState(init.fontFamily ?? DEFAULT_EDITOR_STATE.fontFamily)
+  const [fontSize, setFontSize] = useState(init.fontSize ?? DEFAULT_EDITOR_STATE.fontSize)
+  const [color, setColor] = useState(init.color ?? DEFAULT_EDITOR_STATE.color)
+  const [opacity, setOpacity] = useState(init.opacity ?? DEFAULT_EDITOR_STATE.opacity)
+  const [rotation, setRotation] = useState(init.rotation ?? DEFAULT_EDITOR_STATE.rotation)
+  const [placement, setPlacement] = useState<Placement>(init.placement ?? DEFAULT_EDITOR_STATE.placement)
+  const [textDirection, setTextDirection] = useState<TextDirection>(init.textDirection ?? DEFAULT_EDITOR_STATE.textDirection)
+  const [coverageMode, setCoverageMode] = useState<CoverageMode>(init.coverageMode ?? DEFAULT_EDITOR_STATE.coverageMode)
+  const [pattern, setPattern] = useState<Pattern>(init.pattern ?? DEFAULT_EDITOR_STATE.pattern)
+  const [density, setDensity] = useState(init.density ?? DEFAULT_EDITOR_STATE.density)
+  const [curveOrientation, setCurveOrientation] = useState<CurveOrientation>(init.curveOrientation ?? DEFAULT_EDITOR_STATE.curveOrientation)
   const [error, setError] = useState<string | null>(null)
 
   const urlRef = useRef<string | null>(null)
@@ -38,11 +41,19 @@ export function useEditorState() {
     }
   }, [])
 
+  // If an initial image was provided, create a preview URL for it
   useEffect(() => {
+    if (initialData?.image) {
+      const url = URL.createObjectURL(initialData.image)
+      urlRef.current = url
+      setImagePreviewUrl(url)
+    }
     return () => {
       revokeUrl()
     }
-  }, [revokeUrl])
+    // Only runs once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const setImage = useCallback((file: File) => {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {

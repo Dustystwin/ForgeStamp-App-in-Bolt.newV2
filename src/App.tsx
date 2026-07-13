@@ -7,62 +7,93 @@ import { Features } from "@/components/landing/Features"
 import { WhySection } from "@/components/landing/WhySection"
 import { Pricing } from "@/components/landing/Pricing"
 import { EditorPage } from "@/components/editor/EditorPage"
+import { MyImagesPage } from "@/components/my-images/MyImagesPage"
+import { AdminPage } from "@/components/admin/AdminPage"
+import { AuthModal } from "@/components/auth/AuthModal"
+import { AuthProvider } from "@/context/AuthContext"
+import type { EditorState } from "@/lib/editor-types"
 
-type View = "landing" | "editor"
+export type View = "landing" | "editor" | "my-images" | "admin"
 
-const VIEW_STORAGE_KEY = "wmf_view"
-
-function getInitialView(): View {
-  try {
-    const saved = localStorage.getItem(VIEW_STORAGE_KEY)
-    if (saved === "editor" || saved === "landing") return saved
-  } catch {
-    // localStorage unavailable
-  }
-  return "landing"
+export interface EditorInitialData {
+  image: File
+  settings: Partial<Omit<EditorState, "image" | "imagePreviewUrl" | "error">>
+  sourceImageId?: string
 }
 
 interface NavigationContextType {
-  navigateTo: (view: View) => void
+  navigateTo: (view: View, data?: { editorInitialData?: EditorInitialData }) => void
+  openAuthModal: (defaultMode?: "sign-in" | "sign-up") => void
 }
 
 const NavigationContext = createContext<NavigationContextType>({
   navigateTo: () => {},
+  openAuthModal: () => {},
 })
 
 export function useNavigation() {
   return useContext(NavigationContext)
 }
 
-export function App() {
-  const [view, setView] = useState<View>(getInitialView)
-  // Incremented each time the user navigates to the editor, forcing EditorPage to
-  // remount with fresh state rather than carrying over settings from a prior session.
-  const [editorKey, setEditorKey] = useState(0)
+const VIEW_STORAGE_KEY = "wmf_view"
 
-  const navigateTo = useCallback((v: View) => {
-    try {
-      localStorage.setItem(VIEW_STORAGE_KEY, v)
-    } catch {
-      // localStorage unavailable
-    }
-    if (v === "editor") {
-      setEditorKey((k) => k + 1)
-    }
-    setView(v)
-    window.scrollTo(0, 0)
+function getInitialView(): View {
+  try {
+    const saved = localStorage.getItem(VIEW_STORAGE_KEY)
+    if (saved === "editor" || saved === "landing") return saved as View
+  } catch {
+    // localStorage unavailable
+  }
+  return "landing"
+}
+
+function AppInner() {
+  const [view, setView] = useState<View>(getInitialView)
+  const [editorKey, setEditorKey] = useState(0)
+  const [editorInitialData, setEditorInitialData] = useState<EditorInitialData | null>(null)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authModalMode, setAuthModalMode] = useState<"sign-in" | "sign-up">("sign-in")
+
+  const navigateTo = useCallback(
+    (v: View, data?: { editorInitialData?: EditorInitialData }) => {
+      try {
+        // Persist only basic views so refresh doesn't land on admin/my-images
+        localStorage.setItem(VIEW_STORAGE_KEY, v === "editor" ? "editor" : "landing")
+      } catch {
+        // localStorage unavailable
+      }
+      if (v === "editor") {
+        setEditorKey((k) => k + 1)
+        setEditorInitialData(data?.editorInitialData ?? null)
+      }
+      setView(v)
+      window.scrollTo(0, 0)
+    },
+    []
+  )
+
+  const openAuthModal = useCallback((defaultMode: "sign-in" | "sign-up" = "sign-in") => {
+    setAuthModalMode(defaultMode)
+    setAuthModalOpen(true)
   }, [])
 
-  if (view === "editor") {
+  const renderView = () => {
+    if (view === "editor") {
+      return (
+        <EditorPage
+          key={editorKey}
+          onNavigateHome={() => navigateTo("landing")}
+          initialData={editorInitialData ?? undefined}
+        />
+      )
+    }
+    if (view === "my-images") {
+      return <MyImagesPage />
+    }
+    if (view === "admin") {
+      return <AdminPage />
+    }
     return (
-      <NavigationContext.Provider value={{ navigateTo }}>
-        <EditorPage key={editorKey} onNavigateHome={() => navigateTo("landing")} />
-      </NavigationContext.Provider>
-    )
-  }
-
-  return (
-    <NavigationContext.Provider value={{ navigateTo }}>
       <div className="min-h-svh bg-background">
         <Header />
         <main>
@@ -74,7 +105,26 @@ export function App() {
         </main>
         <Footer />
       </div>
+    )
+  }
+
+  return (
+    <NavigationContext.Provider value={{ navigateTo, openAuthModal }}>
+      {renderView()}
+      <AuthModal
+        open={authModalOpen}
+        defaultMode={authModalMode}
+        onClose={() => setAuthModalOpen(false)}
+      />
     </NavigationContext.Provider>
+  )
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   )
 }
 
