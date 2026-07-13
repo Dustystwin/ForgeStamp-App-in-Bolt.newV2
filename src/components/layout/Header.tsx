@@ -20,7 +20,7 @@ export function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
         <a href="#" className="flex items-center gap-2">
           <span className="text-lg font-black tracking-tight bg-gradient-to-r from-primary via-primary to-emerald bg-clip-text text-transparent">
-            Water<span className="font-black">Mint</span> Forge
+            Forge<span className="font-black">Stamp</span>
           </span>
         </a>
 
