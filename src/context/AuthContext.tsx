@@ -20,6 +20,14 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>
 }
 
+function extractMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
+    return (err as { message: string }).message
+  }
+  return "An unexpected error occurred"
+}
+
 const AuthContext = createContext<AuthContextType>({
   session: null,
   profile: null,
@@ -85,26 +93,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return { error: error.message }
-    return { error: null }
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) return { error: extractMessage(error) }
+      return { error: null }
+    } catch (e) {
+      return { error: extractMessage(e) }
+    }
   }, [])
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) return { error: error.message }
-    return { error: null }
+    try {
+      const { error } = await supabase.auth.signUp({ email, password })
+      if (error) return { error: extractMessage(error) }
+      return { error: null }
+    } catch (e) {
+      return { error: extractMessage(e) }
+    }
   }, [])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      // best-effort
+    }
     setProfile(null)
   }, [])
 
   const resetPassword = useCallback(async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
-    if (error) return { error: error.message }
-    return { error: null }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email)
+      if (error) return { error: extractMessage(error) }
+      return { error: null }
+    } catch (e) {
+      return { error: extractMessage(e) }
+    }
   }, [])
 
   return (
