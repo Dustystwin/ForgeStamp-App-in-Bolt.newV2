@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { useAuth } from "@/context/AuthContext"
+import { checkPasswordBreach } from "@/lib/password-check"
 
 type Mode = "sign-in" | "sign-up" | "reset-password"
 
@@ -75,6 +76,13 @@ export function AuthModal({ open, defaultMode = "sign-in", onClose, onSuccess }:
       if (mode === "sign-up") {
         if (password.length < 6) {
           toast.error("Password must be at least 6 characters.")
+          return
+        }
+        const { compromised, occurrences } = await checkPasswordBreach(password)
+        if (compromised) {
+          toast.error(
+            `This password has been found in ${occurrences.toLocaleString()} known data breaches. Please choose a different password.`,
+          )
           return
         }
         const { error } = await signUp(email.trim(), password)
