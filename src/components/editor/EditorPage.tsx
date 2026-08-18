@@ -184,6 +184,16 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     setFinishedImages([])
   }, [])
 
+  // Full Reset: return the EDITOR to a fresh session (image + all settings),
+  // via the hook's reset(). Deliberately does NOT clear finishedImages — those
+  // are the user's exported keepers (and, for logged-in users, already saved
+  // to their account) and must survive a reset.
+  const handleFullReset = useCallback(() => {
+    reset()
+    setCoverageClearedAt(0)
+    toast.dismiss()
+  }, [reset])
+
   const isProcessing = isExporting || isSaving
 
   return (
@@ -205,7 +215,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
           <span className="text-sm font-black tracking-tight">
             ForgeStamp
             <span className="ml-1.5 align-middle rounded bg-muted px-1 py-0.5 text-[9px] font-semibold text-muted-foreground">
-              v6
+              v7
             </span>
           </span>
           <div className="flex items-center gap-2">
@@ -215,7 +225,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={reset}
+              onClick={handleFullReset}
               className="gap-1.5"
             >
               <RotateCcw className="size-3.5" />
@@ -287,7 +297,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
               ) : (
                 <Download className="size-4" />
               )}
-              {isExporting ? "Exporting..." : isSaving ? "Saving..." : "Export PNG"}
+              {isExporting ? "Exporting..." : isSaving ? "Saving..." : "Export Image"}
             </Button>
 
             {session && (

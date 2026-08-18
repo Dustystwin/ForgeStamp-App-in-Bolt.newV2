@@ -33,15 +33,24 @@ export function getPlacementStyle(
 }
 
 // Returns the rotation (in degrees) that converts horizontal text to the chosen direction
-// Vertical Down renders as STACKED upright letters (like a vertical sign you can
-// read without tilting your head), so it contributes no rotation offset.
+// Both vertical directions render as STACKED upright letters (like a vertical
+// decorative sign you can read without tilting your head), so neither adds a
+// rotation offset. They differ only in stacking order:
+//   vertical-down: first letter on top, reading downward (F,O,R,G,E...)
+//   vertical-up:   first letter on bottom, reading upward   (...E,G,R,O,F)
 export function isStackedDirection(dir: TextDirection): boolean {
-  return dir === "vertical-down"
+  return dir === "vertical-down" || dir === "vertical-up"
+}
+
+// True when a stacked direction should place the first letter at the BOTTOM so
+// the word reads correctly when scanned from the bottom upward.
+export function isStackedUpward(dir: TextDirection): boolean {
+  return dir === "vertical-up"
 }
 
 export function getDirectionRotationOffset(dir: TextDirection): number {
   if (dir === "vertical-down") return 0
-  if (dir === "vertical-up") return -90
+  if (dir === "vertical-up") return 0
   return 0
 }
 
@@ -109,9 +118,11 @@ export function drawStamp(
   pt: GridPoint,
   totalRotationDeg: number,
   orientation: CurveOrientation = "natural",
-  // When set, draw upright letters stacked vertically (sign-style "Vertical
-  // Down"); the value is the line height between stacked characters.
-  stackedLineHeight?: number
+  // When set, draw upright letters stacked vertically (sign-style vertical
+  // directions); the value is the line height between stacked characters.
+  stackedLineHeight?: number,
+  // When true, stack from the bottom up so the word reads upward (Vertical Up).
+  stackUpward = false
 ) {
   if (pt.arc && pt.arc.r > 4) {
     const { cx, cy, r } = pt.arc
@@ -153,9 +164,12 @@ export function drawStamp(
   }
   if (stackedLineHeight && !pt.arc) {
     const chars = Array.from(text)
-    const startY = -((chars.length - 1) / 2) * stackedLineHeight
-    for (let i = 0; i < chars.length; i++) {
-      ctx.fillText(chars[i], 0, startY + i * stackedLineHeight)
+    // For Vertical Up, reverse so the first character sits at the bottom and
+    // the word reads correctly scanning upward.
+    const ordered = stackUpward ? [...chars].reverse() : chars
+    const startY = -((ordered.length - 1) / 2) * stackedLineHeight
+    for (let i = 0; i < ordered.length; i++) {
+      ctx.fillText(ordered[i], 0, startY + i * stackedLineHeight)
     }
   } else {
     ctx.fillText(text, 0, 0)
@@ -530,6 +544,7 @@ export async function drawWatermarkOnCanvas(
   // In single mode, only direction offset + user rotation apply.
   const patternAngle = coverageMode === "full" ? getPatternTextAngle(pattern) : 0
   const stacked = isStackedDirection(textDirection)
+  const stackUpward = isStackedUpward(textDirection)
   const stackedLineHeight = stacked ? clampedFontSize * 1.02 : undefined
   const totalRotation = rotation + getDirectionRotationOffset(textDirection) + patternAngle
 
@@ -548,7 +563,7 @@ export async function drawWatermarkOnCanvas(
     const effTextHeight = stacked ? chars.length * clampedFontSize * 1.02 : clampedFontSize
     const points = getPatternPoints(imageWidth, imageHeight, pattern, normalizedSpacing, textWidth, effTextHeight, curveOrientation)
     for (const pt of points) {
-      drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight)
+      drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward)
     }
   } else {
     const pad = imageWidth * 0.08
@@ -572,9 +587,10 @@ export async function drawWatermarkOnCanvas(
     ctx.rotate((totalRotation * Math.PI) / 180)
     if (stackedLineHeight) {
       const chars = Array.from(text || "\u00A0")
-      const startY = -((chars.length - 1) / 2) * stackedLineHeight
-      for (let i = 0; i < chars.length; i++) {
-        ctx.fillText(chars[i], 0, startY + i * stackedLineHeight)
+      const ordered = stackUpward ? [...chars].reverse() : chars
+      const startY = -((ordered.length - 1) / 2) * stackedLineHeight
+      for (let i = 0; i < ordered.length; i++) {
+        ctx.fillText(ordered[i], 0, startY + i * stackedLineHeight)
       }
     } else {
       ctx.fillText(text || "\u00A0", 0, 0)
