@@ -68,9 +68,15 @@ export function WatermarkControls({
       <div className="space-y-3">
         <SectionLabel>Text</SectionLabel>
         <TextControl value={state.watermarkText} onChange={onTextChange} />
+        <TextDirectionControl value={state.textDirection} onChange={onTextDirectionChange} />
+      </div>
+
+      <Separator />
+
+      <div className="space-y-3">
+        <SectionLabel>Font</SectionLabel>
         <FontControl value={state.fontFamily} onChange={onFontChange} />
         <FontSizeControl value={state.fontSize} onChange={onFontSizeChange} />
-        <TextDirectionControl value={state.textDirection} onChange={onTextDirectionChange} />
       </div>
 
       <Separator />
@@ -114,17 +120,10 @@ export function WatermarkControls({
             </Button>
           </>
         )}
+        {state.coverageMode === "single" && (
+          <PlacementControl value={state.placement} onChange={onPlacementChange} />
+        )}
       </div>
-
-      {state.coverageMode === "single" && (
-        <>
-          <Separator />
-          <div className="space-y-3">
-            <SectionLabel>Position</SectionLabel>
-            <PlacementControl value={state.placement} onChange={onPlacementChange} />
-          </div>
-        </>
-      )}
     </div>
   )
 }

@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { Download, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -26,8 +25,6 @@ function downloadDataUrl(dataUrl: string, filename: string) {
 }
 
 export function FinishedImages({ images, onRemove, onClearAll }: FinishedImagesProps) {
-  const [preview, setPreview] = useState<FinishedImage | null>(null)
-
   if (images.length === 0) return null
 
   return (
@@ -63,20 +60,15 @@ export function FinishedImages({ images, onRemove, onClearAll }: FinishedImagesP
                   "flex flex-col rounded-lg border border-border/40 bg-background overflow-hidden shadow-sm transition-shadow hover:shadow-md"
                 )}
               >
-                {/* Thumbnail — click to enlarge */}
-                <button
-                  type="button"
-                  onClick={() => setPreview(img)}
-                  aria-label={`Enlarge ${img.filename}`}
-                  className="relative aspect-[4/3] bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:12px_12px] overflow-hidden cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
+                {/* Thumbnail */}
+                <div className="relative aspect-[4/3] bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:12px_12px] overflow-hidden">
                   <img
                     src={img.dataUrl}
                     alt={img.filename}
                     className="absolute inset-0 h-full w-full object-contain"
                     draggable={false}
                   />
-                </button>
+                </div>
 
                 {/* Footer */}
                 <div className="flex flex-col gap-2 px-3 py-2.5 bg-muted/20 border-t border-border/30">
@@ -113,53 +105,6 @@ export function FinishedImages({ images, onRemove, onClearAll }: FinishedImagesP
           </div>
         </div>
       </div>
-
-      {/* Enlarged preview lightbox */}
-      {preview && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Preview of ${preview.filename}`}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setPreview(null)}
-        >
-          <div
-            className="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-xl bg-background shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setPreview(null)}
-              aria-label="Close preview"
-              className="absolute right-2 top-2 z-10 flex size-8 items-center justify-center rounded-full bg-background/80 text-foreground shadow hover:bg-background"
-            >
-              <X className="size-4" />
-            </button>
-            <div className="bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:16px_16px]">
-              <img
-                src={preview.dataUrl}
-                alt={preview.filename}
-                className="max-h-[80vh] max-w-[86vw] object-contain"
-                draggable={false}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-border/40 bg-muted/20 px-4 py-3">
-              <p className="truncate text-xs text-muted-foreground" title={preview.filename}>
-                {preview.filename}
-              </p>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-8 shrink-0 gap-1.5 text-xs"
-                onClick={() => downloadDataUrl(preview.dataUrl, preview.filename)}
-              >
-                <Download className="size-3.5" />
-                Download Image
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   )
 }

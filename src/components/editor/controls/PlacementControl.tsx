@@ -52,10 +52,7 @@ export function PlacementControl({ value, onChange }: PlacementControlProps) {
           )
         })}
       </div>
-      <p className="text-xs font-medium text-foreground">
-        <span className="text-muted-foreground">Selected: </span>
-        {selectedLabel}
-      </p>
+      <p className="text-[10px] text-muted-foreground">{selectedLabel}</p>
     </div>
   )
 }
