@@ -1,0 +1,553 @@
+WATERMINT FORGE PROJECT KNOWLEDGE
+
+Use this as the current project knowledge for ForgeStamp.
+
+This is not a request to rebuild the app.
+This is not a request to redesign the landing page.
+This is the current project context, product rules, and known issues.
+
+====================================================
+
+1. PRODUCT IDENTITY
+
+ForgeStamp is a standalone image watermarking app.
+
+ForgeStamp is Version 1 only.
+
+Version 1 has one purpose:
+
+Help users create clean, professional image watermarks.
+
+ForgeStamp should feel:
+- clean
+- bright
+- premium
+- creator-focused
+- beginner-friendly
+- professional
+- modern
+- easy to use
+
+ForgeStamp should not feel:
+- generic
+- dark
+- neon
+- crypto-like
+- gaming-like
+- overly corporate
+- confusing
+- cluttered
+- similar to WatermarkItPro
+
+Do not use purple.
+
+====================================================
+
+2. BRAND OWNERSHIP
+
+Do not mention SavvyLux anywhere.
+
+Do not publicly connect ForgeStamp to SavvyLux.
+
+Do not use:
+- Powered by SavvyLux
+- Crafted by SavvyLux
+- Built by SavvyLux
+- A SavvyLux Product
+- Parent company
+- Creator Studio platform
+
+ForgeStamp should appear as a completely standalone app.
+
+Footer should remain simple:
+
+© 2026 ForgeStamp. All rights reserved.
+
+====================================================
+
+3. VERSION 1 LIMITS
+
+Version 1 is image watermarking only.
+
+Do not build, mention, advertise, tease, or reference:
+- video watermarking
+- AI tools
+- Brand Studio
+- Canva export
+- cloud storage
+- analytics
+- API
+- team tools
+- user accounts
+- login
+- payment system
+- subscriptions
+- admin dashboard
+- account limits
+- future roadmap
+- coming soon features
+- fake testimonials
+- fake statistics
+- fake customer numbers
+- fake reviews
+
+Do not add these unless specifically requested later.
+
+====================================================
+
+4. CURRENT LANDING PAGE STATUS
+
+The landing page currently exists and is acceptable for now.
+
+It includes:
+- ForgeStamp wordmark
+- Navigation: Features, How It Works, Pricing
+- Start Watermarking button
+- Hero section
+- Product mockup preview
+- Workflow section
+- Feature cards
+- Why Creators Choose ForgeStamp section
+- Free and Pro pricing
+- Footer
+
+Do not spend more tokens polishing the landing page right now unless something is broken.
+
+Do not redesign the landing page.
+
+Do not rebuild the landing page.
+
+The landing page can be polished again later after the app functionality is working.
+
+====================================================
+
+5. CURRENT EDITOR STATUS
+
+The Start Watermarking button correctly opens the editor page/view.
+
+The editor currently includes:
+- Back to Home button
+- ForgeStamp wordmark
+- Reset button
+- Upload area
+- Drag-and-drop image upload
+- Preview area
+- Replace Image button after image upload
+- Text watermark overlay
+- Font dropdown
+- Font size control
+- Number input for font size
+- Color preset buttons
+- Opacity control
+- Number input for opacity
+- Rotation control
+- Number input for rotation
+- Placement controls
+
+The editor is a good start, but it still needs behavior fixes.
+
+====================================================
+
+6. IMPORTANT CURRENT ISSUE: CONTROLS HIDDEN BEFORE UPLOAD
+
+The editor controls currently do not show until after an image is uploaded.
+
+This is wrong.
+
+The editor controls should always be visible immediately when the editor opens, even before an image is uploaded.
+
+Before upload, users should be able to set:
+- Watermark Text
+- Font Family
+- Font Size
+- Text Color
+- Opacity
+- Rotation
+- Placement
+
+The preview area can still show an upload placeholder.
+
+When the user uploads an image, all settings chosen before upload should apply immediately to the watermark.
+
+The app should not force users to upload an image before they can customize their watermark settings.
+
+====================================================
+
+7. IMPORTANT CURRENT ISSUE: EDITOR RETURNS TO LANDING PAGE
+
+The app appears to send the user back to the landing page after a short time, preview reload, refresh, inactivity, or testing delay.
+
+This is wrong.
+
+Do not call this logging out because there is no login system yet.
+
+The editor should not automatically return to the landing page every 30 seconds, every minute, every few minutes, or after inactivity.
+
+If the user is in the editor, the app should keep them in the editor.
+
+At minimum:
+- Store the current view in localStorage.
+- If the last view was editor, reload back into the editor.
+- If the last view was landing, reload back into the landing page.
+- Back to Home should intentionally set the view to landing.
+- Start Watermarking should intentionally set the view to editor.
+- Start Free should intentionally set the view to editor.
+
+Do not reset the editor view unless the user intentionally clicks Back to Home.
+
+====================================================
+
+8. OWNER / BUILDER MODE
+
+During development and testing, the app needs a simple owner/builder workflow.
+
+This is not a public customer feature.
+
+This is not a login system.
+
+Do not build:
+- authentication
+- user roles
+- admin dashboard
+- password protection
+- account management
+- backend admin tools
+
+For now, owner/builder mode simply means:
+
+- preserve the editor view while testing
+- do not automatically return to the landing page
+- do not reload or reset the workspace unnecessarily
+- do not clear settings unless Reset is clicked
+- do not interrupt the owner’s testing workflow
+- allow the owner to work for more than a few minutes without being sent back to the landing page
+
+The editor should remain stable while testing.
+
+====================================================
+
+9. IMAGE UPLOAD RULES
+
+Upload should support:
+- PNG
+- JPG
+- JPEG
+- WebP
+
+Upload should include:
+- regular file picker
+- drag-and-drop upload
+- replace image option
+
+Images must stay local in the browser.
+
+Do not upload images to a server.
+
+Do not add cloud storage.
+
+Use safe browser preview behavior such as URL.createObjectURL.
+
+Clean up object URLs when:
+- image changes
+- image resets
+- component unmounts
+
+Use a reasonable file size limit such as 15MB unless changed later.
+
+Show helpful error messages for:
+- unsupported file type
+- failed image loading
+- file too large
+
+The uploaded image should:
+- preserve aspect ratio
+- never stretch
+- never distort
+- fit inside the preview area
+- avoid cropping unless the user chooses cropping later
+
+====================================================
+
+10. WATERMARK OVERLAY RULES
+
+The watermark text should sit directly on top of the image preview.
+
+The watermark should not appear beside the image.
+
+The watermark should update live when the user changes:
+- text
+- font
+- font size
+- color
+- opacity
+- rotation
+- placement
+
+Default watermark settings:
+- Text: SAMPLE TEXT
+- Font Family: Inter
+- Font Size: 48
+- Color: #FF8A00
+- Opacity: 65
+- Rotation: -25
+- Placement: Center
+
+The watermark should avoid awkward selection or dragging issues unless drag editing is intentionally added later.
+
+For long watermark text:
+- do not break the layout
+- keep the preview usable
+- use safe wrapping or overflow behavior
+
+====================================================
+
+11. FONT RULES
+
+Font selection must be included.
+
+The font dropdown should remain visible before and after upload.
+
+Current font list should include:
+- Inter
+- Arial
+- Helvetica
+- Georgia
+- Times New Roman
+- Courier New
+- Impact
+- Montserrat
+- Poppins
+- Playfair Display
+- Lora
+- Merriweather
+- Dancing Script
+- Caveat
+- Pacifico
+
+Default font:
+Inter
+
+When the user changes the font, the watermark preview should update instantly.
+
+Do not copy WatermarkItPro’s font structure exactly.
+
+Do not lock fonts behind Pro yet.
+
+Do not mark any fonts premium yet.
+
+Do not add subscription logic.
+
+====================================================
+
+12. SLIDER PLUS NUMBER INPUT RULES
+
+Font size, opacity, and rotation must have both:
+- slider
+- number input box
+
+This is important because sliders can be too sensitive on mobile, iPhone, iPad, and some laptops.
+
+The slider and number input must stay synced.
+
+If the user moves the slider, the number input updates.
+
+If the user types a number, the slider updates.
+
+Font size:
+- Minimum: 12
+- Maximum: 160
+- Clamp invalid values to this range.
+
+Opacity:
+- Minimum: 0
+- Maximum: 100
+- Treat value as a percentage.
+- Clamp invalid values to this range.
+
+Rotation:
+- Minimum: -180
+- Maximum: 180
+- Treat value as degrees.
+- Clamp invalid values to this range.
+
+Do not allow broken values.
+
+Do not allow the controls to desync.
+
+====================================================
+
+13. COLOR RULES
+
+Color preset buttons should remain included.
+
+Color presets should include at least:
+- #FF8A00
+- #FF5E62
+- #18B66A
+- #2DD4BF
+- #111827
+- #FFFFFF
+
+The selected color should be visually clear.
+
+Do not build an advanced color picker yet unless specifically requested.
+
+====================================================
+
+14. PLACEMENT RULES
+
+Placement controls should include:
+- Top Left
+- Top Right
+- Center
+- Bottom Left
+- Bottom Right
+
+The selected placement should be visually clear.
+
+When the placement changes, the watermark should move instantly.
+
+Use sensible padding from image edges.
+
+If center placement uses transform positioning and rotation, make sure the transform values do not overwrite each other.
+
+Center placement and rotation should both work together correctly.
+
+====================================================
+
+15. RESET RULES
+
+Reset should:
+- clear uploaded image
+- clear error messages
+- restore default watermark settings
+- clean up object URLs
+
+Reset should not happen automatically.
+
+Only reset when the user clicks Reset.
+
+Do not clear settings just because:
+- the user waits too long
+- the app refreshes
+- the preview reloads
+- the user has not uploaded an image yet
+
+====================================================
+
+16. RESPONSIVE DEVICE SUPPORT
+
+The app should work well on:
+- desktop
+- laptop
+- iPhone Safari
+- iPad Safari
+- Android browsers
+
+Controls should be touch-friendly.
+
+On desktop:
+- preview should be on the left
+- controls should be on the right
+
+On mobile:
+- preview should appear first
+- controls should appear underneath
+- number boxes should be easy to tap and edit
+
+Do not make the controls cramped.
+
+====================================================
+
+17. ACCESSIBILITY
+
+Controls should have proper labels.
+
+Buttons should be keyboard accessible.
+
+Upload controls should be understandable to screen readers.
+
+Use visible focus states.
+
+Do not rely only on color to indicate selected states.
+
+====================================================
+
+18. CODE AND BUILD RULES
+
+Do not rebuild the whole app.
+
+Do not restart the project.
+
+Do not redesign the landing page.
+
+Do not add unnecessary packages.
+
+Prefer:
+- native browser APIs
+- existing shadcn/ui components
+- existing project dependencies
+
+Keep code clean and modular.
+
+Reusable editor components may include:
+- ImageUploader
+- WatermarkPreview
+- WatermarkControls
+- PlacementSelector
+
+The editor should be built so later phases can add:
+- PNG export
+- JPG export
+- tiling
+- autosave
+- logo watermarking
+- project history
+
+But do not build those features until specifically requested.
+
+====================================================
+
+19. CURRENT NEXT FIX PRIORITY
+
+The next fix should focus only on:
+
+1. Always showing editor controls before upload.
+2. Preserving the editor view after refresh, inactivity, or preview reload.
+3. Adding simple owner/builder mode behavior so the editor does not keep returning to the landing page during testing.
+4. Ensuring settings chosen before upload apply after upload.
+5. Keeping all existing working editor features.
+
+Do not add export yet.
+
+Do not add tiling yet.
+
+Do not add autosave yet.
+
+Do not add logo watermarking yet.
+
+Do not add backend, login, payments, subscriptions, or cloud storage.
+
+====================================================
+
+20. FUTURE PHASES, NOT NOW
+
+Later phases may include:
+- PNG export
+- JPG export
+- tile/full coverage mode
+- autosave
+- logo watermarking
+- project history
+- pricing limits
+- subscriptions
+- user accounts
+- cloud storage
+
+Do not build these now.
+
+Only build them when specifically requested in a future phase.
+
+====================================================
+
+END OF WATERMINT FORGE PROJECT KNOWLEDGE
