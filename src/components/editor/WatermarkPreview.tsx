@@ -139,20 +139,23 @@ export function WatermarkPreview({
       const totalRotation = rotation + getDirectionRotationOffset(textDirection) + patternAngle
       const normalizedSpacing = density * sizeScale
       const text = watermarkText || "\u00A0"
-      // Measure the rendered text (font already set on ctx above); stacked
-      // vertical text occupies a narrow-but-tall box instead — EXCEPT for
-      // shape-geometry patterns (radial/spiral/concentric/honeycomb/border),
-      // which use these numbers to size the shape itself and must always get
-      // the normal single-line dimensions, or the shape balloons off-canvas.
-      // See watermark-utils.ts for the full explanation: pattern geometry must
-      // always use the normal (non-stacked) text footprint, for every pattern.
-      const useStackedDims = false
+      // See watermark-utils.ts for the full explanation. Shape patterns
+      // (radial/spiral/concentric/honeycomb/border) always use the normal
+      // single-line footprint. Grid-style patterns need to know a stacked
+      // stamp is tall (to space rows apart without overlap), but capped to a
+      // reasonable share of the photo so multiple rows still always fit.
+      const isShapePattern = usesShapeGeometry(pattern)
       const chars = Array.from(text)
-      const textWidth = useStackedDims
+      const measuredWidth = ctx.measureText(text).width
+      // See watermark-utils.ts: grid-style patterns must use the TRUE
+      // uncapped stacked height for row spacing, or the actual (always
+      // full-height) rendered text will overlap neighboring rows.
+      const fullStackedHeight = chars.length * scaledFontSize * 1.02
+      const textWidth = !isShapePattern && stacked
         ? Math.max(...chars.map((c) => ctx.measureText(c).width), 1)
-        : ctx.measureText(text).width
-      const effTextHeight = useStackedDims ? chars.length * scaledFontSize * 1.02 : scaledFontSize
-      const points = getPatternPoints(containerWidth, containerHeight, pattern, normalizedSpacing, textWidth, effTextHeight, curveOrientation)
+        : measuredWidth
+      const effTextHeight = !isShapePattern && stacked ? fullStackedHeight : scaledFontSize
+      const points = getPatternPoints(containerWidth, containerHeight, pattern, normalizedSpacing, textWidth, effTextHeight, curveOrientation, !isShapePattern && stacked)
 
       for (const pt of points) {
         drawStamp(ctx, text, pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward)
