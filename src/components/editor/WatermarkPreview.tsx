@@ -50,7 +50,10 @@ export function WatermarkPreview({
   // Tracks the last clearAt value we have acted on
   const lastClearedAtRef = useRef(0)
 
-  // Track container size via ResizeObserver
+  // Track container size via ResizeObserver. Guarded so we only update state
+  // when the size actually changed (by more than a fraction of a pixel) —
+  // this avoids any chance of redundant re-render churn from the observer
+  // firing with an unchanged or near-identical size.
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -58,8 +61,8 @@ export function WatermarkPreview({
       for (const entry of entries) {
         const { width, height } = entry.contentRect
         if (width > 0 && height > 0) {
-          setContainerWidth(width)
-          setContainerHeight(height)
+          setContainerWidth((prev) => (Math.abs(prev - width) > 0.5 ? width : prev))
+          setContainerHeight((prev) => (Math.abs(prev - height) > 0.5 ? height : prev))
         }
       }
     })
@@ -141,7 +144,9 @@ export function WatermarkPreview({
       // shape-geometry patterns (radial/spiral/concentric/honeycomb/border),
       // which use these numbers to size the shape itself and must always get
       // the normal single-line dimensions, or the shape balloons off-canvas.
-      const useStackedDims = stacked && !usesShapeGeometry(pattern)
+      // See watermark-utils.ts for the full explanation: pattern geometry must
+      // always use the normal (non-stacked) text footprint, for every pattern.
+      const useStackedDims = false
       const chars = Array.from(text)
       const textWidth = useStackedDims
         ? Math.max(...chars.map((c) => ctx.measureText(c).width), 1)
@@ -224,10 +229,8 @@ export function WatermarkPreview({
     <div
       className={cn(
         "flex w-full items-center justify-center rounded-xl border border-border/40 overflow-hidden",
-        "min-h-[260px] md:min-h-[360px]",
-        imagePreviewUrl
-          ? "bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:16px_16px]"
-          : "bg-gradient-to-br from-orange-50/70 via-amber-50/40 to-background"
+        !imagePreviewUrl &&
+          "min-h-[260px] md:min-h-[360px] bg-gradient-to-br from-orange-50/70 via-amber-50/40 to-background"
       )}
     >
       <div
@@ -235,7 +238,7 @@ export function WatermarkPreview({
         className={cn(
           "relative",
           imagePreviewUrl
-            ? "inline-block max-h-full max-w-full"
+            ? "inline-block max-h-full max-w-full bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:16px_16px]"
             : "w-full min-h-[260px] md:min-h-[360px]"
         )}
         onLoad={() => {
