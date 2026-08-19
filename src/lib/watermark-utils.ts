@@ -112,6 +112,14 @@ export interface GridPoint {
   // Optional per-point text scale (0..1). Honeycomb uses this to shrink the
   // text so it fits along one hexagon wall.
   fontScale?: number
+  // Marks points whose `angle` exists ONLY to orient horizontal text for
+  // reading along an edge (Border's left/right side points, rotated ±90°) —
+  // as opposed to patterns like Honeycomb/Zigzag/Radial where angle defines
+  // the pattern's actual shape. Stacked vertical text already reads
+  // top-to-bottom on its own, so for these points that extra rotation should
+  // be skipped (it would otherwise double up and garble the letters);
+  // shape-defining angles are always kept, stacked or not.
+  readingOrientationOnly?: boolean
   // When present, the stamp's text is rendered CURVED along a circle of this
   // radius centered at (cx, cy) — used by Concentric and Spiral so words
   // naturally follow the shape instead of sitting straight in space.
@@ -167,11 +175,17 @@ export function drawStamp(
   }
   ctx.save()
   ctx.translate(pt.x, pt.y)
-  ctx.rotate(((totalRotationDeg + pt.angle) * Math.PI) / 180)
+  // Skip the point's own angle ONLY when it's flagged as a pure
+  // reading-orientation rotation (Border's side edges) AND we're rendering
+  // stacked vertical text — see readingOrientationOnly for why. Shape-defining
+  // angles (Honeycomb walls, Zigzag/Radial tilts) are always kept.
+  const stacking = Boolean(stackedLineHeight) && !pt.arc
+  const skipAngle = stacking && pt.readingOrientationOnly
+  ctx.rotate(((totalRotationDeg + (skipAngle ? 0 : pt.angle)) * Math.PI) / 180)
   if (pt.fontScale && pt.fontScale < 1) {
     ctx.scale(pt.fontScale, pt.fontScale)
   }
-  if (stackedLineHeight && !pt.arc) {
+  if (stacking) {
     const chars = Array.from(text)
     // For Vertical Up, reverse so the first character sits at the bottom and
     // the word reads correctly scanning upward.
@@ -476,19 +490,20 @@ export function getPatternPoints(
       }
     }
   } else if (pattern === "border") {
-    // Repeats only along the image edges: horizontal runs top/bottom,
-    // vertical runs on the sides when the image is tall enough for them.
+    // Repeats along all four image edges: horizontal runs top/bottom,
+    // vertical runs on the left/right sides. centeredRun always places at
+    // least one stamp per side (even in a tight space it centers a single
+    // one), so the border always has all four edges represented rather than
+    // silently dropping the sides on wide/landscape images with long text.
     const m = textHeight * 1.2
     const step = textWidth + spacing * 0.35
     for (const x of centeredRun(textWidth / 2, width - textWidth / 2, step)) {
       points.push({ x, y: m, angle: 0 })
       points.push({ x, y: height - m, angle: 0 })
     }
-    if (height - 2 * m >= textWidth) {
-      for (const y of centeredRun(textWidth / 2 + m, height - m - textWidth / 2, step)) {
-        points.push({ x: m, y, angle: -90 })
-        points.push({ x: width - m, y, angle: 90 })
-      }
+    for (const y of centeredRun(textWidth / 2 + m, height - m - textWidth / 2, step)) {
+      points.push({ x: m, y, angle: -90, readingOrientationOnly: true })
+      points.push({ x: width - m, y, angle: 90, readingOrientationOnly: true })
     }
   }
 
@@ -569,7 +584,15 @@ export async function drawWatermarkOnCanvas(
     // or margin math — feeding them the exaggerated stacked height would
     // balloon the shape off-canvas or collapse it to almost nothing, so those
     // patterns always use the normal single-line dimensions instead.
-    const useStackedDims = stacked && !usesShapeGeometry(pattern)
+    // IMPORTANT: pattern geometry (spacing, rows/columns, radius, margins) must
+    // ALWAYS be computed from the text's normal single-line footprint, never
+    // the "stacked" (tall) footprint — even for simple grid patterns. A long
+    // watermark stacks into a very tall column (chars.length × fontSize), and
+    // any pattern formula that multiplies that into its spacing/radius math
+    // balloons far past the photo or collapses toward zero elements. Vertical
+    // stacking is purely a per-stamp RENDERING choice (handled by drawStamp's
+    // stackedLineHeight), completely separate from where stamps are placed.
+    const useStackedDims = false
     const chars = Array.from(rawText)
     const measuredWidth = ctx.measureText(rawText).width
     const textWidth = useStackedDims
