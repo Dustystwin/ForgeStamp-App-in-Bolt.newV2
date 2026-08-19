@@ -7,6 +7,8 @@ import {
   getPatternPoints,
   getDirectionRotationOffset,
   isStackedDirection,
+  isStackedUpward,
+  usesShapeGeometry,
   getPatternTextAngle,
   drawStamp,
 } from "@/lib/watermark-utils"
@@ -129,21 +131,26 @@ export function WatermarkPreview({
 
       const patternAngle = getPatternTextAngle(pattern)
       const stacked = isStackedDirection(textDirection)
+      const stackUpward = isStackedUpward(textDirection)
       const stackedLineHeight = stacked ? scaledFontSize * 1.02 : undefined
       const totalRotation = rotation + getDirectionRotationOffset(textDirection) + patternAngle
       const normalizedSpacing = density * sizeScale
       const text = watermarkText || "\u00A0"
       // Measure the rendered text (font already set on ctx above); stacked
-      // vertical text occupies a narrow-but-tall box instead.
+      // vertical text occupies a narrow-but-tall box instead — EXCEPT for
+      // shape-geometry patterns (radial/spiral/concentric/honeycomb/border),
+      // which use these numbers to size the shape itself and must always get
+      // the normal single-line dimensions, or the shape balloons off-canvas.
+      const useStackedDims = stacked && !usesShapeGeometry(pattern)
       const chars = Array.from(text)
-      const textWidth = stacked
+      const textWidth = useStackedDims
         ? Math.max(...chars.map((c) => ctx.measureText(c).width), 1)
         : ctx.measureText(text).width
-      const effTextHeight = stacked ? chars.length * scaledFontSize * 1.02 : scaledFontSize
+      const effTextHeight = useStackedDims ? chars.length * scaledFontSize * 1.02 : scaledFontSize
       const points = getPatternPoints(containerWidth, containerHeight, pattern, normalizedSpacing, textWidth, effTextHeight, curveOrientation)
 
       for (const pt of points) {
-        drawStamp(ctx, text, pt, totalRotation, curveOrientation, stackedLineHeight)
+        drawStamp(ctx, text, pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward)
       }
     }
 
@@ -193,6 +200,7 @@ export function WatermarkPreview({
   const transformStyle = getWatermarkTransform(placement, rotation, textDirection)
 
   const stackedSingle = isStackedDirection(textDirection)
+  const stackedSingleUpward = isStackedUpward(textDirection)
   const singleWatermarkStyle: React.CSSProperties = {
     ...positionStyle,
     fontFamily,
@@ -204,8 +212,9 @@ export function WatermarkPreview({
     whiteSpace: "nowrap",
     fontWeight: "bold",
     lineHeight: 1,
-    // Vertical Down = upright letters stacked top-to-bottom, readable without
-    // tilting your head (sign style).
+    // Vertical directions = upright letters stacked, readable without tilting
+    // your head. For Vertical Up the character string is reversed (below) so the
+    // word reads correctly from the bottom upward while still stacking downward.
     ...(stackedSingle ? { writingMode: "vertical-rl" as const, textOrientation: "upright" as const, letterSpacing: "0.05em" } : {}),
     pointerEvents: "none",
     userSelect: "none",
@@ -271,7 +280,9 @@ export function WatermarkPreview({
           {coverageMode === "single" && (
             <div style={singleWatermarkStyle}>
               <span className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
-                {watermarkText || "\u00A0"}
+                {stackedSingleUpward
+                  ? Array.from(watermarkText || "\u00A0").reverse().join("")
+                  : watermarkText || "\u00A0"}
               </span>
             </div>
           )}
