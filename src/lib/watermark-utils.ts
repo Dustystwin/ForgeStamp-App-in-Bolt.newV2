@@ -112,13 +112,14 @@ export interface GridPoint {
   // Optional per-point text scale (0..1). Honeycomb uses this to shrink the
   // text so it fits along one hexagon wall.
   fontScale?: number
-  // Marks points whose `angle` exists ONLY to orient horizontal text for
-  // reading along an edge (Border's left/right side points, rotated ±90°) —
-  // as opposed to patterns like Honeycomb/Zigzag/Radial where angle defines
-  // the pattern's actual shape. Stacked vertical text already reads
-  // top-to-bottom on its own, so for these points that extra rotation should
-  // be skipped (it would otherwise double up and garble the letters);
-  // shape-defining angles are always kept, stacked or not.
+  // Marks points whose `angle` is a cosmetic tilt (following a curve's local
+  // slope, or orienting text along an edge) rather than something essential
+  // to the pattern's identity (like Honeycomb's hexagon walls). Stacked
+  // vertical text is tall, so rotating it by one of these cosmetic tilts
+  // sweeps a much wider footprint than its column spacing accounts for,
+  // crashing into neighboring stamps — so for stacked text this angle is
+  // dropped, keeping each stacked column upright. Used by Wave, Zigzag, and
+  // Border's side edges.
   readingOrientationOnly?: boolean
   // When present, the stamp's text is rendered CURVED along a circle of this
   // radius centered at (cx, cy) — used by Concentric and Spiral so words
@@ -212,7 +213,13 @@ export function getPatternPoints(
   spacing: number,
   textWidth = 0,
   textHeight = 0,
-  orientation: CurveOrientation = "readable"
+  orientation: CurveOrientation = "readable",
+  // True only when the caller is about to render STACKED vertical text.
+  // Wave/Zigzag use this to cap their vertical wobble so tall stacked columns
+  // from neighboring rows can't swing into each other — a real collision risk
+  // that doesn't exist for ordinary single-line text, so Horizontal mode
+  // (stackedMode=false) is completely unaffected by this parameter.
+  stackedMode = false
 ): GridPoint[] {
   const points: GridPoint[] = []
 
@@ -345,7 +352,14 @@ export function getPatternPoints(
     // Rows follow a gentle sine curve; each item tilts to match the local slope.
     const xStep = Math.max(spacing, textWidth + spacing * 0.3)
     const yStep = minRowStep
-    const amp = yStep * 0.35
+    // Normally the wave swells generously (35% of row spacing). But with tall
+    // STACKED text, an oscillation that large can swing a column from one row
+    // into the next row's space — so when stacked, cap it to whatever leaves
+    // guaranteed clearance for the full stacked height. Horizontal text never
+    // hits this cap (textHeight is small relative to yStep there).
+    const amp = stackedMode
+      ? Math.max(4, Math.min(yStep * 0.35, (yStep - textHeight) / 2))
+      : yStep * 0.35
     const freq = (2 * Math.PI * 2.2) / width
     for (let row = 0; ; row++) {
       const y0 = yStep / 2 + row * yStep
@@ -357,7 +371,7 @@ export function getPatternPoints(
         const ph = x * freq
         const y = y0 + amp * Math.sin(ph)
         const angle = (Math.atan(amp * freq * Math.cos(ph)) * 180) / Math.PI
-        points.push({ x, y, angle })
+        points.push({ x, y, angle, readingOrientationOnly: true })
       }
     }
   } else if (pattern === "zigzag") {
@@ -365,7 +379,13 @@ export function getPatternPoints(
     // tracing a sharp up-down zigzag across each row.
     const xStep = Math.max(spacing, textWidth + spacing * 0.25)
     const yStep = minRowStep
-    const amp = textHeight * 0.7
+    // Same reasoning as Wave: the up/down offset normally scales directly
+    // with text height, but for tall STACKED text that puts adjacent rows'
+    // columns too close together. Cap it when stacked so clearance is
+    // guaranteed; Horizontal text (small textHeight) never hits this cap.
+    const amp = stackedMode
+      ? Math.max(4, Math.min(textHeight * 0.7, (yStep - textHeight) / 2))
+      : textHeight * 0.7
     const segAngle = (Math.atan((2 * amp) / xStep) * 180) / Math.PI
     for (let row = 0; ; row++) {
       const y0 = yStep / 2 + row * yStep
@@ -374,7 +394,7 @@ export function getPatternPoints(
         const x = xStep / 2 + col * xStep
         if (x > width + xStep) break
         const up = col % 2 === 0
-        points.push({ x, y: y0 + (up ? -amp : amp), angle: up ? segAngle : -segAngle })
+        points.push({ x, y: y0 + (up ? -amp : amp), angle: up ? segAngle : -segAngle, readingOrientationOnly: true })
       }
     }
   } else if (pattern === "brick") {
@@ -577,29 +597,35 @@ export async function drawWatermarkOnCanvas(
     // Measure the actual rendered text width (font is already set on ctx above)
     // so grid/checkerboard can guarantee non-overlapping columns.
     const rawText = text || "\u00A0"
-    // Stacked vertical text has a narrow-but-tall footprint; feed the pattern
-    // generator the real occupied dimensions so grid-style spacing stays
-    // correct. EXCEPTION: shape-geometry patterns (radial/spiral/concentric/
-    // honeycomb/border) use these numbers to size the shape itself via radius
-    // or margin math — feeding them the exaggerated stacked height would
-    // balloon the shape off-canvas or collapse it to almost nothing, so those
-    // patterns always use the normal single-line dimensions instead.
-    // IMPORTANT: pattern geometry (spacing, rows/columns, radius, margins) must
-    // ALWAYS be computed from the text's normal single-line footprint, never
-    // the "stacked" (tall) footprint — even for simple grid patterns. A long
-    // watermark stacks into a very tall column (chars.length × fontSize), and
-    // any pattern formula that multiplies that into its spacing/radius math
-    // balloons far past the photo or collapses toward zero elements. Vertical
-    // stacking is purely a per-stamp RENDERING choice (handled by drawStamp's
-    // stackedLineHeight), completely separate from where stamps are placed.
-    const useStackedDims = false
+    // Two different needs for text dimensions, and conflating them caused two
+    // opposite bugs:
+    //  - Shape patterns (radial/spiral/concentric/honeycomb/border) use text
+    //    height to size the WHOLE SHAPE (a radius, a margin). Feeding them the
+    //    tall stacked height balloons the shape off-canvas — these must always
+    //    get the normal single-line height.
+    //  - Grid-style patterns (diagonal, crisscross, checkerboard, etc.) use
+    //    text height only to space consecutive ROWS apart. These genuinely
+    //    need to know a stacked stamp is tall, or rows overlap into an
+    //    unbroken merged column of letters. But using the FULL uncapped
+    //    height (word length × font size) demands so much room that only one
+    //    row fits at all. The fix: use the real stacked height, capped to a
+    //    reasonable share of the photo, so overlap is avoided but multiple
+    //    rows always still fit.
+    const isShapePattern = usesShapeGeometry(pattern)
     const chars = Array.from(rawText)
     const measuredWidth = ctx.measureText(rawText).width
-    const textWidth = useStackedDims
+    // Grid-style patterns MUST use the real, uncapped stacked height for row
+    // spacing — the actual rendered text is always this tall, so any smaller
+    // "capped" number fed into the spacing math would be lying about the
+    // real footprint and guarantee overlap. If a very long watermark on a
+    // modest-sized photo only fits 1-2 rows this way, that's the honest,
+    // physically correct layout for that combination, not a bug.
+    const fullStackedHeight = chars.length * clampedFontSize * 1.02
+    const textWidth = !isShapePattern && stacked
       ? Math.max(...chars.map((c) => ctx.measureText(c).width), 1)
       : measuredWidth
-    const effTextHeight = useStackedDims ? chars.length * clampedFontSize * 1.02 : clampedFontSize
-    const points = getPatternPoints(imageWidth, imageHeight, pattern, normalizedSpacing, textWidth, effTextHeight, curveOrientation)
+    const effTextHeight = !isShapePattern && stacked ? fullStackedHeight : clampedFontSize
+    const points = getPatternPoints(imageWidth, imageHeight, pattern, normalizedSpacing, textWidth, effTextHeight, curveOrientation, !isShapePattern && stacked)
     for (const pt of points) {
       drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward)
     }
