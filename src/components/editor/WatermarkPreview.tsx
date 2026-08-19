@@ -224,10 +224,8 @@ export function WatermarkPreview({
     <div
       className={cn(
         "flex w-full items-center justify-center rounded-xl border border-border/40 overflow-hidden",
-        "min-h-[260px] md:min-h-[360px]",
-        imagePreviewUrl
-          ? "bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:16px_16px]"
-          : "bg-gradient-to-br from-orange-50/70 via-amber-50/40 to-background"
+        !imagePreviewUrl &&
+          "min-h-[260px] md:min-h-[360px] bg-gradient-to-br from-orange-50/70 via-amber-50/40 to-background"
       )}
     >
       <div
@@ -235,7 +233,7 @@ export function WatermarkPreview({
         className={cn(
           "relative",
           imagePreviewUrl
-            ? "inline-block max-h-full max-w-full"
+            ? "inline-block max-h-full max-w-full bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:16px_16px]"
             : "w-full min-h-[260px] md:min-h-[360px]"
         )}
         onLoad={() => {
