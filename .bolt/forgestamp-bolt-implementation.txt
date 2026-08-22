@@ -1,0 +1,1387 @@
+====================================================================================================
+FORGESTAMP LANDING PAGE REDESIGN — BOLT IMPLEMENTATION FILE
+Code files only. PNG assets are delivered separately and are NOT included here.
+Total files: 14
+====================================================================================================
+
+####################################################################################################
+# FILE: src/App.tsx
+# ACTION: REPLACE
+####################################################################################################
+
+import { useState, createContext, useContext, useCallback } from "react"
+import { Header } from "@/components/layout/Header"
+import { Footer } from "@/components/layout/Footer"
+import { Hero } from "@/components/landing/Hero"
+import { CreativeIntro } from "@/components/landing/CreativeIntro"
+import { ProductExperience } from "@/components/landing/ProductExperience"
+import { PatternShowcase } from "@/components/landing/PatternShowcase"
+import { Workflow } from "@/components/landing/Workflow"
+import { CreatorValue } from "@/components/landing/CreatorValue"
+import { Pricing } from "@/components/landing/Pricing"
+import { FAQ } from "@/components/landing/FAQ"
+import { FinalCTA } from "@/components/landing/FinalCTA"
+import { EditorPage } from "@/components/editor/EditorPage"
+import { MyImagesPage } from "@/components/my-images/MyImagesPage"
+import { AdminPage } from "@/components/admin/AdminPage"
+import { AuthModal } from "@/components/auth/AuthModal"
+import { AuthProvider } from "@/context/AuthContext"
+import type { EditorState } from "@/lib/editor-types"
+
+export type View = "landing" | "editor" | "my-images" | "admin"
+
+export interface EditorInitialData {
+  image: File
+  settings: Partial<Omit<EditorState, "image" | "imagePreviewUrl" | "error">>
+  sourceImageId?: string
+}
+
+interface NavigationContextType {
+  navigateTo: (view: View, data?: { editorInitialData?: EditorInitialData }) => void
+  openAuthModal: (defaultMode?: "sign-in" | "sign-up") => void
+}
+
+const NavigationContext = createContext<NavigationContextType>({
+  navigateTo: () => {},
+  openAuthModal: () => {},
+})
+
+export function useNavigation() {
+  return useContext(NavigationContext)
+}
+
+const VIEW_STORAGE_KEY = "wmf_view"
+
+function getInitialView(): View {
+  try {
+    const saved = localStorage.getItem(VIEW_STORAGE_KEY)
+    if (saved === "editor" || saved === "landing") return saved as View
+  } catch {
+    // localStorage unavailable
+  }
+  return "landing"
+}
+
+function AppInner() {
+  const [view, setView] = useState<View>(getInitialView)
+  const [editorKey, setEditorKey] = useState(0)
+  const [editorInitialData, setEditorInitialData] = useState<EditorInitialData | null>(null)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authModalMode, setAuthModalMode] = useState<"sign-in" | "sign-up">("sign-in")
+
+  const navigateTo = useCallback(
+    (v: View, data?: { editorInitialData?: EditorInitialData }) => {
+      try {
+        // Persist only basic views so refresh doesn't land on admin/my-images
+        localStorage.setItem(VIEW_STORAGE_KEY, v === "editor" ? "editor" : "landing")
+      } catch {
+        // localStorage unavailable
+      }
+      if (v === "editor") {
+        setEditorKey((k) => k + 1)
+        setEditorInitialData(data?.editorInitialData ?? null)
+      }
+      setView(v)
+      window.scrollTo(0, 0)
+    },
+    []
+  )
+
+  const openAuthModal = useCallback((defaultMode: "sign-in" | "sign-up" = "sign-in") => {
+    setAuthModalMode(defaultMode)
+    setAuthModalOpen(true)
+  }, [])
+
+  const renderView = () => {
+    if (view === "editor") {
+      return (
+        <EditorPage
+          key={editorKey}
+          onNavigateHome={() => navigateTo("landing")}
+          initialData={editorInitialData ?? undefined}
+        />
+      )
+    }
+    if (view === "my-images") {
+      return <MyImagesPage />
+    }
+    if (view === "admin") {
+      return <AdminPage />
+    }
+    return (
+      <div className="fs-landing min-h-svh">
+        <Header />
+        <main>
+          <Hero />
+          <CreativeIntro />
+          <ProductExperience />
+          <PatternShowcase />
+          <Workflow />
+          <CreatorValue />
+          <Pricing />
+          <FAQ />
+          <FinalCTA />
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
+  return (
+    <NavigationContext.Provider value={{ navigateTo, openAuthModal }}>
+      {renderView()}
+      <AuthModal
+        open={authModalOpen}
+        defaultMode={authModalMode}
+        onClose={() => setAuthModalOpen(false)}
+      />
+    </NavigationContext.Provider>
+  )
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
+  )
+}
+
+export default App
+
+
+
+####################################################################################################
+# FILE: src/index.css
+# ACTION: REPLACE
+####################################################################################################
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-emerald: var(--emerald);
+  --color-emerald-foreground: var(--emerald-foreground);
+  --color-amber: var(--amber);
+  --color-amber-foreground: var(--amber-foreground);
+  --color-aqua: var(--aqua);
+  --color-aqua-foreground: var(--aqua-foreground);
+  --color-surface: var(--surface);
+}
+
+:root {
+  --radius: 0.625rem;
+  /* ForgeStamp - Warm, creative, professional */
+  --background: oklch(0.993 0.003 95);
+  --foreground: oklch(0.21 0.006 285);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.006 285);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.006 285);
+  --primary: oklch(0.702 0.183 52);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.965 0.003 95);
+  --secondary-foreground: oklch(0.21 0.006 285);
+  --muted: oklch(0.965 0.003 95);
+  --muted-foreground: oklch(0.553 0.013 264);
+  --accent: oklch(0.831 0.113 181);
+  --accent-foreground: oklch(0.21 0.006 285);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.928 0.006 264);
+  --input: oklch(0.928 0.006 264);
+  --ring: oklch(0.702 0.183 52);
+  --chart-1: oklch(0.702 0.183 52);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.831 0.113 181);
+  --chart-4: oklch(0.814 0.16 84);
+  --chart-5: oklch(0.553 0.013 264);
+  --sidebar: oklch(0.993 0.003 95);
+  --sidebar-foreground: oklch(0.21 0.006 285);
+  --sidebar-primary: oklch(0.702 0.183 52);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.965 0.003 95);
+  --sidebar-accent-foreground: oklch(0.21 0.006 285);
+  --sidebar-border: oklch(0.928 0.006 264);
+  --sidebar-ring: oklch(0.702 0.183 52);
+  /* Custom brand tokens */
+  --emerald: oklch(0.696 0.17 162.48);
+  --emerald-foreground: oklch(1 0 0);
+  --amber: oklch(0.814 0.16 84);
+  --amber-foreground: oklch(0.21 0.006 285);
+  --aqua: oklch(0.831 0.113 181);
+  --aqua-foreground: oklch(0.21 0.006 285);
+  --surface: oklch(0.975 0.002 247);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.269 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.702 0.183 52);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.831 0.113 181);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.702 0.183 52);
+  --chart-1: oklch(0.702 0.183 52);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.831 0.113 181);
+  --chart-4: oklch(0.814 0.16 84);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.702 0.183 52);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.702 0.183 52);
+  --emerald: oklch(0.696 0.17 162.48);
+  --emerald-foreground: oklch(1 0 0);
+  --amber: oklch(0.814 0.16 84);
+  --amber-foreground: oklch(0.21 0.006 285);
+  --aqua: oklch(0.831 0.113 181);
+  --aqua-foreground: oklch(0.21 0.006 285);
+  --surface: oklch(0.269 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* ===========================================================================
+   LANDING PAGE SCOPE — additive only.
+   Everything below is scoped under `.fs-landing` and is NEVER read by the
+   editor, admin, my-images, or auth screens. It intentionally does NOT
+   redefine :root or .dark, so nothing here can change the rest of the app's
+   colors. `.fs-landing` also forces a controlled light presentation for the
+   public marketing page regardless of the visitor's OS/browser dark-mode
+   preference (the app's ThemeProvider already defaults to light, but this
+   makes the landing page independently immune to any future dark-mode
+   toggle affecting marketing pages).
+   =========================================================================== */
+.fs-landing {
+  color-scheme: light;
+
+  /* Sunrise palette, landing-only. Named directly (not "primary/accent") so
+     these can never drift if the app-wide semantic tokens change meaning. */
+  --fs-orange: oklch(0.702 0.183 52);
+  --fs-coral: oklch(0.74 0.12 30);
+  --fs-amber: oklch(0.814 0.16 84);
+  --fs-emerald: oklch(0.696 0.17 162.48);
+  --fs-aqua: oklch(0.831 0.113 181);
+  --fs-mint: oklch(0.87 0.08 165);
+  --fs-cream: oklch(0.993 0.003 95);
+  --fs-cream-deep: oklch(0.975 0.012 75);
+  --fs-slate: oklch(0.24 0.012 258);
+  --fs-slate-deep: oklch(0.185 0.01 258);
+  --fs-ink: oklch(0.21 0.006 285);
+
+  background: var(--fs-cream);
+  color: var(--fs-ink);
+}
+
+/* Force light-mode reading even if an ancestor picks up a .dark class. */
+.fs-landing,
+.fs-landing.dark,
+html.dark .fs-landing {
+  background: var(--fs-cream);
+  color: var(--fs-ink);
+  color-scheme: light;
+}
+
+.fs-surface-cream { background: var(--fs-cream); }
+.fs-surface-cream-deep { background: var(--fs-cream-deep); }
+.fs-surface-slate { background: var(--fs-slate); color: oklch(0.96 0.005 95); }
+.fs-surface-slate-deep { background: var(--fs-slate-deep); color: oklch(0.96 0.005 95); }
+
+.fs-text-orange { color: var(--fs-orange); }
+.fs-text-emerald { color: var(--fs-emerald); }
+.fs-text-aqua { color: var(--fs-aqua); }
+.fs-text-amber { color: var(--fs-amber); }
+.fs-text-muted-onslate { color: oklch(0.78 0.02 95); }
+
+.fs-gradient-sunrise {
+  background: linear-gradient(135deg, var(--fs-orange) 0%, var(--fs-coral) 45%, var(--fs-amber) 100%);
+}
+.fs-gradient-sunrise-text {
+  background: linear-gradient(120deg, var(--fs-orange), var(--fs-coral) 55%, var(--fs-amber));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.fs-gradient-aqua {
+  background: linear-gradient(135deg, var(--fs-aqua) 0%, var(--fs-mint) 100%);
+}
+
+.fs-btn-primary {
+  background: var(--fs-orange);
+  color: white;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+.fs-btn-primary:hover { background: color-mix(in oklch, var(--fs-orange), black 8%); }
+.fs-btn-primary:active { transform: scale(0.98); }
+
+.fs-ring-spark {
+  border-color: color-mix(in oklch, var(--fs-orange), transparent 35%);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--fs-orange), transparent 75%),
+    0 18px 40px -18px color-mix(in oklch, var(--fs-orange), transparent 45%);
+}
+
+/* Watermark-motif divider: a thin repeating diagonal tick, echoing the
+   product's own Diagonal pattern rather than a generic decorative rule. */
+.fs-mark-divider {
+  height: 10px;
+  background-image: repeating-linear-gradient(
+    -35deg,
+    color-mix(in oklch, var(--fs-orange), transparent 55%) 0px,
+    color-mix(in oklch, var(--fs-orange), transparent 55%) 2px,
+    transparent 2px,
+    transparent 14px
+  );
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fs-landing * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+
+####################################################################################################
+# FILE: src/components/layout/Header.tsx
+# ACTION: REPLACE
+####################################################################################################
+
+import { useState } from "react"
+import { Menu } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
+import { NAV_LINKS } from "@/lib/constants"
+import { useNavigation } from "@/App"
+import { useAuth } from "@/context/AuthContext"
+import { AccountMenu } from "@/components/auth/AccountMenu"
+
+export function Header() {
+  const [open, setOpen] = useState(false)
+  const { navigateTo, openAuthModal } = useNavigation()
+  const { session, loading } = useAuth()
+
+  const authButtons = session ? (
+    <AccountMenu />
+  ) : (
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" size="sm" onClick={() => openAuthModal("sign-in")} disabled={loading}>
+        Log In
+      </Button>
+      <Button size="sm" className="fs-btn-primary" onClick={() => openAuthModal("sign-up")} disabled={loading}>
+        Sign Up
+      </Button>
+    </div>
+  )
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-black/5 bg-[var(--fs-cream)]/90 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
+        <a href="#" className="flex items-center gap-2">
+          <span className="text-lg font-black tracking-tight fs-gradient-sunrise-text">
+            Forge<span className="font-black">Stamp</span>
+          </span>
+        </a>
+
+        <nav className="hidden items-center gap-8 md:flex">
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="text-sm font-medium text-[var(--fs-ink)]/65 transition-colors hover:text-[var(--fs-ink)]"
+            >
+              {link.label}
+            </a>
+          ))}
+          <Button size="sm" variant="outline" className="border-[var(--fs-ink)]/15" onClick={() => navigateTo("editor")}>
+            Start Watermarking
+          </Button>
+          {authButtons}
+        </nav>
+
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden">
+              <Menu />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right">
+            <SheetHeader>
+              <SheetTitle className="text-lg font-black tracking-tight fs-gradient-sunrise-text">
+                ForgeStamp
+              </SheetTitle>
+            </SheetHeader>
+            <nav className="flex flex-col gap-4 p-4">
+              {NAV_LINKS.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="text-base font-medium text-[var(--fs-ink)] transition-colors hover:fs-text-orange"
+                >
+                  {link.label}
+                </a>
+              ))}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setOpen(false)
+                  navigateTo("editor")
+                }}
+              >
+                Start Watermarking
+              </Button>
+              {session ? (
+                <div onClick={() => setOpen(false)}>
+                  <AccountMenu />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setOpen(false)
+                      openAuthModal("sign-in")
+                    }}
+                    disabled={loading}
+                  >
+                    Log In
+                  </Button>
+                  <Button
+                    className="fs-btn-primary"
+                    onClick={() => {
+                      setOpen(false)
+                      openAuthModal("sign-up")
+                    }}
+                    disabled={loading}
+                  >
+                    Sign Up Free
+                  </Button>
+                </div>
+              )}
+            </nav>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </header>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/layout/Footer.tsx
+# ACTION: REPLACE
+####################################################################################################
+
+import { FOOTER_LINKS } from "@/lib/constants"
+
+export function Footer() {
+  return (
+    <footer className="border-t border-black/5 bg-[var(--fs-cream)]">
+      <div className="mx-auto max-w-7xl px-4 py-12 md:px-6">
+        <div className="grid gap-8 md:grid-cols-3">
+          <div>
+            <span className="text-lg font-black tracking-tight fs-gradient-sunrise-text">
+              ForgeStamp
+            </span>
+            <p className="mt-3 text-sm text-[var(--fs-ink)]/60">
+              Professional watermarking for creators who care about protecting
+              their work.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold text-[var(--fs-ink)]">Product</h4>
+            <ul className="mt-3 space-y-2">
+              {FOOTER_LINKS.product.map((link) => (
+                <li key={link.label}>
+                  <a href={link.href} className="text-sm text-[var(--fs-ink)]/60 transition-colors hover:text-[var(--fs-ink)]">
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold text-[var(--fs-ink)]">Support</h4>
+            <ul className="mt-3 space-y-2">
+              {FOOTER_LINKS.support.map((link) => (
+                <li key={link.label}>
+                  <a href={link.href} className="text-sm text-[var(--fs-ink)]/60 transition-colors hover:text-[var(--fs-ink)]">
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="my-8 h-px bg-black/10" />
+
+        <p className="text-center text-sm text-[var(--fs-ink)]/50">
+          &copy; 2026 ForgeStamp. All rights reserved.
+        </p>
+      </div>
+    </footer>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/Hero.tsx
+# ACTION: REPLACE
+####################################################################################################
+
+import { ArrowRight, Sparkles } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useNavigation } from "@/App"
+import { WatermarkShowcase } from "./WatermarkShowcase"
+
+export function Hero() {
+  const { navigateTo } = useNavigation()
+
+  return (
+    <section className="relative overflow-hidden px-4 pb-14 pt-14 md:px-6 md:pb-20 md:pt-16">
+      {/* Subtle sunrise wash, not a generic blurred-orb backdrop */}
+      <div className="pointer-events-none absolute inset-0 fs-gradient-sunrise opacity-[0.05]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 fs-gradient-sunrise" />
+
+      <div className="relative mx-auto grid max-w-6xl items-center gap-10 md:grid-cols-[1.05fr_1fr] md:gap-14">
+        {/* Messaging — left, editorial, left-aligned (not centered) */}
+        <div className="text-left">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--fs-orange)]/25 bg-white px-3 py-1 text-xs font-semibold fs-text-orange">
+            <Sparkles className="size-3.5" />
+            Every mark starts with a spark
+          </span>
+
+          <h1 className="mt-5 max-w-xl text-4xl font-extrabold leading-[1.08] tracking-tight text-[var(--fs-ink)] md:text-5xl">
+            Protect what you create.
+            <br />
+            <span className="fs-gradient-sunrise-text">Make it unmistakably yours.</span>
+          </h1>
+
+          <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--fs-ink)]/70 md:text-lg">
+            ForgeStamp turns any image into a protected one in seconds &mdash;
+            custom text, fonts, colors, and patterns that repeat across the
+            whole frame if you want them to.
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Button
+              size="lg"
+              className="fs-btn-primary shadow-md shadow-[var(--fs-orange)]/25"
+              onClick={() => navigateTo("editor")}
+            >
+              Start Watermarking
+              <ArrowRight className="ml-1 size-4" />
+            </Button>
+            <Button asChild variant="outline" size="lg" className="border-[var(--fs-ink)]/15">
+              <a href="#showcase">See It In Action</a>
+            </Button>
+          </div>
+
+          <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[var(--fs-ink)]/55">
+            <span>No account needed to try</span>
+            <span className="h-1 w-1 rounded-full bg-current" />
+            <span>Live preview as you go</span>
+            <span className="h-1 w-1 rounded-full bg-current" />
+            <span>Export in one click</span>
+          </div>
+        </div>
+
+        {/* Product showcase — right, asymmetric weight */}
+        <div id="showcase">
+          <WatermarkShowcase />
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/WatermarkShowcase.tsx
+# ACTION: NEW
+####################################################################################################
+
+import { useCallback, useEffect, useState } from "react"
+import useEmblaCarousel from "embla-carousel-react"
+import { ShieldCheck } from "lucide-react"
+
+import photoDiagonal from "@/assets/landing/showcase/photo-diagonal.png"
+import productSingle from "@/assets/landing/showcase/product-single.png"
+import artworkHoneycomb from "@/assets/landing/showcase/artwork-honeycomb.png"
+import photoBase from "@/assets/landing/demo/photo-base.png"
+import productBase from "@/assets/landing/demo/product-base.png"
+import artworkBase from "@/assets/landing/demo/artwork-base.png"
+
+// Landing-only demonstration data. Deliberately NOT wired to the real
+// watermark-rendering engine (see src/lib/watermark-utils.ts) — these are
+// pre-rendered illustrations of real, currently-supported patterns, kept
+// isolated so nothing here can ever affect editor behavior.
+//
+// REPLACE LATER: each `after` image is a placeholder illustration. Swap the
+// import for a final photographed/exported example, or drop in an 8–15s
+// product video and remove the carousel below, once available.
+const SLIDES = [
+  {
+    before: photoBase,
+    after: photoDiagonal,
+    label: "Diagonal",
+    caption: "Full Coverage \u2014 Diagonal",
+  },
+  {
+    before: productBase,
+    after: productSingle,
+    label: "Single Placement",
+    caption: "Single watermark, bottom-right",
+  },
+  {
+    before: artworkBase,
+    after: artworkHoneycomb,
+    label: "Honeycomb",
+    caption: "Full Coverage \u2014 Honeycomb",
+  },
+] as const
+
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
+    setReduced(mq.matches)
+    const handler = () => setReduced(mq.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
+  return reduced
+}
+
+export function WatermarkShowcase() {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true })
+  const [selected, setSelected] = useState(0)
+  const [revealed, setRevealed] = useState(false)
+  const reducedMotion = useReducedMotion()
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return
+    setSelected(emblaApi.selectedScrollSnap())
+    setRevealed(false)
+  }, [emblaApi])
+
+  useEffect(() => {
+    if (!emblaApi) return
+    emblaApi.on("select", onSelect)
+    onSelect()
+    return () => {
+      emblaApi.off("select", onSelect)
+    }
+  }, [emblaApi, onSelect])
+
+  // Autoplay: advance every 3.4s, reveal the watermark partway through each
+  // slide so the transformation (blank -> protected) is visible, not just a
+  // static image swap. Fully disabled under prefers-reduced-motion.
+  useEffect(() => {
+    if (!emblaApi || reducedMotion) return
+    const revealTimer = setTimeout(() => setRevealed(true), 900)
+    const advanceTimer = setInterval(() => emblaApi.scrollNext(), 3400)
+    return () => {
+      clearTimeout(revealTimer)
+      clearInterval(advanceTimer)
+    }
+  }, [emblaApi, selected, reducedMotion])
+
+  return (
+    <div className="relative">
+      <div
+        className="overflow-hidden rounded-2xl border border-black/5 shadow-[0_30px_60px_-30px_rgba(43,48,58,0.35)]"
+        ref={emblaRef}
+      >
+        <div className="flex">
+          {SLIDES.map((slide, i) => (
+            <div key={slide.label} className="relative min-w-0 flex-[0_0_100%]">
+              {/* Reserve a fixed aspect ratio so nothing shifts while loading */}
+              <div className="relative aspect-square w-full bg-[var(--fs-cream-deep)]">
+                <img
+                  src={slide.before}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                <img
+                  src={slide.after}
+                  alt={`Example image with a ForgeStamp ${slide.label} watermark applied`}
+                  className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out"
+                  style={{ opacity: reducedMotion || (i === selected && revealed) ? 1 : i === selected ? 0 : 1 }}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 bg-white/95 px-4 py-3 backdrop-blur-sm">
+                <span className="flex items-center gap-1.5 text-xs font-semibold fs-text-emerald">
+                  <ShieldCheck className="size-3.5" />
+                  {slide.caption}
+                </span>
+                <span className="rounded-full bg-[var(--fs-cream-deep)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--fs-ink)]/70">
+                  {i + 1} / {SLIDES.length}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 flex justify-center gap-1.5" role="tablist" aria-label="Showcase slides">
+        {SLIDES.map((slide, i) => (
+          <button
+            key={slide.label}
+            type="button"
+            role="tab"
+            aria-selected={i === selected}
+            aria-label={`Show ${slide.label} example`}
+            onClick={() => emblaApi?.scrollTo(i)}
+            className={`h-1.5 rounded-full transition-all ${
+              i === selected ? "w-6 bg-[var(--fs-orange)]" : "w-1.5 bg-[var(--fs-ink)]/15"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/CreativeIntro.tsx
+# ACTION: NEW
+####################################################################################################
+
+export function CreativeIntro() {
+  return (
+    <section className="fs-surface-cream px-4 py-16 md:px-6 md:py-20">
+      <div className="mx-auto grid max-w-5xl items-center gap-10 md:grid-cols-[0.9fr_1.1fr]">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--fs-ink)] md:text-4xl">
+            You made it.
+            <br />
+            Make your mark.
+          </h2>
+          <p className="mt-4 max-w-md text-base leading-relaxed text-[var(--fs-ink)]/70">
+            Protecting your work shouldn&rsquo;t require design software, a
+            tutorial, or a second app. ForgeStamp is the step between
+            finishing something and sharing it &mdash; quick enough to use
+            every time.
+          </p>
+        </div>
+
+        {/* Product-specific motif: layered "marks" rather than a stock icon set */}
+        <div className="relative flex h-56 items-center justify-center">
+          <div className="absolute h-40 w-40 -translate-x-10 rotate-[-8deg] rounded-2xl border-2 border-[var(--fs-aqua)]/40 bg-white" />
+          <div className="absolute h-40 w-40 translate-x-8 translate-y-4 rotate-[6deg] rounded-2xl border-2 border-[var(--fs-emerald)]/35 bg-white" />
+          <div className="relative flex h-40 w-40 rotate-[-2deg] items-center justify-center rounded-2xl fs-gradient-sunrise shadow-lg shadow-[var(--fs-orange)]/20">
+            <span className="rotate-[-18deg] text-sm font-bold tracking-[0.2em] text-white/90">
+              YOUR MARK
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/ProductExperience.tsx
+# ACTION: NEW
+####################################################################################################
+
+import { Type, Palette, RotateCw, Move } from "lucide-react"
+import printableBase from "@/assets/landing/demo/printable-base.png"
+import patternSingle from "@/assets/landing/patterns/pattern-single.png"
+
+const CALLOUTS = [
+  { icon: Type, label: "Text & fonts", pos: "top-4 left-4 md:-left-6 md:top-8" },
+  { icon: Palette, label: "Color & opacity", pos: "top-4 right-4 md:-right-8 md:top-4" },
+  { icon: RotateCw, label: "Rotation", pos: "bottom-24 left-2 md:-left-10 md:bottom-28" },
+  { icon: Move, label: "Placement", pos: "bottom-4 right-4 md:-right-6 md:bottom-10" },
+] as const
+
+export function ProductExperience() {
+  return (
+    <section
+      id="features"
+      className="relative overflow-hidden px-4 py-16 md:px-6 md:py-24"
+      style={{ background: "linear-gradient(180deg, var(--fs-cream) 0%, color-mix(in oklch, var(--fs-aqua), var(--fs-cream) 82%) 100%)" }}
+    >
+      <div className="mx-auto max-w-5xl">
+        <div className="max-w-xl">
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--fs-ink)] md:text-4xl">
+            Make it yours.
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-[var(--fs-ink)]/70 md:text-lg">
+            Every detail is adjustable and every change shows up instantly
+            &mdash; text, font, size, color, opacity, rotation, placement,
+            and pattern.
+          </p>
+        </div>
+
+        {/* One dominant visual with contextual callouts, not a repeated card grid */}
+        <div className="relative mx-auto mt-14 max-w-md md:mt-16">
+          <div className="overflow-hidden rounded-2xl border border-black/5 shadow-[0_25px_60px_-25px_rgba(43,48,58,0.3)]">
+            <img
+              src={printableBase}
+              alt="A printable design before a watermark is applied"
+              className="block w-full"
+            />
+          </div>
+          <div className="absolute inset-6 overflow-hidden rounded-xl opacity-0 md:opacity-100">
+            <img
+              src={patternSingle}
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          {CALLOUTS.map(({ icon: Icon, label, pos }) => (
+            <div
+              key={label}
+              className={`absolute hidden items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--fs-ink)] shadow-md md:flex ${pos}`}
+            >
+              <Icon className="size-3.5 fs-text-orange" />
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {/* Mobile: same four controls as a simple inline list instead of floating callouts */}
+        <div className="mt-6 flex flex-wrap justify-center gap-2 md:hidden">
+          {CALLOUTS.map(({ icon: Icon, label }) => (
+            <span
+              key={label}
+              className="inline-flex items-center gap-1.5 rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--fs-ink)]"
+            >
+              <Icon className="size-3.5 fs-text-orange" />
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/PatternShowcase.tsx
+# ACTION: NEW
+####################################################################################################
+
+import patternDiagonal from "@/assets/landing/patterns/pattern-diagonal.png"
+import patternHoneycomb from "@/assets/landing/patterns/pattern-honeycomb.png"
+import patternSingle from "@/assets/landing/patterns/pattern-single.png"
+
+const EXAMPLES = [
+  { src: patternSingle, label: "Single Placement" },
+  { src: patternDiagonal, label: "Full Coverage \u2014 Diagonal" },
+  { src: patternHoneycomb, label: "Full Coverage \u2014 Honeycomb" },
+] as const
+
+export function PatternShowcase() {
+  return (
+    <section className="fs-surface-slate px-4 py-16 md:px-6 md:py-24">
+      <div className="mx-auto max-w-5xl text-center">
+        <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+          One image. Plenty of ways to make your mark.
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed fs-text-muted-onslate md:text-lg">
+          Place a single mark exactly where you want it, or repeat it across
+          the whole frame with one of ForgeStamp&rsquo;s 16 Full Coverage
+          patterns.
+        </p>
+      </div>
+
+      <div className="mx-auto mt-12 grid max-w-5xl gap-6 md:grid-cols-3">
+        {EXAMPLES.map((ex, i) => (
+          <figure
+            key={ex.label}
+            className={`overflow-hidden rounded-xl border border-white/10 ${i === 1 ? "md:-translate-y-4" : ""}`}
+          >
+            <img src={ex.src} alt={`Example image using ForgeStamp's ${ex.label} watermark`} className="block w-full" />
+            <figcaption className="bg-black/30 px-4 py-3 text-sm font-medium text-white/85">
+              {ex.label}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/Workflow.tsx
+# ACTION: REPLACE
+####################################################################################################
+
+import { Upload, Paintbrush, Download, ArrowRight } from "lucide-react"
+
+const STEPS = [
+  { title: "Upload", description: "Bring in the image you want to protect.", icon: Upload, tint: "var(--fs-orange)" },
+  { title: "Customize", description: "Shape the text, style, and pattern until it's right.", icon: Paintbrush, tint: "var(--fs-aqua)" },
+  { title: "Export", description: "Download a clean, protected copy in seconds.", icon: Download, tint: "var(--fs-emerald)" },
+] as const
+
+export function Workflow() {
+  return (
+    <section id="how-it-works" className="fs-surface-cream px-4 py-16 md:px-6 md:py-24">
+      <div className="mx-auto max-w-4xl">
+        <h2 className="text-center text-3xl font-bold tracking-tight text-[var(--fs-ink)] md:text-4xl">
+          From upload to protected.
+        </h2>
+
+        <div className="mt-14 flex flex-col items-stretch gap-0 md:flex-row md:items-center">
+          {STEPS.map((step, i) => {
+            const Icon = step.icon
+            return (
+              <div key={step.title} className="flex flex-1 flex-col items-center text-center md:flex-row md:text-left">
+                <div className="flex flex-col items-center md:items-start">
+                  <div
+                    className="flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-md"
+                    style={{ background: step.tint }}
+                  >
+                    <Icon className="size-6" />
+                  </div>
+                  <h3 className="mt-3 text-base font-semibold text-[var(--fs-ink)] md:mt-4">
+                    {step.title}
+                  </h3>
+                  <p className="mt-1 max-w-[190px] text-sm leading-relaxed text-[var(--fs-ink)]/65">
+                    {step.description}
+                  </p>
+                </div>
+                {i < STEPS.length - 1 && (
+                  <div className="my-4 flex items-center justify-center md:mx-4 md:my-0 md:flex-1">
+                    <ArrowRight className="size-5 rotate-90 text-[var(--fs-ink)]/20 md:rotate-0" />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/CreatorValue.tsx
+# ACTION: NEW
+####################################################################################################
+
+import { Zap, Eye, SlidersHorizontal, Layers } from "lucide-react"
+
+const VALUES = [
+  { title: "Fast by default", description: "Go from upload to exported image in under a minute.", icon: Zap },
+  { title: "See it before you export", description: "Every adjustment updates the preview immediately.", icon: Eye },
+  { title: "As simple or detailed as you need", description: "Quick single placement, or fine-tune every setting.", icon: SlidersHorizontal },
+  { title: "Room to grow", description: "Start free, and move up when your needs do.", icon: Layers },
+] as const
+
+export function CreatorValue() {
+  return (
+    <section className="fs-surface-cream-deep px-4 py-16 md:px-6 md:py-24">
+      <div className="mx-auto max-w-5xl">
+        <div className="max-w-lg">
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--fs-ink)] md:text-4xl">
+            Built for the way creators work.
+          </h2>
+        </div>
+
+        <div className="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2">
+          {VALUES.map((value) => {
+            const Icon = value.icon
+            return (
+              <div key={value.title} className="flex gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+                  <Icon className="size-4.5 fs-text-emerald" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[var(--fs-ink)]">{value.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--fs-ink)]/65">
+                    {value.description}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/Pricing.tsx
+# ACTION: REPLACE
+####################################################################################################
+
+import { useState } from "react"
+import { Check, Layers, Mail } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { PRICING_PLANS } from "@/lib/constants"
+import { cn } from "@/lib/utils"
+import { useNavigation } from "@/App"
+import { toast } from "sonner"
+
+type Billing = "monthly" | "annual"
+
+export function Pricing() {
+  const { navigateTo } = useNavigation()
+  const [billing, setBilling] = useState<Billing>("monthly")
+
+  return (
+    <section id="pricing" className="relative overflow-hidden px-4 py-16 md:px-6 md:py-24 fs-gradient-sunrise">
+      {/* Warm sunrise environment, at low opacity so text stays readable —
+          this is the one section pricing gets its own branded weather. */}
+      <div className="pointer-events-none absolute inset-0 bg-white/[0.86]" />
+
+      <div className="relative mx-auto max-w-5xl">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--fs-ink)] md:text-4xl">
+            Built for every stage of your creative journey.
+          </h2>
+          <p className="mt-3 text-[var(--fs-ink)]/70 md:text-lg">
+            Start free, create with confidence, and upgrade only when you&rsquo;re ready.
+          </p>
+        </div>
+
+        <div className="mt-7 flex justify-center">
+          <div
+            role="group"
+            aria-label="Billing period"
+            className="inline-flex rounded-lg border border-black/10 bg-white p-1"
+          >
+            {(["monthly", "annual"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setBilling(option)}
+                aria-pressed={billing === option}
+                className={cn(
+                  "rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fs-orange)]",
+                  billing === option
+                    ? "bg-[var(--fs-ink)] text-white shadow-sm"
+                    : "text-[var(--fs-ink)]/60 hover:text-[var(--fs-ink)]"
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mx-auto mt-10 grid items-start gap-6 md:grid-cols-3">
+          {PRICING_PLANS.map((plan) => {
+            const isFree = plan.name === "Free"
+            const isSpark = plan.highlighted
+            const displayPrice = isFree ? plan.monthlyPrice : billing === "monthly" ? plan.monthlyPrice : plan.annualPrice
+            const displayPeriod = isFree ? "forever" : billing === "monthly" ? "/month" : "/year"
+            const showSavings = !isFree && billing === "annual" && plan.annualSavings
+
+            return (
+              <div
+                key={plan.name}
+                className={cn(
+                  "relative flex h-full flex-col rounded-2xl p-6",
+                  isSpark
+                    ? "fs-ring-spark border-2 bg-white md:-translate-y-3"
+                    : plan.name === "Forge"
+                      ? "border border-[var(--fs-ink)]/12 bg-[var(--fs-slate)] text-white"
+                      : "border border-black/10 bg-white/95"
+                )}
+              >
+                {plan.badge && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full fs-gradient-sunrise px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
+                    {plan.badge}
+                  </span>
+                )}
+
+                <h3 className={cn("text-xl font-bold", plan.name === "Forge" ? "text-white" : "text-[var(--fs-ink)]")}>
+                  {plan.name}
+                </h3>
+                <p className={cn("text-sm font-medium", isSpark ? "fs-text-orange" : plan.name === "Forge" ? "text-[var(--fs-amber)]" : "fs-text-emerald")}>
+                  {plan.tagline}
+                </p>
+
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className={cn("text-3xl font-bold tracking-tight", plan.name === "Forge" ? "text-white" : "text-[var(--fs-ink)]")}>
+                    {displayPrice}
+                  </span>
+                  <span className={cn("text-xs", plan.name === "Forge" ? "text-white/60" : "text-[var(--fs-ink)]/55")}>
+                    {displayPeriod}
+                  </span>
+                </div>
+                {showSavings && (
+                  <span className="mt-1.5 w-fit rounded-full bg-[var(--fs-emerald)]/15 px-2 py-0.5 text-[11px] font-medium fs-text-emerald">
+                    {plan.annualSavings}
+                  </span>
+                )}
+
+                <p className={cn("mt-3 text-sm leading-relaxed", plan.name === "Forge" ? "text-white/70" : "text-[var(--fs-ink)]/65")}>
+                  {plan.description}
+                </p>
+
+                <div className="mt-5 flex-1 space-y-4">
+                  <div>
+                    {plan.featuresIntro && (
+                      <p className={cn("mb-2 text-xs font-medium", plan.name === "Forge" ? "text-white/50" : "text-[var(--fs-ink)]/50")}>
+                        {plan.featuresIntro}
+                      </p>
+                    )}
+                    <ul className="space-y-2.5">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2.5">
+                          <Check className={cn("mt-0.5 size-3.5 shrink-0", plan.name === "Forge" ? "text-[var(--fs-amber)]" : "fs-text-emerald")} />
+                          <span className={cn("text-sm", plan.name === "Forge" ? "text-white/85" : "text-[var(--fs-ink)]")}>
+                            {feature}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {plan.batch && (
+                    <div
+                      className={cn(
+                        "rounded-lg border p-3",
+                        plan.name === "Forge" ? "border-white/10 bg-white/5" : "border-black/10 bg-[var(--fs-cream-deep)]"
+                      )}
+                    >
+                      <p className={cn("flex items-center gap-1.5 text-xs font-semibold", plan.name === "Forge" ? "text-white" : "text-[var(--fs-ink)]")}>
+                        <Layers className="size-3.5 fs-text-orange" />
+                        {plan.batch.title}
+                      </p>
+                      <ul className="mt-1.5 space-y-1">
+                        {plan.batch.items.map((item) => (
+                          <li key={item} className={cn("text-xs leading-relaxed", plan.name === "Forge" ? "text-white/60" : "text-[var(--fs-ink)]/60")}>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className={cn("flex items-start gap-1.5 border-t pt-3", plan.name === "Forge" ? "border-white/10" : "border-black/10")}>
+                    <Mail className={cn("mt-0.5 size-3.5 shrink-0", plan.name === "Forge" ? "text-white/50" : "text-[var(--fs-ink)]/45")} />
+                    <div>
+                      <p className={cn("text-xs font-semibold", plan.name === "Forge" ? "text-white" : "text-[var(--fs-ink)]")}>
+                        {plan.support.title}
+                      </p>
+                      <p className={cn("text-xs", plan.name === "Forge" ? "text-white/55" : "text-[var(--fs-ink)]/55")}>
+                        {plan.support.detail}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  className={cn(
+                    "mt-6 w-full",
+                    isSpark
+                      ? "fs-btn-primary"
+                      : plan.name === "Forge"
+                        ? "bg-white text-[var(--fs-slate)] hover:bg-white/90"
+                        : "bg-[var(--fs-ink)] text-white hover:bg-[var(--fs-ink)]/90"
+                  )}
+                  onClick={() => {
+                    if (plan.available) {
+                      navigateTo("editor")
+                    } else {
+                      toast(`${plan.name} is not active yet. Coming soon!`)
+                    }
+                  }}
+                >
+                  {plan.cta}
+                </Button>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/FAQ.tsx
+# ACTION: NEW
+####################################################################################################
+
+const FAQS = [
+  {
+    q: "Do I need an account to try ForgeStamp?",
+    a: "No. You can upload an image and try the editor without signing up. Creating a free account lets you save exported images for 30 days and revisit them later.",
+  },
+  {
+    q: "What image formats does ForgeStamp export?",
+    a: "PNG export is available on every plan. Additional export formats are part of paid plans as noted in the pricing above.",
+  },
+  {
+    q: "Can I change my plan later?",
+    a: "Yes. You can start on the Free plan and move up to Spark or Forge whenever your needs grow.",
+  },
+  {
+    q: "What's the difference between Single Placement and Full Coverage?",
+    a: "Single Placement puts one watermark exactly where you choose. Full Coverage repeats your watermark across the entire image using one of ForgeStamp's patterns, making it harder to crop out.",
+  },
+] as const
+
+export function FAQ() {
+  return (
+    <section className="fs-surface-cream px-4 py-16 md:px-6 md:py-20">
+      <div className="mx-auto max-w-3xl">
+        <h2 className="text-center text-3xl font-bold tracking-tight text-[var(--fs-ink)] md:text-4xl">
+          Questions, answered.
+        </h2>
+
+        <dl className="mt-10 divide-y divide-black/10">
+          {FAQS.map((item) => (
+            <div key={item.q} className="py-5">
+              <dt className="text-base font-semibold text-[var(--fs-ink)]">{item.q}</dt>
+              <dd className="mt-2 text-sm leading-relaxed text-[var(--fs-ink)]/65">{item.a}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  )
+}
+
+
+
+####################################################################################################
+# FILE: src/components/landing/FinalCTA.tsx
+# ACTION: NEW
+####################################################################################################
+
+import { ArrowRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useNavigation } from "@/App"
+
+export function FinalCTA() {
+  const { navigateTo } = useNavigation()
+
+  return (
+    <section className="fs-surface-slate-deep relative overflow-hidden px-4 py-16 text-center md:px-6 md:py-24">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 fs-mark-divider" />
+      <div className="relative mx-auto max-w-xl">
+        <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+          Your work deserves your mark.
+        </h2>
+        <p className="mt-3 text-base fs-text-muted-onslate md:text-lg">
+          Protect what you create in less time than it takes to write a caption.
+        </p>
+        <Button
+          size="lg"
+          className="fs-btn-primary mt-8 shadow-lg shadow-black/20"
+          onClick={() => navigateTo("editor")}
+        >
+          Start Watermarking
+          <ArrowRight className="ml-1 size-4" />
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+
