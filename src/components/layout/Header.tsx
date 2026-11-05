@@ -22,30 +22,20 @@ export function Header() {
     <AccountMenu />
   ) : (
     <div className="flex items-center gap-2">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => openAuthModal("sign-in")}
-        disabled={loading}
-      >
+      <Button variant="ghost" size="sm" onClick={() => openAuthModal("sign-in")} disabled={loading}>
         Log In
       </Button>
-      <Button
-        size="sm"
-        className="bg-primary hover:bg-primary/90"
-        onClick={() => openAuthModal("sign-up")}
-        disabled={loading}
-      >
+      <Button size="sm" className="fs-btn-primary" onClick={() => openAuthModal("sign-up")} disabled={loading}>
         Sign Up
       </Button>
     </div>
   )
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-black/5 bg-[var(--fs-cream)]/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
         <a href="#" className="flex items-center gap-2">
-          <span className="text-lg font-black tracking-tight bg-gradient-to-r from-primary via-primary to-emerald bg-clip-text text-transparent">
+          <span className="text-lg font-black tracking-tight fs-gradient-sunrise-text">
             Forge<span className="font-black">Stamp</span>
           </span>
         </a>
@@ -55,16 +45,12 @@ export function Header() {
             <a
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm font-medium text-[var(--fs-ink)]/65 transition-colors hover:text-[var(--fs-ink)]"
             >
               {link.label}
             </a>
           ))}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigateTo("editor")}
-          >
+          <Button size="sm" variant="outline" className="border-[var(--fs-ink)]/15" onClick={() => navigateTo("editor")}>
             Start Watermarking
           </Button>
           {authButtons}
@@ -79,7 +65,7 @@ export function Header() {
           </SheetTrigger>
           <SheetContent side="right">
             <SheetHeader>
-              <SheetTitle className="text-lg font-black tracking-tight bg-gradient-to-r from-primary via-primary to-emerald bg-clip-text text-transparent">
+              <SheetTitle className="text-lg font-black tracking-tight fs-gradient-sunrise-text">
                 ForgeStamp
               </SheetTitle>
             </SheetHeader>
@@ -89,7 +75,7 @@ export function Header() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setOpen(false)}
-                  className="text-base font-medium text-foreground transition-colors hover:text-primary"
+                  className="text-base font-medium text-[var(--fs-ink)] transition-colors hover:fs-text-orange"
                 >
                   {link.label}
                 </a>
@@ -120,7 +106,7 @@ export function Header() {
                     Log In
                   </Button>
                   <Button
-                    className="bg-primary hover:bg-primary/90"
+                    className="fs-btn-primary"
                     onClick={() => {
                       setOpen(false)
                       openAuthModal("sign-up")

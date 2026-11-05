@@ -151,3 +151,105 @@
     cursor: pointer;
   }
 }
+
+/* ===========================================================================
+   LANDING PAGE SCOPE — additive only.
+   Everything below is scoped under `.fs-landing` and is NEVER read by the
+   editor, admin, my-images, or auth screens. It intentionally does NOT
+   redefine :root or .dark, so nothing here can change the rest of the app's
+   colors. `.fs-landing` also forces a controlled light presentation for the
+   public marketing page regardless of the visitor's OS/browser dark-mode
+   preference (the app's ThemeProvider already defaults to light, but this
+   makes the landing page independently immune to any future dark-mode
+   toggle affecting marketing pages).
+   =========================================================================== */
+.fs-landing {
+  color-scheme: light;
+
+  /* Sunrise palette, landing-only. Named directly (not "primary/accent") so
+     these can never drift if the app-wide semantic tokens change meaning. */
+  --fs-orange: oklch(0.702 0.183 52);
+  --fs-coral: oklch(0.74 0.12 30);
+  --fs-amber: oklch(0.814 0.16 84);
+  --fs-emerald: oklch(0.696 0.17 162.48);
+  --fs-aqua: oklch(0.831 0.113 181);
+  --fs-mint: oklch(0.87 0.08 165);
+  --fs-cream: oklch(0.993 0.003 95);
+  --fs-cream-deep: oklch(0.975 0.012 75);
+  --fs-slate: oklch(0.24 0.012 258);
+  --fs-slate-deep: oklch(0.185 0.01 258);
+  --fs-ink: oklch(0.21 0.006 285);
+
+  background: var(--fs-cream);
+  color: var(--fs-ink);
+}
+
+/* Force light-mode reading even if an ancestor picks up a .dark class. */
+.fs-landing,
+.fs-landing.dark,
+html.dark .fs-landing {
+  background: var(--fs-cream);
+  color: var(--fs-ink);
+  color-scheme: light;
+}
+
+.fs-surface-cream { background: var(--fs-cream); }
+.fs-surface-cream-deep { background: var(--fs-cream-deep); }
+.fs-surface-slate { background: var(--fs-slate); color: oklch(0.96 0.005 95); }
+.fs-surface-slate-deep { background: var(--fs-slate-deep); color: oklch(0.96 0.005 95); }
+
+.fs-text-orange { color: var(--fs-orange); }
+.fs-text-emerald { color: var(--fs-emerald); }
+.fs-text-aqua { color: var(--fs-aqua); }
+.fs-text-amber { color: var(--fs-amber); }
+.fs-text-muted-onslate { color: oklch(0.78 0.02 95); }
+
+.fs-gradient-sunrise {
+  background: linear-gradient(135deg, var(--fs-orange) 0%, var(--fs-coral) 45%, var(--fs-amber) 100%);
+}
+.fs-gradient-sunrise-text {
+  background: linear-gradient(120deg, var(--fs-orange), var(--fs-coral) 55%, var(--fs-amber));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.fs-gradient-aqua {
+  background: linear-gradient(135deg, var(--fs-aqua) 0%, var(--fs-mint) 100%);
+}
+
+.fs-btn-primary {
+  background: var(--fs-orange);
+  color: white;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+.fs-btn-primary:hover { background: color-mix(in oklch, var(--fs-orange), black 8%); }
+.fs-btn-primary:active { transform: scale(0.98); }
+
+.fs-ring-spark {
+  border-color: color-mix(in oklch, var(--fs-orange), transparent 35%);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--fs-orange), transparent 75%),
+    0 18px 40px -18px color-mix(in oklch, var(--fs-orange), transparent 45%);
+}
+
+/* Watermark-motif divider: a thin repeating diagonal tick, echoing the
+   product's own Diagonal pattern rather than a generic decorative rule. */
+.fs-mark-divider {
+  height: 10px;
+  background-image: repeating-linear-gradient(
+    -35deg,
+    color-mix(in oklch, var(--fs-orange), transparent 55%) 0px,
+    color-mix(in oklch, var(--fs-orange), transparent 55%) 2px,
+    transparent 2px,
+    transparent 14px
+  );
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fs-landing * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -2,10 +2,14 @@ import { useState, createContext, useContext, useCallback } from "react"
 import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
 import { Hero } from "@/components/landing/Hero"
+import { CreativeIntro } from "@/components/landing/CreativeIntro"
+import { ProductExperience } from "@/components/landing/ProductExperience"
+import { PatternShowcase } from "@/components/landing/PatternShowcase"
 import { Workflow } from "@/components/landing/Workflow"
-import { Features } from "@/components/landing/Features"
-import { WhySection } from "@/components/landing/WhySection"
+import { CreatorValue } from "@/components/landing/CreatorValue"
 import { Pricing } from "@/components/landing/Pricing"
+import { FAQ } from "@/components/landing/FAQ"
+import { FinalCTA } from "@/components/landing/FinalCTA"
 import { EditorPage } from "@/components/editor/EditorPage"
 import { MyImagesPage } from "@/components/my-images/MyImagesPage"
 import { AdminPage } from "@/components/admin/AdminPage"
@@ -94,14 +98,18 @@ function AppInner() {
       return <AdminPage />
     }
     return (
-      <div className="min-h-svh bg-background">
+      <div className="fs-landing min-h-svh">
         <Header />
         <main>
           <Hero />
+          <CreativeIntro />
+          <ProductExperience />
+          <PatternShowcase />
           <Workflow />
-          <Features />
-          <WhySection />
+          <CreatorValue />
           <Pricing />
+          <FAQ />
+          <FinalCTA />
         </main>
         <Footer />
       </div>

@@ -186,7 +186,10 @@ export function drawStamp(
   if (pt.fontScale && pt.fontScale < 1) {
     ctx.scale(pt.fontScale, pt.fontScale)
   }
-  if (stacking) {
+  // `stacking` is derived from Boolean(stackedLineHeight), which does not
+  // narrow the optional parameter. Re-check the value so the line height is
+  // a number here. Zero and undefined already make `stacking` false.
+  if (stacking && stackedLineHeight) {
     const chars = Array.from(text)
     // For Vertical Up, reverse so the first character sits at the bottom and
     // the word reads correctly scanning upward.
