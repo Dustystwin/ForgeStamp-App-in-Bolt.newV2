@@ -5,11 +5,11 @@ const FAQS = [
   },
   {
     q: "What image formats does ForgeStamp export?",
-    a: "PNG export is available on every plan. Additional export formats are part of paid plans as noted in the pricing above.",
+    a: "Today, ForgeStamp exports PNG only. JPG and WebP export are listed as coming soon on Spark. They are not available yet.",
   },
   {
     q: "Can I change my plan later?",
-    a: "Yes. You can start on the Free plan and move up to Spark or Forge whenever your needs grow.",
+    a: "Not yet. Spark and Forge are not for sale. You can use the Free plan today. Switching plans will be possible after billing is added.",
   },
   {
     q: "What's the difference between Single Placement and Full Coverage?",

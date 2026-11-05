@@ -10,6 +10,7 @@ import { CreatorValue } from "@/components/landing/CreatorValue"
 import { Pricing } from "@/components/landing/Pricing"
 import { FAQ } from "@/components/landing/FAQ"
 import { FinalCTA } from "@/components/landing/FinalCTA"
+import { LegalPage, type LegalPageId } from "@/components/legal/LegalPage"
 import { EditorPage } from "@/components/editor/EditorPage"
 import { MyImagesPage } from "@/components/my-images/MyImagesPage"
 import { AdminPage } from "@/components/admin/AdminPage"
@@ -17,7 +18,7 @@ import { AuthModal } from "@/components/auth/AuthModal"
 import { AuthProvider } from "@/context/AuthContext"
 import type { EditorState } from "@/lib/editor-types"
 
-export type View = "landing" | "editor" | "my-images" | "admin"
+export type View = "landing" | "editor" | "my-images" | "admin" | "legal"
 
 export interface EditorInitialData {
   image: File
@@ -28,11 +29,13 @@ export interface EditorInitialData {
 interface NavigationContextType {
   navigateTo: (view: View, data?: { editorInitialData?: EditorInitialData }) => void
   openAuthModal: (defaultMode?: "sign-in" | "sign-up") => void
+  openLegalPage: (page: LegalPageId) => void
 }
 
 const NavigationContext = createContext<NavigationContextType>({
   navigateTo: () => {},
   openAuthModal: () => {},
+  openLegalPage: () => {},
 })
 
 export function useNavigation() {
@@ -57,6 +60,7 @@ function AppInner() {
   const [editorInitialData, setEditorInitialData] = useState<EditorInitialData | null>(null)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authModalMode, setAuthModalMode] = useState<"sign-in" | "sign-up">("sign-in")
+  const [legalPage, setLegalPage] = useState<LegalPageId>("privacy")
 
   const navigateTo = useCallback(
     (v: View, data?: { editorInitialData?: EditorInitialData }) => {
@@ -81,6 +85,14 @@ function AppInner() {
     setAuthModalOpen(true)
   }, [])
 
+  const openLegalPage = useCallback(
+    (page: LegalPageId) => {
+      setLegalPage(page)
+      navigateTo("legal")
+    },
+    [navigateTo]
+  )
+
   const renderView = () => {
     if (view === "editor") {
       return (
@@ -96,6 +108,17 @@ function AppInner() {
     }
     if (view === "admin") {
       return <AdminPage />
+    }
+    if (view === "legal") {
+      return (
+        <div className="fs-landing min-h-svh">
+          <Header />
+          <main>
+            <LegalPage page={legalPage} />
+          </main>
+          <Footer />
+        </div>
+      )
     }
     return (
       <div className="fs-landing min-h-svh">
@@ -117,7 +140,7 @@ function AppInner() {
   }
 
   return (
-    <NavigationContext.Provider value={{ navigateTo, openAuthModal }}>
+    <NavigationContext.Provider value={{ navigateTo, openAuthModal, openLegalPage }}>
       {renderView()}
       <AuthModal
         open={authModalOpen}

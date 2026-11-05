@@ -9,7 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { FREE_FONTS, PRO_FONTS } from "@/lib/editor-types"
-import { BUILDER_MODE } from "@/lib/builder-mode"
+import { BUILDER_MODE, canUsePremiumFeatures } from "@/lib/builder-mode"
+import { useAuth } from "@/context/AuthContext"
 import { toast } from "sonner"
 
 interface FontControlProps {
@@ -20,8 +21,11 @@ interface FontControlProps {
 const PRO_VALUES: ReadonlySet<string> = new Set(PRO_FONTS.map((f) => f.value))
 
 export function FontControl({ value, onChange }: FontControlProps) {
+  const { profile } = useAuth()
+  const premiumUnlocked = canUsePremiumFeatures(profile?.tier)
+
   const handleValueChange = (val: string) => {
-    if (PRO_VALUES.has(val) && !BUILDER_MODE) {
+    if (PRO_VALUES.has(val) && !premiumUnlocked) {
       toast("Pro fonts will be available with paid plans.")
       return
     }
@@ -64,9 +68,9 @@ export function FontControl({ value, onChange }: FontControlProps) {
                 key={font.value}
                 value={font.value}
                 style={{ fontFamily: font.value }}
-                className={BUILDER_MODE ? "" : "text-muted-foreground"}
+                className={premiumUnlocked ? "" : "text-muted-foreground"}
               >
-                {font.label}{!BUILDER_MODE ? " (Pro)" : ""}
+                {font.label}{!premiumUnlocked ? " (Pro)" : ""}
               </SelectItem>
             ))}
           </SelectGroup>
