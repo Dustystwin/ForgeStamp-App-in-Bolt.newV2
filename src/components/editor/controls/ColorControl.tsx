@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label"
 import { FREE_COLORS, PRO_COLORS } from "@/lib/editor-types"
-import { BUILDER_MODE } from "@/lib/builder-mode"
+import { BUILDER_MODE, canUsePremiumFeatures } from "@/lib/builder-mode"
+import { useAuth } from "@/context/AuthContext"
 import { cn } from "@/lib/utils"
 import { Check } from "lucide-react"
 import { toast } from "sonner"
@@ -11,8 +12,11 @@ interface ColorControlProps {
 }
 
 export function ColorControl({ value, onChange }: ColorControlProps) {
+  const { profile } = useAuth()
+  const premiumUnlocked = canUsePremiumFeatures(profile?.tier)
+
   const handleProClick = (colorValue: string) => {
-    if (BUILDER_MODE) {
+    if (premiumUnlocked) {
       onChange(colorValue)
     } else {
       toast("Pro colors will be available with paid plans.")
@@ -78,12 +82,12 @@ export function ColorControl({ value, onChange }: ColorControlProps) {
                 key={preset.value}
                 type="button"
                 onClick={() => handleProClick(preset.value)}
-                aria-label={`${preset.label}${BUILDER_MODE ? "" : " (Pro)"}${isSelected ? " (selected)" : ""}`}
+                aria-label={`${preset.label}${premiumUnlocked ? "" : " (Pro)"}${isSelected ? " (selected)" : ""}`}
                 aria-pressed={isSelected}
-                title={`${preset.label}${BUILDER_MODE ? "" : " (Pro)"}`}
+                title={`${preset.label}${premiumUnlocked ? "" : " (Pro)"}`}
                 className={cn(
                   "relative h-7 w-7 rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                  BUILDER_MODE
+                  premiumUnlocked
                     ? isSelected
                       ? "ring-2 ring-ring ring-offset-2 ring-offset-background scale-110 border-transparent"
                       : "border-transparent hover:scale-110"
@@ -91,13 +95,13 @@ export function ColorControl({ value, onChange }: ColorControlProps) {
                 )}
                 style={{ backgroundColor: preset.value }}
               >
-                {isSelected && BUILDER_MODE && (
+                {isSelected && premiumUnlocked && (
                   <Check
                     className="absolute inset-0 m-auto size-3.5 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.5)]"
                     strokeWidth={3}
                   />
                 )}
-                {!BUILDER_MODE && (
+                {!premiumUnlocked && (
                   <span
                     className="absolute inset-0 flex items-center justify-center text-[7px] font-bold text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.7)]"
                     aria-hidden="true"

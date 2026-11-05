@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { PRICING_PLANS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { useNavigation } from "@/App"
-import { toast } from "sonner"
 
 type Billing = "monthly" | "annual"
 
@@ -24,14 +23,17 @@ export function Pricing() {
             Built for every stage of your creative journey.
           </h2>
           <p className="mt-3 text-[var(--fs-ink)]/70 md:text-lg">
-            Start free, create with confidence, and upgrade only when you&rsquo;re ready.
+            The Free plan is ready to use. Spark and Forge are not for sale yet.
+          </p>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-[var(--fs-ink)]/55">
+            Prices on Spark and Forge are a preview of planned pricing. This page does not take payment.
           </p>
         </div>
 
-        <div className="mt-7 flex justify-center">
+        <div className="mt-7 flex flex-col items-center">
           <div
             role="group"
-            aria-label="Billing period"
+            aria-label="Preview planned prices"
             className="inline-flex rounded-lg border border-black/10 bg-white p-1"
           >
             {(["monthly", "annual"] as const).map((option) => (
@@ -51,6 +53,9 @@ export function Pricing() {
               </button>
             ))}
           </div>
+          <p className="mt-2 text-center text-xs text-[var(--fs-ink)]/50">
+            Preview only. Choosing monthly or annual does not start a subscription.
+          </p>
         </div>
 
         <div className="mx-auto mt-10 grid items-start gap-6 md:grid-cols-3">
@@ -98,6 +103,11 @@ export function Pricing() {
                   <span className="mt-1.5 w-fit rounded-full bg-[var(--fs-emerald)]/15 px-2 py-0.5 text-[11px] font-medium fs-text-emerald">
                     {plan.annualSavings}
                   </span>
+                )}
+                {!plan.available && (
+                  <p className={cn("mt-1.5 text-xs font-medium", plan.name === "Forge" ? "text-[var(--fs-amber)]" : "fs-text-orange")}>
+                    Planned price. Not for sale. No payment is collected.
+                  </p>
                 )}
 
                 <p className={cn("mt-3 text-sm leading-relaxed", plan.name === "Forge" ? "text-white/70" : "text-[var(--fs-ink)]/65")}>
@@ -157,25 +167,26 @@ export function Pricing() {
                   </div>
                 </div>
 
-                <Button
-                  className={cn(
-                    "mt-6 w-full",
-                    isSpark
-                      ? "fs-btn-primary"
-                      : plan.name === "Forge"
-                        ? "bg-white text-[var(--fs-slate)] hover:bg-white/90"
-                        : "bg-[var(--fs-ink)] text-white hover:bg-[var(--fs-ink)]/90"
-                  )}
-                  onClick={() => {
-                    if (plan.available) {
-                      navigateTo("editor")
-                    } else {
-                      toast(`${plan.name} is not active yet. Coming soon!`)
-                    }
-                  }}
-                >
-                  {plan.cta}
-                </Button>
+                {plan.available ? (
+                  <Button
+                    className="mt-6 w-full bg-[var(--fs-ink)] text-white hover:bg-[var(--fs-ink)]/90"
+                    onClick={() => navigateTo("editor")}
+                  >
+                    {plan.cta}
+                  </Button>
+                ) : (
+                  <p
+                    className={cn(
+                      "mt-6 rounded-md border px-3 py-2.5 text-center text-sm font-semibold",
+                      plan.name === "Forge"
+                        ? "border-white/20 text-white/80"
+                        : "border-black/10 text-[var(--fs-ink)]/70"
+                    )}
+                    role="status"
+                  >
+                    Coming soon — not for sale
+                  </p>
+                )}
               </div>
             )
           })}

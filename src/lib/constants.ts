@@ -135,12 +135,11 @@ export const WHY_REASONS = [
   },
 ] as const
 
-// PRICING PLANS — Version 1 (finalized)
+// PRICING PLANS — preview only
 // ---------------------------------------------------------------------------
-// Billing logic lives in Pricing.tsx: Free always shows $0; Spark and Forge
-// switch between monthlyPrice/annualPrice based on the billing toggle.
-// Buttons are presentation-only — no checkout/payment logic is wired yet.
-// Spark and Forge show a "coming soon" message until billing exists.
+// Free is the only plan someone can use today.
+// Spark and Forge stay unavailable. Prices on those cards are planned prices,
+// not something the app charges. There is no checkout.
 export const PRICING_PLANS = [
   {
     name: "Free",
@@ -154,19 +153,15 @@ export const PRICING_PLANS = [
     featuresIntro: null as string | null,
     features: [
       "Text watermarking",
-      "Logo watermarking",
-      "Standard font library",
-      "Standard color palette",
-      "All watermark placement options",
+      "Standard fonts",
+      "Standard colors",
+      "All watermark placements",
       "All watermark patterns",
+      "Opacity, size, and rotation",
       "PNG export",
       "Live watermark preview",
-      "Standard export quality",
     ],
-    batch: {
-      title: "Limited Batch Processing",
-      items: ["Up to 3 images per batch", "Up to 30 batch-processed images per month"],
-    } as { title: string; items: string[] } | null,
+    batch: null as { title: string; items: string[] } | null,
     support: {
       title: "Email Support",
       detail: "Typically within 3 business days",
@@ -188,22 +183,22 @@ export const PRICING_PLANS = [
     features: [
       "Premium font library",
       "Premium color library",
-      "High-resolution exports",
-      "JPG export",
-      "WebP export",
-      "Save watermark presets",
-      "Expanded export history",
-      "Faster export processing",
+      "High-resolution exports (coming soon)",
+      "JPG export (coming soon)",
+      "WebP export (coming soon)",
+      "Logo watermarking (coming soon)",
+      "Save watermark presets (coming soon)",
+      "Expanded export history (coming soon)",
     ],
     batch: {
-      title: "Expanded Batch Processing",
+      title: "Batch processing (coming soon)",
       items: ["Up to 25 images per batch", "Up to 500 batch-processed images per month"],
     } as { title: string; items: string[] } | null,
     support: {
       title: "Priority Email Support",
       detail: "Typically within 2 business days",
     },
-    cta: "Upgrade to Spark",
+    cta: "Coming soon",
     available: false,
     highlighted: true,
   },
@@ -218,11 +213,10 @@ export const PRICING_PLANS = [
     annualSavings: "Save 33%" as string | null,
     featuresIntro: "Everything in Spark, plus:" as string | null,
     features: [
-      "Unlimited exports",
-      "Unlimited watermark presets",
-      "Unlimited export history",
-      "Unlimited batch processing",
-      "Priority processing",
+      "Unlimited watermark presets (coming soon)",
+      "Unlimited export history (coming soon)",
+      "Unlimited batch processing (coming soon)",
+      "Priority processing (coming soon)",
       "Early access to new features",
     ],
     batch: null as { title: string; items: string[] } | null,
@@ -230,7 +224,7 @@ export const PRICING_PLANS = [
       title: "Premium Priority Email Support",
       detail: "Typically within 1 business day",
     },
-    cta: "Upgrade to Forge",
+    cta: "Coming soon",
     available: false,
     highlighted: false,
   },
@@ -243,10 +237,10 @@ export const FOOTER_LINKS = {
     { label: "Pricing", href: "#pricing" },
   ],
   support: [
-    { label: "Contact", href: "#" },
-    { label: "Help Center", href: "#" },
-    { label: "Privacy Policy", href: "#" },
-    { label: "Terms of Service", href: "#" },
+    { label: "Contact", page: "contact" },
+    { label: "Help Center", page: "help" },
+    { label: "Privacy Policy", page: "privacy" },
+    { label: "Terms of Service", page: "terms" },
   ],
 } as const
 

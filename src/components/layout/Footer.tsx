@@ -1,6 +1,16 @@
 import { FOOTER_LINKS } from "@/lib/constants"
+import { useNavigation } from "@/App"
 
 export function Footer() {
+  const { navigateTo, openLegalPage } = useNavigation()
+
+  const goToProduct = (href: string) => {
+    navigateTo("landing")
+    window.setTimeout(() => {
+      document.querySelector(href)?.scrollIntoView({ behavior: "smooth" })
+    }, 50)
+  }
+
   return (
     <footer className="border-t border-black/5 bg-[var(--fs-cream)]">
       <div className="mx-auto max-w-7xl px-4 py-12 md:px-6">
@@ -20,7 +30,14 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               {FOOTER_LINKS.product.map((link) => (
                 <li key={link.label}>
-                  <a href={link.href} className="text-sm text-[var(--fs-ink)]/60 transition-colors hover:text-[var(--fs-ink)]">
+                  <a
+                    href={link.href}
+                    className="text-sm text-[var(--fs-ink)]/60 transition-colors hover:text-[var(--fs-ink)]"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      goToProduct(link.href)
+                    }}
+                  >
                     {link.label}
                   </a>
                 </li>
@@ -33,9 +50,13 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               {FOOTER_LINKS.support.map((link) => (
                 <li key={link.label}>
-                  <a href={link.href} className="text-sm text-[var(--fs-ink)]/60 transition-colors hover:text-[var(--fs-ink)]">
+                  <button
+                    type="button"
+                    className="text-left text-sm text-[var(--fs-ink)]/60 transition-colors hover:text-[var(--fs-ink)]"
+                    onClick={() => openLegalPage(link.page)}
+                  >
                     {link.label}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
