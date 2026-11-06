@@ -27,17 +27,17 @@ const FAQS = [
 
 export function FAQ() {
   return (
-    <section className="fs-surface-cream px-4 py-16 md:px-6 md:py-20">
+    <section className="px-4 py-20 md:px-6 md:py-28">
       <div className="mx-auto max-w-3xl">
-        <h2 className="text-center text-3xl font-bold tracking-tight text-[var(--fs-ink)] md:text-4xl">
-          Questions, answered.
+        <h2 className="fs-display text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--fs-ink)] md:text-4xl">
+          Questions
         </h2>
 
-        <dl className="mt-10 divide-y divide-black/10">
+        <dl className="mt-8 divide-y divide-black/10">
           {FAQS.map((item) => (
-            <div key={item.q} className="py-5">
+            <div key={item.q} className="py-6">
               <dt className="text-base font-semibold text-[var(--fs-ink)]">{item.q}</dt>
-              <dd className="mt-2 text-sm leading-relaxed text-[var(--fs-ink)]/65">{item.a}</dd>
+              <dd className="mt-2 max-w-prose text-sm leading-relaxed fs-text-soft">{item.a}</dd>
             </div>
           ))}
         </dl>

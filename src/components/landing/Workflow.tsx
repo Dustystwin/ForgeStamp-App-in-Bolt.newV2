@@ -1,47 +1,37 @@
-import { Upload, Paintbrush, Download, ArrowRight } from "lucide-react"
-
 const STEPS = [
-  { title: "Upload", description: "Bring in the image you want to protect.", icon: Upload, tint: "var(--fs-orange)" },
-  { title: "Customize", description: "Shape text, a logo, or a QR code until it's right.", icon: Paintbrush, tint: "var(--fs-aqua)" },
-  { title: "Export", description: "Download a clean, protected copy in seconds.", icon: Download, tint: "var(--fs-emerald)" },
+  {
+    title: "Upload",
+    description: "Add the image you want to mark. Free can take up to 3 at once.",
+  },
+  {
+    title: "Adjust",
+    description: "Set words, a logo, or a QR code, then size, color, and placement. Repeat the mark across the picture if you want.",
+  },
+  {
+    title: "Download",
+    description: "Export a PNG, or a ZIP when you mark more than one photo.",
+  },
 ] as const
 
 export function Workflow() {
   return (
-    <section id="how-it-works" className="fs-surface-cream px-4 py-16 md:px-6 md:py-24">
-      <div className="mx-auto max-w-4xl">
-        <h2 className="text-center text-3xl font-bold tracking-tight text-[var(--fs-ink)] md:text-4xl">
-          From upload to protected.
+    <section id="how-it-works" className="scroll-mt-20 px-4 pt-4 pb-16 md:px-6 md:pt-6 md:pb-24">
+      <div className="mx-auto max-w-6xl">
+        <h2 className="fs-display text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--fs-ink)] md:text-4xl">
+          Three steps.
         </h2>
-
-        <div className="mt-14 flex flex-col items-stretch gap-0 md:flex-row md:items-center">
-          {STEPS.map((step, i) => {
-            const Icon = step.icon
-            return (
-              <div key={step.title} className="flex flex-1 flex-col items-center text-center md:flex-row md:text-left">
-                <div className="flex flex-col items-center md:items-start">
-                  <div
-                    className="flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-md"
-                    style={{ background: step.tint }}
-                  >
-                    <Icon className="size-6" />
-                  </div>
-                  <h3 className="mt-3 text-base font-semibold text-[var(--fs-ink)] md:mt-4">
-                    {step.title}
-                  </h3>
-                  <p className="mt-1 max-w-[190px] text-sm leading-relaxed text-[var(--fs-ink)]/65">
-                    {step.description}
-                  </p>
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div className="my-4 flex items-center justify-center md:mx-4 md:my-0 md:flex-1">
-                    <ArrowRight className="size-5 rotate-90 text-[var(--fs-ink)]/20 md:rotate-0" />
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        <div className="fs-mark-divider mt-6" aria-hidden="true" />
+        <ol className="mt-8 grid md:mt-10 md:grid-cols-3 md:gap-12">
+          {STEPS.map((step, index) => (
+            <li key={step.title} className="border-t border-[color-mix(in_oklch,var(--fs-amber)_45%,transparent)] py-6 md:border-t-0 md:py-0">
+              <h3 className="text-lg font-semibold text-[var(--fs-ink)]">
+                <span className="fs-display mr-2 text-2xl font-medium text-[var(--fs-orange-deep)]">{index + 1}</span>
+                {step.title}
+              </h3>
+              <p className="mt-2 max-w-xs text-sm leading-relaxed fs-text-soft">{step.description}</p>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   )

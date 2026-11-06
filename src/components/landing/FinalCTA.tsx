@@ -1,4 +1,3 @@
-import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useNavigation } from "@/App"
 
@@ -6,22 +5,20 @@ export function FinalCTA() {
   const { navigateTo } = useNavigation()
 
   return (
-    <section className="fs-surface-slate-deep relative overflow-hidden px-4 py-16 text-center md:px-6 md:py-24">
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 fs-mark-divider" />
-      <div className="relative mx-auto max-w-xl">
-        <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-          Your work deserves your mark.
+    <section className="fs-hero-wash px-4 pb-24 pt-0 md:px-6 md:pb-32">
+      <div className="fs-mark-divider" aria-hidden="true" />
+      <div className="mx-auto max-w-6xl pt-16 md:pt-20">
+        <h2 className="fs-display max-w-md text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--fs-ink)] md:text-4xl">
+          Try it on your own image.
         </h2>
-        <p className="mt-3 text-base fs-text-muted-onslate md:text-lg">
-          Protect what you create in less time than it takes to write a caption.
+        <p className="mt-4 max-w-md text-base leading-relaxed fs-text-soft">
+          Open the editor, add a watermark, and download a PNG.
         </p>
         <Button
-          size="lg"
-          className="fs-btn-primary mt-8 shadow-lg shadow-black/20"
+          className="fs-btn-primary mt-8 h-11 min-h-11 px-5 text-base shadow-none"
           onClick={() => navigateTo("editor")}
         >
-          Start Watermarking
-          <ArrowRight className="ml-1 size-4" />
+          Try a watermark
         </Button>
       </div>
     </section>

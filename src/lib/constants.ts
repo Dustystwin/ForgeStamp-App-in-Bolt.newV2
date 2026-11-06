@@ -144,10 +144,9 @@ export const WHY_REASONS = [
 export const PRICING_PLANS = [
   {
     name: "Free",
-    tagline: "Protect Your First Creation",
+    tagline: "Use it today",
     badge: null as string | null,
-    description:
-      "Everyone starts somewhere. Explore ForgeStamp with the essential watermarking tools and confidently protect your first creations. Perfect for learning the app and creating professional watermarks at no cost.",
+    description: "Enough to place text, a logo, or a QR code, and download a PNG.",
     monthlyPrice: "$0",
     annualPrice: "$0",
     annualSavings: null as string | null,
@@ -175,16 +174,15 @@ export const PRICING_PLANS = [
       title: "Email Support",
       detail: "Typically within 3 business days",
     },
-    cta: "Start Free",
+    cta: "Try a watermark",
     available: true,
     highlighted: false,
   },
   {
     name: "Spark",
-    tagline: "Turn Creativity Into Momentum",
-    badge: "⭐ Creator Favorite" as string | null,
-    description:
-      "Every great creation begins with a spark. Unlock premium tools, expanded creative options, and higher usage limits designed to help your creativity and business grow.",
+    tagline: "For regular use",
+    badge: "Recommended" as string | null,
+    description: "A look at the planned extras. The price is a preview, and Spark is not for sale.",
     monthlyPrice: "$8.99",
     annualPrice: "$69.99",
     annualSavings: "Save 35%" as string | null,
@@ -215,10 +213,9 @@ export const PRICING_PLANS = [
   },
   {
     name: "Forge",
-    tagline: "Build Without Limits",
+    tagline: "For everyday work",
     badge: null as string | null,
-    description:
-      "The forge is where ideas become finished masterpieces. Forge unlocks the complete professional toolkit for creators and businesses that depend on watermarking every day.",
+    description: "A look at the fuller toolkit. The price is a preview, and Forge is not for sale.",
     monthlyPrice: "$14.99",
     annualPrice: "$119.99",
     annualSavings: "Save 33%" as string | null,
