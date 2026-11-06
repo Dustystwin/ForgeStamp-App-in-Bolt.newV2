@@ -137,7 +137,7 @@ export function Header() {
           </SheetContent>
         </Sheet>
       </div>
-      <div className="h-1 fs-gradient-sunrise" aria-hidden="true" />
+      <div className="h-1.5 fs-gradient-brand" aria-hidden="true" />
     </header>
   )
 }

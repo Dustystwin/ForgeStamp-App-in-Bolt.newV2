@@ -15,7 +15,7 @@ const STEPS = [
 
 export function Workflow() {
   return (
-    <section id="how-it-works" className="scroll-mt-20 px-4 pt-4 pb-16 md:px-6 md:pt-6 md:pb-24">
+    <section id="how-it-works" className="fs-step-wash scroll-mt-20 px-4 pt-12 pb-14 md:px-6 md:pt-16 md:pb-20">
       <div className="mx-auto max-w-6xl">
         <h2 className="fs-display text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--fs-ink)] md:text-4xl">
           Three steps.
@@ -25,7 +25,7 @@ export function Workflow() {
           {STEPS.map((step, index) => (
             <li key={step.title} className="border-t border-[color-mix(in_oklch,var(--fs-amber)_45%,transparent)] py-6 md:border-t-0 md:py-0">
               <h3 className="text-lg font-semibold text-[var(--fs-ink)]">
-                <span className="fs-display mr-2 text-2xl font-medium text-[var(--fs-orange-deep)]">{index + 1}</span>
+                <span className="fs-display mr-2 text-[1.75rem] font-medium text-[var(--fs-emerald-deep)]">{index + 1}</span>
                 {step.title}
               </h3>
               <p className="mt-2 max-w-xs text-sm leading-relaxed fs-text-soft">{step.description}</p>

@@ -27,7 +27,7 @@ const FAQS = [
 
 export function FAQ() {
   return (
-    <section className="px-4 py-20 md:px-6 md:py-28">
+    <section className="px-4 py-14 md:px-6 md:py-20">
       <div className="mx-auto max-w-3xl">
         <h2 className="fs-display text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--fs-ink)] md:text-4xl">
           Questions
