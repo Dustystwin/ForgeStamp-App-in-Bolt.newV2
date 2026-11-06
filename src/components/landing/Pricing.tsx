@@ -12,29 +12,20 @@ export function Pricing() {
   const [billing, setBilling] = useState<Billing>("monthly")
 
   return (
-    <section id="pricing" className="relative overflow-hidden px-4 py-16 md:px-6 md:py-24 fs-gradient-sunrise">
-      {/* Warm sunrise environment, at low opacity so text stays readable —
-          this is the one section pricing gets its own branded weather. */}
-      <div className="pointer-events-none absolute inset-0 bg-white/[0.86]" />
+    <section id="pricing" className="scroll-mt-20 bg-[var(--fs-cream-deep)] px-4 py-20 md:px-6 md:py-28">
+      <div className="mx-auto max-w-6xl">
+        <h2 className="fs-display text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--fs-ink)] md:text-4xl">
+          Plans
+        </h2>
+        <p className="mt-4 max-w-lg text-base leading-relaxed fs-text-soft">
+          Free is ready to use. Spark and Forge are not for sale yet. Those prices are a preview, and this page does not take payment.
+        </p>
 
-      <div className="relative mx-auto max-w-5xl">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-[var(--fs-ink)] md:text-4xl">
-            Built for every stage of your creative journey.
-          </h2>
-          <p className="mt-3 text-[var(--fs-ink)]/70 md:text-lg">
-            The Free plan is ready to use. Spark and Forge are not for sale yet.
-          </p>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-[var(--fs-ink)]/55">
-            Prices on Spark and Forge are a preview of planned pricing. This page does not take payment.
-          </p>
-        </div>
-
-        <div className="mt-7 flex flex-col items-center">
+        <div className="mt-8">
           <div
             role="group"
             aria-label="Preview planned prices"
-            className="inline-flex rounded-lg border border-black/10 bg-white p-1"
+            className="inline-flex rounded-lg border border-black/10 bg-white/70 p-1"
           >
             {(["monthly", "annual"] as const).map((option) => (
               <button
@@ -43,22 +34,20 @@ export function Pricing() {
                 onClick={() => setBilling(option)}
                 aria-pressed={billing === option}
                 className={cn(
-                  "rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fs-orange)]",
+                  "min-h-11 rounded-md px-4 text-sm font-medium capitalize",
                   billing === option
-                    ? "bg-[var(--fs-ink)] text-white shadow-sm"
-                    : "text-[var(--fs-ink)]/60 hover:text-[var(--fs-ink)]"
+                    ? "bg-[var(--fs-orange)] text-[var(--fs-ink)]"
+                    : "fs-text-soft hover:text-[var(--fs-ink)]"
                 )}
               >
                 {option}
               </button>
             ))}
           </div>
-          <p className="mt-2 text-center text-xs text-[var(--fs-ink)]/50">
-            Preview only. Choosing monthly or annual does not start a subscription.
-          </p>
+          <p className="mt-2 text-sm fs-text-soft">Choosing monthly or annual does not start a subscription.</p>
         </div>
 
-        <div className="mx-auto mt-10 grid items-start gap-6 md:grid-cols-3">
+        <div className="mt-10 grid items-stretch gap-8 md:grid-cols-3 md:gap-5 md:pt-3">
           {PRICING_PLANS.map((plan) => {
             const isFree = plan.name === "Free"
             const isSpark = plan.highlighted
@@ -71,82 +60,51 @@ export function Pricing() {
                 key={plan.name}
                 className={cn(
                   "relative flex h-full flex-col rounded-2xl p-6",
-                  isSpark
-                    ? "fs-ring-spark border-2 bg-white md:-translate-y-3"
-                    : plan.name === "Forge"
-                      ? "border border-[var(--fs-ink)]/12 bg-[var(--fs-slate)] text-white"
-                      : "border border-black/10 bg-white/95"
+                  isSpark ? "fs-spark-card z-10 md:-translate-y-3" : "border border-black/10 bg-white"
                 )}
               >
                 {plan.badge && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full fs-gradient-sunrise px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
+                  <span className="absolute -top-3 left-6 rounded-full bg-[var(--fs-orange-deep)] px-3 py-1 text-xs font-semibold text-white">
                     {plan.badge}
                   </span>
                 )}
 
-                <h3 className={cn("text-xl font-bold", plan.name === "Forge" ? "text-white" : "text-[var(--fs-ink)]")}>
-                  {plan.name}
-                </h3>
-                <p className={cn("text-sm font-medium", isSpark ? "fs-text-orange" : plan.name === "Forge" ? "text-[var(--fs-amber)]" : "fs-text-emerald")}>
-                  {plan.tagline}
-                </p>
+                <h3 className="text-xl font-semibold text-[var(--fs-ink)]">{plan.name}</h3>
+                <p className={cn("mt-1 text-sm", isSpark ? "font-medium text-[var(--fs-orange-deep)]" : "fs-text-soft")}>{plan.tagline}</p>
 
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className={cn("text-3xl font-bold tracking-tight", plan.name === "Forge" ? "text-white" : "text-[var(--fs-ink)]")}>
-                    {displayPrice}
-                  </span>
-                  <span className={cn("text-xs", plan.name === "Forge" ? "text-white/60" : "text-[var(--fs-ink)]/55")}>
-                    {displayPeriod}
-                  </span>
+                <div className="mt-5 flex items-baseline gap-1.5">
+                  <span className="fs-price text-4xl font-semibold tracking-tight text-[var(--fs-ink)]">{displayPrice}</span>
+                  <span className="text-sm fs-text-soft">{displayPeriod}</span>
                 </div>
-                {showSavings && (
-                  <span className="mt-1.5 w-fit rounded-full bg-[var(--fs-emerald)]/15 px-2 py-0.5 text-[11px] font-medium fs-text-emerald">
-                    {plan.annualSavings}
-                  </span>
-                )}
+                {showSavings && <p className="mt-2 text-sm font-medium text-[var(--fs-ink)]">{plan.annualSavings} on the yearly preview</p>}
                 {!plan.available && (
-                  <p className={cn("mt-1.5 text-xs font-medium", plan.name === "Forge" ? "text-[var(--fs-amber)]" : "fs-text-orange")}>
-                    Planned price. Not for sale. No payment is collected.
-                  </p>
+                  <p className="mt-2 text-sm font-medium text-[var(--fs-ink)]">Planned price. Not for sale.</p>
                 )}
 
-                <p className={cn("mt-3 text-sm leading-relaxed", plan.name === "Forge" ? "text-white/70" : "text-[var(--fs-ink)]/65")}>
-                  {plan.description}
-                </p>
+                <p className="mt-4 text-sm leading-relaxed fs-text-soft">{plan.description}</p>
 
-                <div className="mt-5 flex-1 space-y-4">
+                <div className="mt-6 flex-1 space-y-5">
                   <div>
-                    {plan.featuresIntro && (
-                      <p className={cn("mb-2 text-xs font-medium", plan.name === "Forge" ? "text-white/50" : "text-[var(--fs-ink)]/50")}>
-                        {plan.featuresIntro}
-                      </p>
-                    )}
+                    {plan.featuresIntro && <p className="mb-3 text-sm font-medium text-[var(--fs-ink)]">{plan.featuresIntro}</p>}
                     <ul className="space-y-2.5">
                       {plan.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-2.5">
-                          <Check className={cn("mt-0.5 size-3.5 shrink-0", plan.name === "Forge" ? "text-[var(--fs-amber)]" : "fs-text-emerald")} />
-                          <span className={cn("text-sm", plan.name === "Forge" ? "text-white/85" : "text-[var(--fs-ink)]")}>
-                            {feature}
-                          </span>
+                          <Check className="mt-0.5 size-4 shrink-0 text-[var(--fs-emerald-deep)]" aria-hidden="true" />
+                          <span className="text-sm leading-snug text-[var(--fs-ink)]">{feature}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
                   {plan.batch && (
-                    <div
-                      className={cn(
-                        "rounded-lg border p-3",
-                        plan.name === "Forge" ? "border-white/10 bg-white/5" : "border-black/10 bg-[var(--fs-cream-deep)]"
-                      )}
-                    >
-                      <p className={cn("flex items-center gap-1.5 text-xs font-semibold", plan.name === "Forge" ? "text-white" : "text-[var(--fs-ink)]")}>
-                        <Layers className="size-3.5 fs-text-orange" />
+                    <div className={cn("rounded-xl p-3", isSpark ? "bg-white/75" : "bg-[var(--fs-cream-deep)]")}>
+                      <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--fs-ink)]">
+                        <Layers className="size-4 fs-text-soft" aria-hidden="true" />
                         {plan.batch.title}
                       </p>
-                      <ul className="mt-1.5 space-y-1">
+                      <ul className="mt-2 space-y-1">
                         {plan.batch.items.map((item) => (
-                          <li key={item} className={cn("text-xs leading-relaxed", plan.name === "Forge" ? "text-white/60" : "text-[var(--fs-ink)]/60")}>
+                          <li key={item} className="text-sm leading-relaxed fs-text-soft">
                             {item}
                           </li>
                         ))}
@@ -154,22 +112,18 @@ export function Pricing() {
                     </div>
                   )}
 
-                  <div className={cn("flex items-start gap-1.5 border-t pt-3", plan.name === "Forge" ? "border-white/10" : "border-black/10")}>
-                    <Mail className={cn("mt-0.5 size-3.5 shrink-0", plan.name === "Forge" ? "text-white/50" : "text-[var(--fs-ink)]/45")} />
+                  <div className="flex items-start gap-2 border-t border-black/10 pt-4">
+                    <Mail className="mt-0.5 size-4 shrink-0 fs-text-soft" aria-hidden="true" />
                     <div>
-                      <p className={cn("text-xs font-semibold", plan.name === "Forge" ? "text-white" : "text-[var(--fs-ink)]")}>
-                        {plan.support.title}
-                      </p>
-                      <p className={cn("text-xs", plan.name === "Forge" ? "text-white/55" : "text-[var(--fs-ink)]/55")}>
-                        {plan.support.detail}
-                      </p>
+                      <p className="text-sm font-semibold text-[var(--fs-ink)]">{plan.support.title}</p>
+                      <p className="text-sm fs-text-soft">{plan.support.detail}</p>
                     </div>
                   </div>
                 </div>
 
                 {plan.available ? (
                   <Button
-                    className="mt-6 w-full bg-[var(--fs-ink)] text-white hover:bg-[var(--fs-ink)]/90"
+                    className="fs-btn-primary mt-6 h-11 min-h-11 w-full shadow-none"
                     onClick={() => navigateTo("editor")}
                   >
                     {plan.cta}
@@ -177,14 +131,12 @@ export function Pricing() {
                 ) : (
                   <p
                     className={cn(
-                      "mt-6 rounded-md border px-3 py-2.5 text-center text-sm font-semibold",
-                      plan.name === "Forge"
-                        ? "border-white/20 text-white/80"
-                        : "border-black/10 text-[var(--fs-ink)]/70"
+                      "mt-6 flex min-h-11 items-center justify-center rounded-md px-3 text-center text-sm font-semibold text-[var(--fs-ink)]",
+                      isSpark ? "bg-[var(--fs-orange)]" : "border border-black/10 bg-white font-medium"
                     )}
                     role="status"
                   >
-                    Coming soon — not for sale
+                    Coming soon. Not for sale.
                   </p>
                 )}
               </div>

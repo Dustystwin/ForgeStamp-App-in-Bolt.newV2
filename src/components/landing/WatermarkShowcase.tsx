@@ -1,6 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
-import useEmblaCarousel from "embla-carousel-react"
-import { ShieldCheck } from "lucide-react"
+import { useState } from "react"
 
 import photoDiagonal from "@/assets/landing/showcase/photo-diagonal.png"
 import productSingle from "@/assets/landing/showcase/product-single.png"
@@ -8,133 +6,132 @@ import artworkHoneycomb from "@/assets/landing/showcase/artwork-honeycomb.png"
 import photoBase from "@/assets/landing/demo/photo-base.png"
 import productBase from "@/assets/landing/demo/product-base.png"
 import artworkBase from "@/assets/landing/demo/artwork-base.png"
+import { cn } from "@/lib/utils"
 
 // Landing-only demonstration data. Deliberately NOT wired to the real
-// watermark-rendering engine (see src/lib/watermark-utils.ts) — these are
-// pre-rendered illustrations of real, currently-supported patterns, kept
-// isolated so nothing here can ever affect editor behavior.
-//
-// REPLACE LATER: each `after` image is a placeholder illustration. Swap the
-// import for a final photographed/exported example, or drop in an 8–15s
-// product video and remove the carousel below, once available.
+// watermark-rendering engine (see src/lib/watermark-utils.ts). These are
+// pre-rendered illustrations of patterns the editor already supports.
 const SLIDES = [
   {
     before: photoBase,
     after: photoDiagonal,
     label: "Diagonal",
-    caption: "Full Coverage \u2014 Diagonal",
+    beforeAlt: "Sample illustration of hills and a sun, without a watermark.",
+    afterAlt: "The same hills illustration with a repeating SAMPLE TEXT watermark on a diagonal.",
+    caption: "Repeated across the picture",
   },
   {
     before: productBase,
     after: productSingle,
-    label: "Single Placement",
-    caption: "Single watermark, bottom-right",
+    label: "Single mark",
+    beforeAlt: "Sample illustration of a mug, without a watermark.",
+    afterAlt: "The same mug illustration with one watermark in the bottom right.",
+    caption: "One mark, bottom right",
   },
   {
     before: artworkBase,
     after: artworkHoneycomb,
     label: "Honeycomb",
-    caption: "Full Coverage \u2014 Honeycomb",
+    beforeAlt: "Sample illustration of overlapping circles, without a watermark.",
+    afterAlt: "The same circle illustration with a honeycomb SAMPLE TEXT watermark.",
+    caption: "Repeated in a honeycomb",
   },
 ] as const
 
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
-    setReduced(mq.matches)
-    const handler = () => setReduced(mq.matches)
-    mq.addEventListener("change", handler)
-    return () => mq.removeEventListener("change", handler)
-  }, [])
-  return reduced
+function Frame({
+  src,
+  alt,
+  label,
+  detail,
+}: {
+  src: string
+  alt: string
+  label: string
+  detail?: string
+}) {
+  return (
+    <figure className="min-w-0">
+      <div className="relative overflow-hidden rounded-2xl border border-black/10 bg-[var(--fs-cream-deep)] shadow-[0_18px_36px_-26px_rgba(60,40,20,0.55)]">
+        <img src={src} alt={alt} className="aspect-square w-full object-cover" />
+        <figcaption className="absolute top-3 left-3 rounded-full border border-black/10 bg-white px-3 py-1.5 text-sm shadow-[0_8px_16px_-12px_rgba(40,30,20,0.7)]">
+          <span className="font-medium text-[var(--fs-ink)]">{label}</span>
+          {detail ? <span className="fs-text-soft"> · {detail}</span> : null}
+        </figcaption>
+      </div>
+    </figure>
+  )
 }
 
 export function WatermarkShowcase() {
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true })
-  const [selected, setSelected] = useState(0)
-  const [revealed, setRevealed] = useState(false)
-  const reducedMotion = useReducedMotion()
-
-  const onSelect = useCallback(() => {
-    if (!emblaApi) return
-    setSelected(emblaApi.selectedScrollSnap())
-    setRevealed(false)
-  }, [emblaApi])
-
-  useEffect(() => {
-    if (!emblaApi) return
-    emblaApi.on("select", onSelect)
-    onSelect()
-    return () => {
-      emblaApi.off("select", onSelect)
-    }
-  }, [emblaApi, onSelect])
-
-  // Autoplay: advance every 3.4s, reveal the watermark partway through each
-  // slide so the transformation (blank -> protected) is visible, not just a
-  // static image swap. Fully disabled under prefers-reduced-motion.
-  useEffect(() => {
-    if (!emblaApi || reducedMotion) return
-    const revealTimer = setTimeout(() => setRevealed(true), 900)
-    const advanceTimer = setInterval(() => emblaApi.scrollNext(), 3400)
-    return () => {
-      clearTimeout(revealTimer)
-      clearInterval(advanceTimer)
-    }
-  }, [emblaApi, selected, reducedMotion])
+  const [index, setIndex] = useState(0)
+  const [showAfter, setShowAfter] = useState(true)
+  const slide = SLIDES[index]
 
   return (
-    <div className="relative">
-      <div
-        className="overflow-hidden rounded-2xl border border-black/5 shadow-[0_30px_60px_-30px_rgba(43,48,58,0.35)]"
-        ref={emblaRef}
-      >
-        <div className="flex">
-          {SLIDES.map((slide, i) => (
-            <div key={slide.label} className="relative min-w-0 flex-[0_0_100%]">
-              {/* Reserve a fixed aspect ratio so nothing shifts while loading */}
-              <div className="relative aspect-square w-full bg-[var(--fs-cream-deep)]">
-                <img
-                  src={slide.before}
-                  alt=""
-                  aria-hidden="true"
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-                <img
-                  src={slide.after}
-                  alt={`Example image with a ForgeStamp ${slide.label} watermark applied`}
-                  className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out"
-                  style={{ opacity: reducedMotion || (i === selected && revealed) ? 1 : i === selected ? 0 : 1 }}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3 bg-white/95 px-4 py-3 backdrop-blur-sm">
-                <span className="flex items-center gap-1.5 text-xs font-semibold fs-text-emerald">
-                  <ShieldCheck className="size-3.5" />
-                  {slide.caption}
-                </span>
-                <span className="rounded-full bg-[var(--fs-cream-deep)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--fs-ink)]/70">
-                  {i + 1} / {SLIDES.length}
-                </span>
-              </div>
-            </div>
-          ))}
+    <div>
+      <div className="md:hidden">
+        <Frame
+          src={showAfter ? slide.after : slide.before}
+          alt={showAfter ? slide.afterAlt : slide.beforeAlt}
+          label={showAfter ? "After" : "Before"}
+          detail={showAfter ? slide.caption : "No watermark"}
+        />
+        <div
+          role="group"
+          aria-label="Show the image with or without a watermark"
+          className="mt-3 grid grid-cols-2 gap-2"
+        >
+          <button
+            type="button"
+            aria-pressed={!showAfter}
+            onClick={() => setShowAfter(false)}
+            className={cn(
+              "min-h-11 rounded-lg border text-sm font-medium",
+              !showAfter
+                ? "border-[var(--fs-orange)] bg-[var(--fs-orange)] text-[var(--fs-ink)]"
+                : "border-black/10 bg-white/70 fs-text-soft"
+            )}
+          >
+            Before
+          </button>
+          <button
+            type="button"
+            aria-pressed={showAfter}
+            onClick={() => setShowAfter(true)}
+            className={cn(
+              "min-h-11 rounded-lg border text-sm font-medium",
+              showAfter
+                ? "border-[var(--fs-orange)] bg-[var(--fs-orange)] text-[var(--fs-ink)]"
+                : "border-black/10 bg-white/70 fs-text-soft"
+            )}
+          >
+            After
+          </button>
         </div>
       </div>
 
-      <div className="mt-3 flex justify-center gap-1.5" role="tablist" aria-label="Showcase slides">
-        {SLIDES.map((slide, i) => (
+      <div className="hidden gap-5 md:grid md:grid-cols-2">
+        <Frame src={slide.before} alt={slide.beforeAlt} label="Before" detail="No watermark" />
+        <Frame src={slide.after} alt={slide.afterAlt} label="After" detail={slide.caption} />
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Choose an example">
+        {SLIDES.map((item, i) => (
           <button
-            key={slide.label}
+            key={item.label}
             type="button"
             role="tab"
-            aria-selected={i === selected}
-            aria-label={`Show ${slide.label} example`}
-            onClick={() => emblaApi?.scrollTo(i)}
-            className={`h-1.5 rounded-full transition-all ${
-              i === selected ? "w-6 bg-[var(--fs-orange)]" : "w-1.5 bg-[var(--fs-ink)]/15"
-            }`}
-          />
+            aria-selected={i === index}
+            onClick={() => setIndex(i)}
+            className={cn(
+              "min-h-11 rounded-full border px-4 text-sm font-medium",
+              i === index
+                ? "border-[var(--fs-orange)] bg-[var(--fs-orange)] text-[var(--fs-ink)]"
+                : "border-[color-mix(in_oklch,var(--fs-orange)_25%,white)] bg-white/80 fs-text-soft hover:bg-white"
+            )}
+          >
+            {item.label}
+          </button>
         ))}
       </div>
     </div>
