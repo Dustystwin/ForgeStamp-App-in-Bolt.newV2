@@ -2,8 +2,13 @@ import { cn } from "@/lib/utils"
 
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <span className={cn("fs-display text-[1.35rem] font-medium leading-none tracking-tight text-[var(--fs-ink)]", className)}>
-      Forge<span className="text-[var(--fs-orange-deep)]">Stamp</span>
+    <span
+      className={cn(
+        "fs-wordmark fs-display inline-block text-[1.4rem] font-semibold leading-none tracking-[-0.03em]",
+        className
+      )}
+    >
+      ForgeStamp
     </span>
   )
 }

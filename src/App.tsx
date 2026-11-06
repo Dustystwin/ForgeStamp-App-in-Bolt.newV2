@@ -2,7 +2,6 @@ import { useState, createContext, useContext, useCallback } from "react"
 import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
 import { Hero } from "@/components/landing/Hero"
-import { PatternShowcase } from "@/components/landing/PatternShowcase"
 import { Workflow } from "@/components/landing/Workflow"
 import { Pricing } from "@/components/landing/Pricing"
 import { FAQ } from "@/components/landing/FAQ"
@@ -122,7 +121,6 @@ function AppInner() {
         <Header />
         <main>
           <Hero />
-          <PatternShowcase />
           <Workflow />
           <Pricing />
           <FAQ />

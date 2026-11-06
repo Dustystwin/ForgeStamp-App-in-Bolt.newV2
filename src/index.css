@@ -186,6 +186,7 @@
 
   background: var(--fs-cream);
   color: var(--fs-ink);
+  caret-color: var(--fs-orange-deep);
   font-family: "Source Sans 3", "Segoe UI", sans-serif;
   text-rendering: optimizeLegibility;
 }
@@ -207,6 +208,7 @@ html.dark .fs-landing {
 .fs-display {
   font-family: "Newsreader", Georgia, "Times New Roman", serif;
   font-optical-sizing: auto;
+  text-wrap: balance;
 }
 
 .fs-text-soft {
@@ -221,6 +223,10 @@ html.dark .fs-landing {
 .fs-landing ::selection {
   background: color-mix(in oklch, var(--fs-orange) 28%, white);
   color: var(--fs-ink);
+}
+
+.fs-landing a {
+  text-underline-offset: 0.18em;
 }
 
 .fs-landing button:focus-visible,
@@ -239,6 +245,35 @@ html.dark .fs-landing {
 .fs-gradient-sunrise {
   background: linear-gradient(135deg, var(--fs-orange) 0%, var(--fs-coral) 45%, var(--fs-amber) 100%);
 }
+/* Brand stripe: orange, a warm cream highlight, then emerald. */
+.fs-gradient-brand {
+  background: linear-gradient(
+    90deg,
+    oklch(0.58 0.17 42) 0%,
+    oklch(0.78 0.15 75) 30%,
+    oklch(0.97 0.02 95) 46%,
+    oklch(0.62 0.14 163) 68%,
+    oklch(0.42 0.11 163) 100%
+  );
+}
+/* Wordmark only. The brief asks for this color shift; headlines stay solid ink. */
+.fs-wordmark {
+  background-image: linear-gradient(
+    100deg,
+    oklch(0.46 0.15 40) 0%,
+    oklch(0.58 0.17 48) 16%,
+    oklch(0.70 0.15 72) 32%,
+    oklch(0.86 0.06 88) 44%,
+    oklch(0.62 0.12 145) 56%,
+    oklch(0.48 0.12 163) 76%,
+    oklch(0.38 0.10 163) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0.6px 0 rgba(62, 36, 14, 0.45));
+}
 .fs-gradient-aqua {
   background: linear-gradient(135deg, var(--fs-aqua) 0%, var(--fs-mint) 100%);
 }
@@ -253,10 +288,31 @@ html.dark .fs-landing {
 
 .fs-hero-wash {
   background:
+    radial-gradient(ellipse 46% 38% at 96% 6%, color-mix(in oklch, var(--fs-emerald) 20%, transparent), transparent 68%),
+    radial-gradient(ellipse 34% 26% at 6% 92%, color-mix(in oklch, var(--fs-emerald) 14%, transparent), transparent 70%),
     linear-gradient(180deg,
-      color-mix(in oklch, var(--fs-amber) 36%, var(--fs-cream)) 0%,
-      color-mix(in oklch, var(--fs-orange) 14%, var(--fs-cream)) 32%,
-      var(--fs-cream) 62%);
+      color-mix(in oklch, var(--fs-amber) 34%, var(--fs-cream)) 0%,
+      color-mix(in oklch, var(--fs-orange) 10%, var(--fs-cream)) 26%,
+      color-mix(in oklch, var(--fs-emerald) 8%, var(--fs-cream)) 64%,
+      var(--fs-cream) 100%);
+}
+
+.fs-step-wash {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--fs-emerald) 11%, var(--fs-cream)) 0%,
+    color-mix(in oklch, var(--fs-emerald) 4%, var(--fs-cream)) 55%,
+    var(--fs-cream) 100%
+  );
+}
+
+.fs-close-wash {
+  background: linear-gradient(
+    180deg,
+    var(--fs-cream) 0%,
+    color-mix(in oklch, var(--fs-emerald) 10%, var(--fs-cream)) 48%,
+    color-mix(in oklch, var(--fs-amber) 20%, var(--fs-cream)) 100%
+  );
 }
 
 .fs-spark-card {
@@ -276,12 +332,50 @@ html.dark .fs-landing {
   height: 10px;
   background-image: repeating-linear-gradient(
     -35deg,
-    color-mix(in oklch, var(--fs-orange), transparent 55%) 0px,
-    color-mix(in oklch, var(--fs-orange), transparent 55%) 2px,
+    color-mix(in oklch, var(--fs-orange), transparent 40%) 0px,
+    color-mix(in oklch, var(--fs-orange), transparent 40%) 2px,
     transparent 2px,
-    transparent 14px
+    transparent 12px,
+    color-mix(in oklch, var(--fs-emerald), transparent 28%) 12px,
+    color-mix(in oklch, var(--fs-emerald), transparent 28%) 14px,
+    transparent 14px,
+    transparent 26px
   );
-  opacity: 0.5;
+  opacity: 0.7;
+}
+
+@keyframes fs-prints-settle {
+  from {
+    filter: blur(5px);
+    transform: translateY(8px);
+  }
+  to {
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.fs-prints {
+  animation: fs-prints-settle 780ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+body:has(.fs-landing) {
+  scrollbar-color: oklch(0.62 0.08 62) oklch(0.97 0.008 90);
+}
+
+body:has(.fs-landing)::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+body:has(.fs-landing)::-webkit-scrollbar-track {
+  background: oklch(0.97 0.008 90);
+}
+
+body:has(.fs-landing)::-webkit-scrollbar-thumb {
+  background: oklch(0.62 0.09 62);
+  border: 3px solid oklch(0.97 0.008 90);
+  border-radius: 999px;
 }
 
 @media (prefers-reduced-motion: reduce) {

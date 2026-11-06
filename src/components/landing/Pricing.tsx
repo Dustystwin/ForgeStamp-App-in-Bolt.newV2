@@ -12,7 +12,7 @@ export function Pricing() {
   const [billing, setBilling] = useState<Billing>("monthly")
 
   return (
-    <section id="pricing" className="scroll-mt-20 bg-[var(--fs-cream-deep)] px-4 py-20 md:px-6 md:py-28">
+    <section id="pricing" className="scroll-mt-20 bg-[var(--fs-cream-deep)] px-4 py-14 md:px-6 md:py-20">
       <div className="mx-auto max-w-6xl">
         <h2 className="fs-display text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--fs-ink)] md:text-4xl">
           Plans
@@ -99,7 +99,7 @@ export function Pricing() {
                   {plan.batch && (
                     <div className={cn("rounded-xl p-3", isSpark ? "bg-white/75" : "bg-[var(--fs-cream-deep)]")}>
                       <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--fs-ink)]">
-                        <Layers className="size-4 fs-text-soft" aria-hidden="true" />
+                        <Layers className="size-4 text-[var(--fs-emerald-deep)]" aria-hidden="true" />
                         {plan.batch.title}
                       </p>
                       <ul className="mt-2 space-y-1">

@@ -14,7 +14,7 @@ export function Footer() {
 
   return (
     <footer className="bg-[var(--fs-cream)]">
-      <div className="h-1 fs-gradient-sunrise" aria-hidden="true" />
+      <div className="h-1.5 fs-gradient-brand" aria-hidden="true" />
       <div className="mx-auto max-w-7xl px-4 py-12 md:px-6">
         <div className="grid gap-8 md:grid-cols-3">
           <div>
