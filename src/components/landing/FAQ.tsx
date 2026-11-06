@@ -13,7 +13,15 @@ const FAQS = [
   },
   {
     q: "What's the difference between Single Placement and Full Coverage?",
-    a: "Single Placement puts one watermark exactly where you choose. Full Coverage repeats your watermark across the entire image using one of ForgeStamp's patterns, making it harder to crop out.",
+    a: "Single Placement puts one watermark exactly where you choose. Full Coverage repeats it across the image using one of ForgeStamp's patterns, making it harder to crop out. Both work for text, logo, and QR.",
+  },
+  {
+    q: "Can I add my logo or a QR code?",
+    a: "Yes. In the editor, switch the watermark to Text, Logo, or QR. Logo uses a PNG, JPG, or WebP you upload. QR turns an http or https link into a code that can be scanned.",
+  },
+  {
+    q: "Can I watermark more than one photo?",
+    a: "Free exports one photo at a time. A Pro account can export up to 25 photos together as a ZIP, using the same text, logo, or QR on each. Pro is turned on for testing. Spark and Forge are not for sale, and unlimited batches are not available yet.",
   },
 ] as const
 

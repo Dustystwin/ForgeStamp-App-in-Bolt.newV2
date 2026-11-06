@@ -23,8 +23,8 @@ export function ProductExperience() {
           </h2>
           <p className="mt-3 text-base leading-relaxed text-[var(--fs-ink)]/70 md:text-lg">
             Every detail is adjustable and every change shows up instantly
-            &mdash; text, font, size, color, opacity, rotation, placement,
-            and pattern.
+            &mdash; text, your logo, a QR code, size, color, opacity, rotation,
+            placement, and pattern.
           </p>
         </div>
 

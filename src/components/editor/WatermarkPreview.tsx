@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useLayoutEffect } from "react"
+import { useRef, useState, useEffect, useLayoutEffect, useMemo } from "react"
 import type { EditorState } from "@/lib/editor-types"
 import { ImageUploader } from "./ImageUploader"
 import {
@@ -11,13 +11,20 @@ import {
   usesShapeGeometry,
   getPatternTextAngle,
   drawStamp,
+  drawImageWatermark,
+  getStampAnchor,
+  stampPixelSize,
 } from "@/lib/watermark-utils"
+import { renderQrDataUrl } from "@/lib/qr-watermark"
 import { cn } from "@/lib/utils"
 import { ImageIcon } from "lucide-react"
 
 interface WatermarkPreviewProps {
   state: EditorState
   onImageSelect: (file: File) => void
+  onFiles?: (files: File[]) => void
+  multiple?: boolean
+  uploadDetail?: string
   // Increment this timestamp to trigger a manual canvas clear without redrawing
   coverageClearedAt?: number
 }
@@ -25,10 +32,14 @@ interface WatermarkPreviewProps {
 export function WatermarkPreview({
   state,
   onImageSelect,
+  onFiles,
+  multiple = false,
+  uploadDetail,
   coverageClearedAt = 0,
 }: WatermarkPreviewProps) {
   const {
     imagePreviewUrl,
+    watermarkMode,
     watermarkText,
     fontFamily,
     fontSize,
@@ -41,14 +52,45 @@ export function WatermarkPreview({
     pattern,
     density,
     curveOrientation,
+    stampSize,
+    qrUrl,
+    qrColor,
+    logoPreviewUrl,
   } = state
 
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [containerWidth, setContainerWidth] = useState(600)
   const [containerHeight, setContainerHeight] = useState(400)
+  const [stampSource, setStampSource] = useState<{ src: string; image: HTMLImageElement } | null>(null)
   // Tracks the last clearAt value we have acted on
   const lastClearedAtRef = useRef(0)
+
+  const qrDataUrl = useMemo(() => {
+    if (watermarkMode !== "qr") return null
+    return renderQrDataUrl(qrUrl, qrColor)
+  }, [watermarkMode, qrUrl, qrColor])
+
+  const stampSrc = watermarkMode === "logo" ? logoPreviewUrl : watermarkMode === "qr" ? qrDataUrl : null
+
+  useEffect(() => {
+    if (!stampSrc) {
+      setStampSource(null)
+      return
+    }
+    let cancelled = false
+    const img = new Image()
+    img.onload = () => {
+      if (!cancelled) setStampSource({ src: stampSrc, image: img })
+    }
+    img.onerror = () => {
+      if (!cancelled) setStampSource(null)
+    }
+    img.src = stampSrc
+    return () => {
+      cancelled = true
+    }
+  }, [stampSrc])
 
   // Track container size via ResizeObserver. Guarded so we only update state
   // when the size actually changed (by more than a fraction of a pixel) —
@@ -122,6 +164,24 @@ export function WatermarkPreview({
 
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
+      if (watermarkMode !== "text") {
+        if (stampSource && stampSrc && stampSource.src === stampSrc) {
+          drawImageWatermark(ctx, stampSource.image, {
+            stampSize,
+            opacity,
+            rotation,
+            placement,
+            coverageMode: "full",
+            pattern,
+            density,
+            curveOrientation,
+            imageWidth: containerWidth,
+            imageHeight: containerHeight,
+          })
+        }
+        return
+      }
+
       // Match export scaling: geometric mean of dimensions, so ultra-wide or
       // ultra-tall images get proportionate text instead of oversized rows.
       const sizeScale = Math.sqrt(containerWidth * containerHeight) / 800
@@ -164,6 +224,8 @@ export function WatermarkPreview({
 
     draw()
 
+    if (watermarkMode !== "text") return
+
     // Web fonts load lazily — if the selected font wasn't downloaded yet, the draw
     // above used a fallback font. Request it and redraw once it arrives so the
     // pattern (and its text-width-based spacing) reflects the real font.
@@ -201,11 +263,30 @@ export function WatermarkPreview({
     pattern,
     watermarkText,
     curveOrientation,
+    watermarkMode,
+    stampSize,
+    stampSource,
+    stampSrc,
+    placement,
   ])
 
   const scaledFontSize = Math.max(12, Math.round(fontSize * (Math.sqrt(containerWidth * containerHeight) / 800)))
   const positionStyle = getPlacementPositionStyle(placement)
   const transformStyle = getWatermarkTransform(placement, rotation, textDirection)
+  const stampPx = stampPixelSize(containerWidth, containerHeight, stampSize)
+  const stampAnchor = getStampAnchor(placement, containerWidth, containerHeight)
+  const singleImageStyle: React.CSSProperties = {
+    position: "absolute",
+    left: `${(stampAnchor.x / Math.max(containerWidth, 1)) * 100}%`,
+    top: `${(stampAnchor.y / Math.max(containerHeight, 1)) * 100}%`,
+    width: stampPx,
+    height: stampPx,
+    objectFit: "contain",
+    opacity: opacity / 100,
+    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+    pointerEvents: "none",
+    userSelect: "none",
+  }
 
   const stackedSingle = isStackedDirection(textDirection)
   const stackedSingleUpward = isStackedUpward(textDirection)
@@ -283,7 +364,7 @@ export function WatermarkPreview({
               coverageMode !== "full" && "hidden"
             )}
           />
-          {coverageMode === "single" && (
+          {coverageMode === "single" && watermarkMode === "text" && (
             <div style={singleWatermarkStyle}>
               <span className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
                 {stackedSingleUpward
@@ -292,13 +373,44 @@ export function WatermarkPreview({
               </span>
             </div>
           )}
+          {coverageMode === "single" && watermarkMode === "logo" && logoPreviewUrl && (
+            <img src={logoPreviewUrl} alt="" style={singleImageStyle} draggable={false} />
+          )}
+          {coverageMode === "single" && watermarkMode === "qr" && qrDataUrl && (
+            <img
+              src={qrDataUrl}
+              alt=""
+              style={singleImageStyle}
+              draggable={false}
+            />
+          )}
+          {imagePreviewUrl && watermarkMode === "logo" && !logoPreviewUrl && (
+            <p className="absolute inset-x-0 bottom-2 text-center">
+              <span className="rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium text-foreground/80 shadow-sm">
+                Upload a logo to stamp it here
+              </span>
+            </p>
+          )}
+          {imagePreviewUrl && watermarkMode === "qr" && !qrDataUrl && (
+            <p className="absolute inset-x-0 bottom-2 text-center">
+              <span className="rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium text-foreground/80 shadow-sm">
+                {qrUrl.trim() ? "Check the link to stamp a QR code" : "Enter a link to stamp a QR code"}
+              </span>
+            </p>
+          )}
         </div>
 
         {/* Upload prompt — shown when no image */}
         {!imagePreviewUrl && (
           <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-6 py-8">
             <div className="w-full max-w-sm rounded-xl border-2 border-dashed border-border/50 bg-background/60 backdrop-blur-sm shadow-sm">
-              <ImageUploader onImageSelect={onImageSelect} hasImage={false} />
+              <ImageUploader
+                onImageSelect={onImageSelect}
+                onFiles={onFiles}
+                hasImage={false}
+                multiple={multiple}
+                detail={uploadDetail}
+              />
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground/70">
               <ImageIcon className="size-3.5" />

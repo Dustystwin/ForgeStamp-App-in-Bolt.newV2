@@ -31,8 +31,8 @@ export const LEGAL_PAGES = {
     title: "Help",
     paragraphs: [
       "This is a draft placeholder. A full help center is not written yet.",
-      "What works today: upload an image, add a text watermark, choose a standard font and color, place it, use a pattern, watch the live preview, and export a PNG. You can try this without an account. A free account can save exports for 30 days.",
-      "What is not available yet: logo watermarks, batch processing, JPG or WebP export, and saved presets. Spark and Forge cannot be purchased.",
+      "What works today: add a text, logo, or QR watermark, place it, use a pattern, watch the live preview, and export a PNG. Free exports one photo at a time. A Pro account can export up to 25 photos at once as a ZIP, with the same watermark on each. Pro is turned on by an admin for testing. You can try the editor without an account. A free account can save exports for 30 days.",
+      "What is not available yet: unlimited batches, a monthly batch allowance, JPG or WebP export, and saved presets. Spark and Forge cannot be purchased.",
     ],
   },
 } as const

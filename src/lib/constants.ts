@@ -37,7 +37,7 @@ export const WORKFLOW_STEPS = [
     number: 2,
     title: "Shape Your Watermark",
     description:
-      "Customize text, font, size, opacity, placement, spacing, color, and rotation until it looks exactly how you want.",
+      "Customize text, a logo, or a QR code — plus size, opacity, placement, spacing, color, and rotation — until it looks exactly how you want.",
     icon: Paintbrush,
   },
   {
@@ -137,9 +137,10 @@ export const WHY_REASONS = [
 
 // PRICING PLANS — preview only
 // ---------------------------------------------------------------------------
-// Free is the only plan someone can use today.
-// Spark and Forge stay unavailable. Prices on those cards are planned prices,
-// not something the app charges. There is no checkout.
+// Free is the only plan someone can buy today. Spark and Forge stay unavailable.
+// Prices on those cards are planned prices, not something the app charges.
+// There is no checkout. A Pro account, which an admin can turn on for testing,
+// can export a batch of 25 photos. Unlimited batch is not built.
 export const PRICING_PLANS = [
   {
     name: "Free",
@@ -153,12 +154,15 @@ export const PRICING_PLANS = [
     featuresIntro: null as string | null,
     features: [
       "Text watermarking",
+      "Logo watermark",
+      "QR code watermark",
       "Standard fonts",
       "Standard colors",
       "All watermark placements",
       "All watermark patterns",
       "Opacity, size, and rotation",
       "PNG export",
+      "One photo per export",
       "Live watermark preview",
     ],
     batch: null as { title: string; items: string[] } | null,
@@ -186,13 +190,15 @@ export const PRICING_PLANS = [
       "High-resolution exports (coming soon)",
       "JPG export (coming soon)",
       "WebP export (coming soon)",
-      "Logo watermarking (coming soon)",
       "Save watermark presets (coming soon)",
       "Expanded export history (coming soon)",
     ],
     batch: {
-      title: "Batch processing (coming soon)",
-      items: ["Up to 25 images per batch", "Up to 500 batch-processed images per month"],
+      title: "Batch processing",
+      items: [
+        "Up to 25 photos in one export",
+        "Monthly batch allowance (coming soon)",
+      ],
     } as { title: string; items: string[] } | null,
     support: {
       title: "Priority Email Support",

@@ -2,7 +2,7 @@ import { Upload, Paintbrush, Download, ArrowRight } from "lucide-react"
 
 const STEPS = [
   { title: "Upload", description: "Bring in the image you want to protect.", icon: Upload, tint: "var(--fs-orange)" },
-  { title: "Customize", description: "Shape the text, style, and pattern until it's right.", icon: Paintbrush, tint: "var(--fs-aqua)" },
+  { title: "Customize", description: "Shape text, a logo, or a QR code until it's right.", icon: Paintbrush, tint: "var(--fs-aqua)" },
   { title: "Export", description: "Download a clean, protected copy in seconds.", icon: Download, tint: "var(--fs-emerald)" },
 ] as const
 

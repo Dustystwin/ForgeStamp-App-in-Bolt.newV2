@@ -28,8 +28,8 @@ export function Hero() {
 
           <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--fs-ink)]/70 md:text-lg">
             ForgeStamp turns any image into a protected one in seconds &mdash;
-            custom text, fonts, colors, and patterns that repeat across the
-            whole frame if you want them to.
+            custom text, your own logo, or a QR code, with size, color, and
+            patterns that can repeat across the whole frame.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">

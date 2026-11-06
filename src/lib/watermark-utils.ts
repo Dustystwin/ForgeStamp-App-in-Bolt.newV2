@@ -1,4 +1,13 @@
-import type { CurveOrientation, Placement, TextDirection, Pattern } from "@/lib/editor-types"
+import {
+  DEFAULT_EDITOR_STATE,
+  type CoverageMode,
+  type CurveOrientation,
+  type Pattern,
+  type Placement,
+  type TextDirection,
+  type WatermarkMode,
+} from "@/lib/editor-types"
+import { renderQrDataUrl } from "@/lib/qr-watermark"
 
 // Returns the built-in base text angle for a given full-coverage pattern.
 // This ensures each pattern looks like its intended layout at rotation=0,
@@ -533,7 +542,134 @@ export function getPatternPoints(
   return points
 }
 
+export interface ImageStampOptions {
+  stampSize: number
+  opacity: number
+  rotation: number
+  placement: Placement
+  coverageMode: CoverageMode
+  pattern: Pattern
+  density: number
+  curveOrientation: CurveOrientation
+  imageWidth: number
+  imageHeight: number
+}
+
+// Shared with export. Pad is 8% of the photo width on both axes, matching
+// the text export anchors, so a logo or QR lands on the same point in the
+// preview and in the downloaded PNG.
+export function getStampAnchor(
+  placement: Placement,
+  width: number,
+  height: number
+): { x: number; y: number } {
+  const safeW = Math.max(width, 1)
+  const safeH = Math.max(height, 1)
+  const pad = safeW * 0.08
+  switch (placement) {
+    case "top-left": return { x: pad, y: pad }
+    case "top-center": return { x: safeW / 2, y: pad }
+    case "top-right": return { x: safeW - pad, y: pad }
+    case "middle-left": return { x: pad, y: safeH / 2 }
+    case "center": return { x: safeW / 2, y: safeH / 2 }
+    case "middle-right": return { x: safeW - pad, y: safeH / 2 }
+    case "bottom-left": return { x: pad, y: safeH - pad }
+    case "bottom-center": return { x: safeW / 2, y: safeH - pad }
+    case "bottom-right": return { x: safeW - pad, y: safeH - pad }
+  }
+}
+
+export function stampPixelSize(width: number, height: number, stampSize: number): number {
+  const safeW = Math.max(width, 1)
+  const safeH = Math.max(height, 1)
+  const sizeScale = Math.sqrt(safeW * safeH) / 800
+  const raw = Math.max(12, Math.round(stampSize * sizeScale))
+  const cap = Math.max(12, Math.min(safeW, safeH) * 0.72)
+  return Math.min(raw, cap)
+}
+
+export function loadHtmlImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error("Could not load that logo. Try a different file."))
+    img.src = src
+  })
+}
+
+function sourceSize(source: CanvasImageSource): { w: number; h: number } {
+  if (source instanceof HTMLImageElement) {
+    return {
+      w: source.naturalWidth || source.width,
+      h: source.naturalHeight || source.height,
+    }
+  }
+  if (source instanceof HTMLCanvasElement) {
+    return { w: source.width, h: source.height }
+  }
+  return { w: 1, h: 1 }
+}
+
+// Stamps an image (logo or QR) with the same single-point and full-coverage
+// placements the text watermark uses. Curved patterns place the stamp along
+// the path instead of bending the picture, so a QR code stays a real code.
+export function drawImageWatermark(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  opts: ImageStampOptions
+): void {
+  const {
+    stampSize, opacity, rotation, placement, coverageMode, pattern, density,
+    curveOrientation, imageWidth, imageHeight,
+  } = opts
+  const { w: srcW, h: srcH } = sourceSize(source)
+  if (srcW < 1 || srcH < 1) return
+
+  const sizeScale = Math.sqrt(Math.max(imageWidth, 1) * Math.max(imageHeight, 1)) / 800
+  const box = stampPixelSize(imageWidth, imageHeight, stampSize)
+  const patternAngle = coverageMode === "full" ? getPatternTextAngle(pattern) : 0
+  const totalRotation = rotation + patternAngle
+
+  const paint = (x: number, y: number, angle: number, fontScale = 1) => {
+    const fit = (box / Math.max(srcW, srcH)) * fontScale
+    const dw = srcW * fit
+    const dh = srcH * fit
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.rotate((angle * Math.PI) / 180)
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = "high"
+    ctx.drawImage(source, -dw / 2, -dh / 2, dw, dh)
+    ctx.restore()
+  }
+
+  ctx.save()
+  ctx.globalAlpha = opacity / 100
+
+  if (coverageMode === "full") {
+    const points = getPatternPoints(
+      imageWidth,
+      imageHeight,
+      pattern,
+      density * sizeScale,
+      box,
+      box,
+      curveOrientation,
+      false
+    )
+    for (const pt of points) {
+      paint(pt.x, pt.y, totalRotation + pt.angle, pt.fontScale ?? 1)
+    }
+  } else {
+    const anchor = getStampAnchor(placement, imageWidth, imageHeight)
+    paint(anchor.x, anchor.y, totalRotation, 1)
+  }
+
+  ctx.restore()
+}
+
 export interface CanvasWatermarkOptions {
+  mode?: WatermarkMode
   text: string
   fontFamily: string
   fontSize: number
@@ -546,8 +682,24 @@ export interface CanvasWatermarkOptions {
   pattern: Pattern
   density: number
   curveOrientation?: CurveOrientation
+  stampSize?: number
+  logoUrl?: string | null
+  qrUrl?: string | null
   imageWidth: number
   imageHeight: number
+}
+
+async function loadStampSource(opts: CanvasWatermarkOptions): Promise<HTMLImageElement | null> {
+  if (opts.mode === "logo") {
+    if (!opts.logoUrl) return null
+    return loadHtmlImage(opts.logoUrl)
+  }
+  if (opts.mode === "qr") {
+    const dataUrl = renderQrDataUrl(opts.qrUrl ?? "", opts.color)
+    if (!dataUrl) return null
+    return loadHtmlImage(dataUrl)
+  }
+  return null
 }
 
 export async function drawWatermarkOnCanvas(
@@ -558,12 +710,32 @@ export async function drawWatermarkOnCanvas(
   const { text, fontFamily, fontSize, color, opacity, rotation, placement,
     textDirection, coverageMode, pattern, density, imageWidth, imageHeight } = opts
   const curveOrientation = opts.curveOrientation ?? "readable"
+  const mode = opts.mode ?? "text"
 
   canvas.width = imageWidth
   canvas.height = imageHeight
 
   const ctx = canvas.getContext("2d")!
   ctx.drawImage(image, 0, 0, imageWidth, imageHeight)
+
+  if (mode === "logo" || mode === "qr") {
+    const source = await loadStampSource(opts)
+    if (source) {
+      drawImageWatermark(ctx, source, {
+        stampSize: opts.stampSize ?? DEFAULT_EDITOR_STATE.stampSize,
+        opacity,
+        rotation,
+        placement,
+        coverageMode,
+        pattern,
+        density,
+        curveOrientation,
+        imageWidth,
+        imageHeight,
+      })
+    }
+    return
+  }
 
   // Scale by the geometric mean of the dimensions rather than width alone, so
   // ultra-wide or ultra-tall images get proportionate text instead of oversized rows.

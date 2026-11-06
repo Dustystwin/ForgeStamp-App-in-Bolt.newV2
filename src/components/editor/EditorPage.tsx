@@ -8,7 +8,11 @@ import { WatermarkControls } from "./WatermarkControls"
 import { ImageUploader } from "./ImageUploader"
 import { FinishedImages, type FinishedImage } from "./FinishedImages"
 import { ScanResults } from "./ScanResults"
-import { exportToPng } from "@/lib/watermark-utils"
+import { exportToPng, type CanvasWatermarkOptions } from "@/lib/watermark-utils"
+import { inspectQrUrl } from "@/lib/qr-watermark"
+import { dataUrlToBytes, downloadBlob, downloadUrl, stampedFileName, zipPngs } from "@/lib/batch-export"
+import { batchLimitForTier, FREE_BATCH_LIMIT } from "@/lib/builder-mode"
+import { BatchStrip } from "./BatchStrip"
 import { useAuth } from "@/context/AuthContext"
 import { useNavigation } from "@/App"
 import { supabase } from "@/lib/supabase"
@@ -22,7 +26,13 @@ interface EditorPageProps {
 export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
   const {
     state,
+    photos,
+    activePhotoId,
+    addPhotos,
+    selectPhoto,
+    removePhoto,
     setImage,
+    setWatermarkMode,
     setWatermarkText,
     setFontFamily,
     setFontSize,
@@ -35,15 +45,22 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     setPattern,
     setDensity,
     setCurveOrientation,
+    setStampSize,
+    setQrUrl,
+    setQrColor,
+    setLogo,
+    clearLogo,
     reset,
     clearError,
   } = useEditorState(initialData)
 
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
+  const batchLimit = batchLimitForTier(profile?.tier)
   const { openAuthModal } = useNavigation()
 
   const [finishedImages, setFinishedImages] = useState<FinishedImage[]>([])
   const [isExporting, setIsExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [coverageClearedAt, setCoverageClearedAt] = useState(0)
 
@@ -52,115 +69,170 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
   }, [])
 
   const saveToMyImages = useCallback(async (
+    file: File,
     dataUrl: string,
     filename: string
   ) => {
-    if (!session?.user || !state.image) return
+    if (!session?.user) return
     const userId = session.user.id
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
-    setIsSaving(true)
-    try {
-      // Upload original
-      const originalPath = `${userId}/originals/${id}_${state.image.name}`
-      const { error: origErr } = await supabase.storage
-        .from("watermark-images")
-        .upload(originalPath, state.image, { contentType: state.image.type })
-      if (origErr) throw new Error(`Failed to upload original: ${origErr.message}`)
+    const originalPath = `${userId}/originals/${id}_${file.name}`
+    const { error: origErr } = await supabase.storage
+      .from("watermark-images")
+      .upload(originalPath, file, { contentType: file.type || "image/png" })
+    if (origErr) throw new Error(`Failed to upload original: ${origErr.message}`)
 
-      // Convert dataUrl to blob and upload watermarked output
-      const outputBlob = await fetch(dataUrl).then((r) => r.blob())
-      const outputPath = `${userId}/outputs/${id}_${filename}`
-      const { error: outErr } = await supabase.storage
-        .from("watermark-images")
-        .upload(outputPath, outputBlob, { contentType: "image/png" })
-      if (outErr) throw new Error(`Failed to upload output: ${outErr.message}`)
+    const outputBlob = await fetch(dataUrl).then((r) => r.blob())
+    const outputPath = `${userId}/outputs/${id}_${filename}`
+    const { error: outErr } = await supabase.storage
+      .from("watermark-images")
+      .upload(outputPath, outputBlob, { contentType: "image/png" })
+    if (outErr) throw new Error(`Failed to upload output: ${outErr.message}`)
 
-      const totalSize = state.image.size + outputBlob.size
+    const totalSize = file.size + outputBlob.size
 
-      const settings = {
-        watermarkText: state.watermarkText,
-        fontFamily: state.fontFamily,
-        fontSize: state.fontSize,
-        color: state.color,
-        opacity: state.opacity,
-        rotation: state.rotation,
-        placement: state.placement,
-        textDirection: state.textDirection,
-        coverageMode: state.coverageMode,
-        pattern: state.pattern,
-        density: state.density,
-        curveOrientation: state.curveOrientation,
-      }
-
-      const { error: dbErr } = await supabase.from("images").insert({
-        user_id: userId,
-        original_path: originalPath,
-        output_path: outputPath,
-        settings,
-        filename,
-        total_size: totalSize,
-      })
-      if (dbErr) throw new Error(`Failed to save record: ${dbErr.message}`)
-
-      toast.success("Saved to My Images. Expires in 30 days.")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save image.")
-    } finally {
-      setIsSaving(false)
+    const settings = {
+      watermarkMode: state.watermarkMode,
+      watermarkText: state.watermarkText,
+      fontFamily: state.fontFamily,
+      fontSize: state.fontSize,
+      color: state.color,
+      opacity: state.opacity,
+      rotation: state.rotation,
+      placement: state.placement,
+      textDirection: state.textDirection,
+      coverageMode: state.coverageMode,
+      pattern: state.pattern,
+      density: state.density,
+      curveOrientation: state.curveOrientation,
+      stampSize: state.stampSize,
+      qrUrl: state.qrUrl,
+      qrColor: state.qrColor,
     }
+
+    const { error: dbErr } = await supabase.from("images").insert({
+      user_id: userId,
+      original_path: originalPath,
+      output_path: outputPath,
+      settings,
+      filename,
+      total_size: totalSize,
+    })
+    if (dbErr) throw new Error(`Failed to save record: ${dbErr.message}`)
   }, [session, state])
+
+  const handleAddPhotos = useCallback((files: File[]) => {
+    const result = addPhotos(files, batchLimit)
+    if (result.leftOut > 0) {
+      toast(
+        batchLimit <= FREE_BATCH_LIMIT
+          ? "Free exports one photo at a time. Batch export will be available with paid plans."
+          : `A batch stops at ${batchLimit} photos. Unlimited batches are not available yet.`
+      )
+    }
+  }, [addPhotos, batchLimit])
 
   const handleExport = useCallback(async () => {
     if (!state.image) {
       toast.error("Please upload an image before exporting.")
       return
     }
-    setIsExporting(true)
-    try {
-      const dataUrl = await exportToPng(state.image, {
-        text: state.watermarkText,
-        fontFamily: state.fontFamily,
-        fontSize: state.fontSize,
-        color: state.color,
-        opacity: state.opacity,
-        rotation: state.rotation,
-        placement: state.placement,
-        textDirection: state.textDirection,
-        coverageMode: state.coverageMode,
-        pattern: state.pattern,
-        curveOrientation: state.curveOrientation,
-        density: state.density,
-        imageWidth: 0,
-        imageHeight: 0,
-      })
+    if (state.watermarkMode === "logo" && !state.logoPreviewUrl) {
+      toast.error("Upload a logo before exporting.")
+      return
+    }
+    if (state.watermarkMode === "qr") {
+      const qr = inspectQrUrl(state.qrUrl)
+      if (qr.problem === "too-long") {
+        toast.error("That link is too long for a QR code. Try a shorter one.")
+        return
+      }
+      if (!qr.href) {
+        toast.error("Enter a full link starting with http:// or https://.")
+        return
+      }
+    }
+    const queue = photos.slice(0, batchLimit)
+    if (queue.length === 0) {
+      toast.error("Please upload an image before exporting.")
+      return
+    }
 
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const options: CanvasWatermarkOptions = {
+      mode: state.watermarkMode,
+      text: state.watermarkText,
+      fontFamily: state.fontFamily,
+      fontSize: state.fontSize,
+      opacity: state.opacity,
+      rotation: state.rotation,
+      placement: state.placement,
+      textDirection: state.textDirection,
+      coverageMode: state.coverageMode,
+      pattern: state.pattern,
+      curveOrientation: state.curveOrientation,
+      density: state.density,
+      stampSize: state.stampSize,
+      logoUrl: state.logoPreviewUrl,
+      qrUrl: state.qrUrl,
+      color: state.watermarkMode === "qr" ? state.qrColor : state.color,
+      imageWidth: 0,
+      imageHeight: 0,
+    }
+
+    setIsExporting(true)
+    setExportProgress(queue.length > 1 ? `Exporting 1 of ${queue.length}...` : "Exporting...")
+    try {
       const now = new Date()
       const pad = (n: number) => String(n).padStart(2, "0")
-      const timestamp =
+      const stamp =
         `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
         `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-      const filename = `forgestamp-export-${timestamp}.png`
 
-      // Trigger browser download
-      const link = document.createElement("a")
-      link.href = dataUrl
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      const exported: { id: string; dataUrl: string; filename: string; file: File }[] = []
+      for (let i = 0; i < queue.length; i++) {
+        setExportProgress(queue.length > 1 ? `Exporting ${i + 1} of ${queue.length}...` : "Exporting...")
+        const file = queue[i].file
+        const dataUrl = await exportToPng(file, options)
+        exported.push({
+          id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 5)}`,
+          dataUrl,
+          filename: stampedFileName(file, i, queue.length, stamp),
+          file,
+        })
+      }
+
+      if (exported.length === 1) {
+        downloadUrl(exported[0].dataUrl, exported[0].filename)
+      } else {
+        downloadBlob(
+          zipPngs(exported.map((item) => ({ name: item.filename, bytes: dataUrlToBytes(item.dataUrl) }))),
+          `forgestamp-batch-${stamp}.zip`
+        )
+      }
 
       setFinishedImages((prev) => [
-        { id, dataUrl, createdAt: now, filename },
+        ...exported.map(({ id, dataUrl, filename }) => ({ id, dataUrl, createdAt: now, filename })),
         ...prev,
       ])
 
       if (session) {
-        // Auto-save to My Images for logged-in users
-        await saveToMyImages(dataUrl, filename)
+        setIsSaving(true)
+        try {
+          for (const item of exported) {
+            await saveToMyImages(item.file, item.dataUrl, item.filename)
+          }
+          toast.success(
+            exported.length === 1
+              ? "Saved to My Images. Expires in 30 days."
+              : `Saved ${exported.length} images to My Images. Each expires in 30 days.`
+          )
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Failed to save image.")
+        } finally {
+          setIsSaving(false)
+        }
       } else {
-        // Prompt guest to sign in to save
         toast.info("Sign in to save to My Images (stored 30 days)", {
           action: {
             label: "Sign In",
@@ -173,8 +245,9 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       toast.error("Export failed. Please try again.")
     } finally {
       setIsExporting(false)
+      setExportProgress(null)
     }
-  }, [state, session, saveToMyImages, openAuthModal])
+  }, [state, photos, batchLimit, session, saveToMyImages, openAuthModal])
 
   const handleRemoveImage = useCallback((id: string) => {
     setFinishedImages((prev) => prev.filter((img) => img.id !== id))
@@ -258,7 +331,29 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
           className="flex-1 min-w-0 md:sticky md:top-16"
           aria-label="Image preview"
         >
-          <WatermarkPreview state={state} onImageSelect={setImage} coverageClearedAt={coverageClearedAt} />
+          <WatermarkPreview
+            state={state}
+            onImageSelect={setImage}
+            onFiles={handleAddPhotos}
+            multiple={batchLimit > FREE_BATCH_LIMIT}
+            uploadDetail={
+              batchLimit > FREE_BATCH_LIMIT
+                ? "or click to browse. PNG, JPG, or WebP up to 15MB each. Up to 25 photos."
+                : "or click to browse. PNG, JPG, or WebP up to 15MB. One photo on the Free plan."
+            }
+            coverageClearedAt={coverageClearedAt}
+          />
+          {photos.length > 0 && (
+            <BatchStrip
+              photos={photos}
+              activeId={activePhotoId}
+              limit={batchLimit}
+              disabled={isProcessing}
+              onSelect={selectPhoto}
+              onRemove={removePhoto}
+              onAdd={handleAddPhotos}
+            />
+          )}
           <ScanResults file={state.image} previewUrl={state.imagePreviewUrl} />
         </section>
 
@@ -268,9 +363,11 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         >
           <WatermarkControls
             state={state}
+            onModeChange={setWatermarkMode}
             onTextChange={setWatermarkText}
             onFontChange={setFontFamily}
             onFontSizeChange={setFontSize}
+            onStampSizeChange={setStampSize}
             onOpacityChange={setOpacity}
             onRotationChange={setRotation}
             onColorChange={setColor}
@@ -280,6 +377,10 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             onCurveOrientationChange={setCurveOrientation}
             onPatternChange={setPattern}
             onDensityChange={setDensity}
+            onQrUrlChange={setQrUrl}
+            onQrColorChange={setQrColor}
+            onLogoSelect={setLogo}
+            onLogoClear={clearLogo}
             onClearCoverage={handleClearCoverage}
           />
 
@@ -297,7 +398,13 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
               ) : (
                 <Download className="size-4" />
               )}
-              {isExporting ? "Exporting..." : isSaving ? "Saving..." : "Export Image"}
+              {isExporting
+                ? (exportProgress ?? "Exporting...")
+                : isSaving
+                  ? "Saving..."
+                  : photos.length > 1
+                    ? `Export ${photos.length} photos`
+                    : "Export Image"}
             </Button>
 
             {session && (
@@ -305,6 +412,12 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
                 <Infinity className="size-3" />
                 Unlimited downloads
               </div>
+            )}
+
+            {photos.length > 1 && (
+              <p className="text-center text-[10px] text-muted-foreground">
+                Downloads a ZIP. Every photo gets this watermark.
+              </p>
             )}
 
             {!state.image && (

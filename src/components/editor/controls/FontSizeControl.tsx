@@ -7,46 +7,57 @@ import { FONT_SIZE_MIN, FONT_SIZE_MAX } from "@/lib/editor-types"
 interface FontSizeControlProps {
   value: number
   onChange: (value: number) => void
+  label?: string
+  min?: number
+  max?: number
+  id?: string
 }
 
-export function FontSizeControl({ value, onChange }: FontSizeControlProps) {
+export function FontSizeControl({
+  value,
+  onChange,
+  label = "Font Size",
+  min = FONT_SIZE_MIN,
+  max = FONT_SIZE_MAX,
+  id = "font-size",
+}: FontSizeControlProps) {
   const clamp = useCallback((v: number) => {
-    return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(v)))
-  }, [])
+    return Math.min(max, Math.max(min, Math.round(v)))
+  }, [min, max])
 
   const handleInputBlur = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
       const parsed = parseInt(e.target.value, 10)
       if (isNaN(parsed)) {
-        onChange(FONT_SIZE_MIN)
+        onChange(min)
       } else {
         onChange(clamp(parsed))
       }
     },
-    [onChange, clamp]
+    [onChange, clamp, min]
   )
 
   return (
     <div className="space-y-1.5">
-      <Label htmlFor="font-size" className="text-xs font-medium">
-        Font Size
+      <Label htmlFor={id} className="text-xs font-medium">
+        {label}
       </Label>
       <div className="flex items-center gap-3">
         <Slider
           value={[value]}
           onValueChange={([v]) => onChange(v)}
-          min={FONT_SIZE_MIN}
-          max={FONT_SIZE_MAX}
+          min={min}
+          max={max}
           step={1}
           className="flex-1"
-          aria-label="Font size slider"
+          aria-label={`${label} slider`}
         />
         <Input
-          id="font-size"
+          id={id}
           type="number"
           inputMode="numeric"
-          min={FONT_SIZE_MIN}
-          max={FONT_SIZE_MAX}
+          min={min}
+          max={max}
           value={value}
           onChange={(e) => {
             const parsed = parseInt(e.target.value, 10)
@@ -54,7 +65,7 @@ export function FontSizeControl({ value, onChange }: FontSizeControlProps) {
           }}
           onBlur={handleInputBlur}
           className="h-8 w-16 text-center text-xs"
-          aria-label="Font size value"
+          aria-label={`${label} value`}
         />
       </div>
     </div>
