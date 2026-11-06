@@ -5,8 +5,9 @@ export function FinalCTA() {
   const { navigateTo } = useNavigation()
 
   return (
-    <section className="px-4 pb-24 pt-4 md:px-6 md:pb-32">
-      <div className="mx-auto max-w-6xl border-t border-black/10 pt-16 md:pt-20">
+    <section className="fs-hero-wash px-4 pb-24 pt-0 md:px-6 md:pb-32">
+      <div className="fs-mark-divider" aria-hidden="true" />
+      <div className="mx-auto max-w-6xl pt-16 md:pt-20">
         <h2 className="fs-display max-w-md text-[1.75rem] font-medium leading-tight tracking-[-0.02em] text-[var(--fs-ink)] md:text-4xl">
           Try it on your own image.
         </h2>

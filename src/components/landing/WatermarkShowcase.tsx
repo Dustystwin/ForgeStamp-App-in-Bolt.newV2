@@ -88,8 +88,8 @@ export function WatermarkShowcase() {
             className={cn(
               "min-h-11 rounded-lg border text-sm font-medium",
               !showAfter
-                ? "border-[var(--fs-orange-deep)] bg-white text-[var(--fs-ink)]"
-                : "border-black/10 bg-transparent fs-text-soft"
+                ? "border-[var(--fs-orange)] bg-[var(--fs-orange)] text-[var(--fs-ink)]"
+                : "border-black/10 bg-white/70 fs-text-soft"
             )}
           >
             Before
@@ -101,8 +101,8 @@ export function WatermarkShowcase() {
             className={cn(
               "min-h-11 rounded-lg border text-sm font-medium",
               showAfter
-                ? "border-[var(--fs-orange-deep)] bg-white text-[var(--fs-ink)]"
-                : "border-black/10 bg-transparent fs-text-soft"
+                ? "border-[var(--fs-orange)] bg-[var(--fs-orange)] text-[var(--fs-ink)]"
+                : "border-black/10 bg-white/70 fs-text-soft"
             )}
           >
             After
@@ -126,8 +126,8 @@ export function WatermarkShowcase() {
             className={cn(
               "min-h-11 rounded-full border px-4 text-sm font-medium",
               i === index
-                ? "border-[var(--fs-orange-deep)] bg-white text-[var(--fs-ink)]"
-                : "border-black/10 bg-transparent fs-text-soft hover:bg-white"
+                ? "border-[var(--fs-orange)] bg-[var(--fs-orange)] text-[var(--fs-ink)]"
+                : "border-[color-mix(in_oklch,var(--fs-orange)_25%,white)] bg-white/80 fs-text-soft hover:bg-white"
             )}
           >
             {item.label}

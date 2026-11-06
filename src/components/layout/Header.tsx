@@ -39,7 +39,7 @@ export function Header() {
   )
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-black/5 bg-[var(--fs-cream)]/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full bg-[var(--fs-cream)]/92 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
         <button
           type="button"
@@ -137,6 +137,7 @@ export function Header() {
           </SheetContent>
         </Sheet>
       </div>
+      <div className="h-1 fs-gradient-sunrise" aria-hidden="true" />
     </header>
   )
 }

@@ -6,7 +6,7 @@ export function Hero() {
   const { navigateTo } = useNavigation()
 
   return (
-    <section className="px-4 pb-8 pt-10 md:px-6 md:pb-12 md:pt-16">
+    <section className="fs-hero-wash px-4 pb-8 pt-10 md:px-6 md:pb-12 md:pt-16">
       <div className="mx-auto max-w-6xl">
         <div className="max-w-xl">
           <h1 className="fs-display text-[1.75rem] font-medium leading-[1.2] tracking-[-0.02em] text-[var(--fs-ink)] md:text-[3.25rem] md:leading-[1.12]">
@@ -24,7 +24,7 @@ export function Hero() {
             </Button>
             <a
               href="#pricing"
-              className="inline-flex h-11 min-h-11 items-center justify-center rounded-md px-4 text-base font-medium text-[var(--fs-ink)] underline-offset-4 hover:underline sm:justify-start"
+              className="inline-flex h-11 min-h-11 items-center justify-center rounded-md px-4 text-base font-semibold text-[var(--fs-orange-deep)] underline-offset-4 hover:underline sm:justify-start"
             >
               See plans
             </a>

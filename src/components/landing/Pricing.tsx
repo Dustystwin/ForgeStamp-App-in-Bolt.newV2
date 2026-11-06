@@ -36,7 +36,7 @@ export function Pricing() {
                 className={cn(
                   "min-h-11 rounded-md px-4 text-sm font-medium capitalize",
                   billing === option
-                    ? "bg-white text-[var(--fs-ink)] shadow-[0_1px_2px_rgba(40,30,20,0.08)]"
+                    ? "bg-[var(--fs-orange)] text-[var(--fs-ink)]"
                     : "fs-text-soft hover:text-[var(--fs-ink)]"
                 )}
               >
@@ -59,8 +59,8 @@ export function Pricing() {
               <div
                 key={plan.name}
                 className={cn(
-                  "relative flex h-full flex-col rounded-2xl border bg-white p-6",
-                  isSpark ? "fs-ring-spark z-10 border-2 md:-translate-y-2" : "border-black/10"
+                  "relative flex h-full flex-col rounded-2xl p-6",
+                  isSpark ? "fs-spark-card z-10 md:-translate-y-3" : "border border-black/10 bg-white"
                 )}
               >
                 {plan.badge && (
@@ -70,7 +70,7 @@ export function Pricing() {
                 )}
 
                 <h3 className="text-xl font-semibold text-[var(--fs-ink)]">{plan.name}</h3>
-                <p className="mt-1 text-sm fs-text-soft">{plan.tagline}</p>
+                <p className={cn("mt-1 text-sm", isSpark ? "font-medium text-[var(--fs-orange-deep)]" : "fs-text-soft")}>{plan.tagline}</p>
 
                 <div className="mt-5 flex items-baseline gap-1.5">
                   <span className="fs-price text-4xl font-semibold tracking-tight text-[var(--fs-ink)]">{displayPrice}</span>
@@ -89,7 +89,7 @@ export function Pricing() {
                     <ul className="space-y-2.5">
                       {plan.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-2.5">
-                          <Check className="mt-0.5 size-4 shrink-0 fs-text-soft" aria-hidden="true" />
+                          <Check className="mt-0.5 size-4 shrink-0 text-[var(--fs-emerald-deep)]" aria-hidden="true" />
                           <span className="text-sm leading-snug text-[var(--fs-ink)]">{feature}</span>
                         </li>
                       ))}
@@ -97,7 +97,7 @@ export function Pricing() {
                   </div>
 
                   {plan.batch && (
-                    <div className="rounded-xl bg-[var(--fs-cream-deep)] p-3">
+                    <div className={cn("rounded-xl p-3", isSpark ? "bg-white/75" : "bg-[var(--fs-cream-deep)]")}>
                       <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--fs-ink)]">
                         <Layers className="size-4 fs-text-soft" aria-hidden="true" />
                         {plan.batch.title}
@@ -130,7 +130,10 @@ export function Pricing() {
                   </Button>
                 ) : (
                   <p
-                    className="mt-6 flex min-h-11 items-center justify-center rounded-md border border-black/10 bg-[var(--fs-cream)] px-3 text-center text-sm font-medium text-[var(--fs-ink)]"
+                    className={cn(
+                      "mt-6 flex min-h-11 items-center justify-center rounded-md px-3 text-center text-sm font-semibold text-[var(--fs-ink)]",
+                      isSpark ? "bg-[var(--fs-orange)]" : "border border-black/10 bg-white font-medium"
+                    )}
                     role="status"
                   >
                     Coming soon. Not for sale.

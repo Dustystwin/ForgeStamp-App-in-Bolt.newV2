@@ -174,6 +174,8 @@
   --fs-coral: oklch(0.74 0.12 30);
   --fs-amber: oklch(0.814 0.16 84);
   --fs-emerald: oklch(0.696 0.17 162.48);
+  /* Darkened so small checks stay green and readable on cream and peach. */
+  --fs-emerald-deep: oklch(0.48 0.11 163);
   --fs-aqua: oklch(0.831 0.113 181);
   --fs-mint: oklch(0.87 0.08 165);
   --fs-cream: oklch(0.993 0.003 95);
@@ -229,6 +231,7 @@ html.dark .fs-landing {
 
 .fs-text-orange { color: var(--fs-orange); }
 .fs-text-emerald { color: var(--fs-emerald); }
+.fs-text-emerald-deep { color: var(--fs-emerald-deep); }
 .fs-text-aqua { color: var(--fs-aqua); }
 .fs-text-amber { color: var(--fs-amber); }
 .fs-text-muted-onslate { color: oklch(0.78 0.02 95); }
@@ -241,16 +244,30 @@ html.dark .fs-landing {
 }
 
 .fs-btn-primary {
-  background: var(--fs-orange-deep);
-  color: white;
+  background: var(--fs-orange);
+  color: var(--fs-ink);
   transition: background-color 160ms ease, transform 160ms ease;
 }
-.fs-btn-primary:hover { background: color-mix(in oklch, var(--fs-orange-deep), black 12%); }
+.fs-btn-primary:hover { background: color-mix(in oklch, var(--fs-orange), black 8%); }
 .fs-btn-primary:active { transform: scale(0.98); }
 
-.fs-ring-spark {
-  border-color: var(--fs-orange-deep);
-  box-shadow: 0 16px 32px -20px color-mix(in oklch, var(--fs-orange-deep), transparent 35%);
+.fs-hero-wash {
+  background:
+    linear-gradient(180deg,
+      color-mix(in oklch, var(--fs-amber) 36%, var(--fs-cream)) 0%,
+      color-mix(in oklch, var(--fs-orange) 14%, var(--fs-cream)) 32%,
+      var(--fs-cream) 62%);
+}
+
+.fs-spark-card {
+  background:
+    linear-gradient(165deg,
+      color-mix(in oklch, var(--fs-amber) 50%, white) 0%,
+      color-mix(in oklch, var(--fs-orange) 26%, white) 52%,
+      color-mix(in oklch, var(--fs-cream) 40%, white) 100%);
+  border-color: var(--fs-orange);
+  border-width: 3px;
+  box-shadow: 0 20px 36px -16px color-mix(in oklch, var(--fs-orange), transparent 42%);
 }
 
 /* Watermark-motif divider: a thin repeating diagonal tick, echoing the
