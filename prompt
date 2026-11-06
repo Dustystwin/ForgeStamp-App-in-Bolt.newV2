@@ -284,7 +284,7 @@ The watermark should update live when the user changes:
 - placement
 
 Default watermark settings:
-- Text: SAMPLE TEXT
+- Text: Your Text
 - Font Family: Inter
 - Font Size: 48
 - Color: #FF8A00

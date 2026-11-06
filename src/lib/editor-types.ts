@@ -70,16 +70,15 @@ export const PRO_FONTS = [
 export const FONT_OPTIONS = [...FREE_FONTS, ...PRO_FONTS]
 
 export const FREE_COLORS = [
-  { value: "#FF8A00", label: "Orange" },
-  { value: "#111827", label: "Dark" },
-  { value: "#FFFFFF", label: "White" },
-  { value: "#6B7280", label: "Gray" },
   { value: "#000000", label: "Black" },
+  { value: "#FFFFFF", label: "White" },
+  { value: "#FF8A00", label: "Orange" },
+  { value: "#18B66A", label: "Green" },
+  { value: "#6B7280", label: "Gray" },
 ] as const
 
 export const PRO_COLORS = [
   { value: "#FF5E62", label: "Coral" },
-  { value: "#18B66A", label: "Green" },
   { value: "#2DD4BF", label: "Teal" },
   { value: "#FBBF24", label: "Amber" },
   { value: "#EF4444", label: "Red" },
@@ -92,6 +91,7 @@ export const PRO_COLORS = [
   { value: "#EC4899", label: "Pink" },
   { value: "#A855F7", label: "Purple" },
   { value: "#64748B", label: "Slate" },
+  { value: "#111827", label: "Dark" },
 ] as const
 
 // Keep COLOR_PRESETS for legacy reference
@@ -138,7 +138,7 @@ export const TEXT_DIRECTION_OPTIONS: { value: TextDirection; label: string }[] =
 ]
 
 export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl" | "error"> = {
-  watermarkText: "SAMPLE TEXT",
+  watermarkText: "Your Text",
   fontFamily: "Inter",
   fontSize: 48,
   color: "#FF8A00",
