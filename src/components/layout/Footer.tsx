@@ -1,5 +1,6 @@
 import { FOOTER_LINKS } from "@/lib/constants"
 import { useNavigation } from "@/App"
+import { BrandMark } from "@/components/layout/BrandMark"
 
 export function Footer() {
   const { navigateTo, openLegalPage } = useNavigation()
@@ -16,12 +17,9 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-12 md:px-6">
         <div className="grid gap-8 md:grid-cols-3">
           <div>
-            <span className="text-lg font-black tracking-tight fs-gradient-sunrise-text">
-              ForgeStamp
-            </span>
-            <p className="mt-3 text-sm text-[var(--fs-ink)]/60">
-              Professional watermarking for creators who care about protecting
-              their work.
+            <BrandMark />
+            <p className="mt-3 max-w-xs text-sm leading-relaxed fs-text-soft">
+              Watermarks for images you want to share.
             </p>
           </div>
 
@@ -32,7 +30,7 @@ export function Footer() {
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="text-sm text-[var(--fs-ink)]/60 transition-colors hover:text-[var(--fs-ink)]"
+                    className="inline-flex min-h-11 items-center text-sm text-[var(--fs-ink)] hover:underline md:min-h-0"
                     onClick={(event) => {
                       event.preventDefault()
                       goToProduct(link.href)
@@ -52,7 +50,7 @@ export function Footer() {
                 <li key={link.label}>
                   <button
                     type="button"
-                    className="text-left text-sm text-[var(--fs-ink)]/60 transition-colors hover:text-[var(--fs-ink)]"
+                    className="inline-flex min-h-11 items-center text-left text-sm text-[var(--fs-ink)] hover:underline md:min-h-0"
                     onClick={() => openLegalPage(link.page)}
                   >
                     {link.label}
@@ -65,7 +63,7 @@ export function Footer() {
 
         <div className="my-8 h-px bg-black/10" />
 
-        <p className="text-center text-sm text-[var(--fs-ink)]/50">
+        <p className="text-center text-sm fs-text-soft">
           &copy; 2026 ForgeStamp. All rights reserved.
         </p>
       </div>

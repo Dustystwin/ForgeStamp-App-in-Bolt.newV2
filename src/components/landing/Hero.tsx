@@ -1,4 +1,3 @@
-import { ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useNavigation } from "@/App"
 import { WatermarkShowcase } from "./WatermarkShowcase"
@@ -7,56 +6,33 @@ export function Hero() {
   const { navigateTo } = useNavigation()
 
   return (
-    <section className="relative overflow-hidden px-4 pb-14 pt-14 md:px-6 md:pb-20 md:pt-16">
-      {/* Subtle sunrise wash, not a generic blurred-orb backdrop */}
-      <div className="pointer-events-none absolute inset-0 fs-gradient-sunrise opacity-[0.05]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 fs-gradient-sunrise" />
-
-      <div className="relative mx-auto grid max-w-6xl items-center gap-10 md:grid-cols-[1.05fr_1fr] md:gap-14">
-        {/* Messaging — left, editorial, left-aligned (not centered) */}
-        <div className="text-left">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--fs-orange)]/25 bg-white px-3 py-1 text-xs font-semibold fs-text-orange">
-            <Sparkles className="size-3.5" />
-            Every mark starts with a spark
-          </span>
-
-          <h1 className="mt-5 max-w-xl text-4xl font-extrabold leading-[1.08] tracking-tight text-[var(--fs-ink)] md:text-5xl">
-            Protect what you create.
-            <br />
-            <span className="fs-gradient-sunrise-text">Make it unmistakably yours.</span>
+    <section className="px-4 pb-8 pt-10 md:px-6 md:pb-12 md:pt-16">
+      <div className="mx-auto max-w-6xl">
+        <div className="max-w-xl">
+          <h1 className="fs-display text-[1.75rem] font-medium leading-[1.2] tracking-[-0.02em] text-[var(--fs-ink)] md:text-[3.25rem] md:leading-[1.12]">
+            Watermark your images before you share them.
           </h1>
-
-          <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--fs-ink)]/70 md:text-lg">
-            ForgeStamp turns any image into a protected one in seconds &mdash;
-            custom text, fonts, colors, and patterns that repeat across the
-            whole frame if you want them to.
+          <p className="mt-4 max-w-md text-base leading-relaxed fs-text-soft md:text-lg">
+            Add your own words, see the result immediately, and download a PNG.
           </p>
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button
-              size="lg"
-              className="fs-btn-primary shadow-md shadow-[var(--fs-orange)]/25"
+              className="fs-btn-primary h-11 min-h-11 w-full px-5 text-base shadow-none sm:w-auto"
               onClick={() => navigateTo("editor")}
             >
-              Start Watermarking
-              <ArrowRight className="ml-1 size-4" />
+              Try a watermark
             </Button>
-            <Button asChild variant="outline" size="lg" className="border-[var(--fs-ink)]/15">
-              <a href="#showcase">See It In Action</a>
-            </Button>
+            <a
+              href="#pricing"
+              className="inline-flex h-11 min-h-11 items-center justify-center rounded-md px-4 text-base font-medium text-[var(--fs-ink)] underline-offset-4 hover:underline sm:justify-start"
+            >
+              See plans
+            </a>
           </div>
-
-          <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[var(--fs-ink)]/55">
-            <span>No account needed to try</span>
-            <span className="h-1 w-1 rounded-full bg-current" />
-            <span>Live preview as you go</span>
-            <span className="h-1 w-1 rounded-full bg-current" />
-            <span>Export in one click</span>
-          </div>
+          <p className="mt-3 text-sm fs-text-soft">No account needed to try.</p>
         </div>
 
-        {/* Product showcase — right, asymmetric weight */}
-        <div id="showcase">
+        <div className="mt-8 md:mt-12">
           <WatermarkShowcase />
         </div>
       </div>

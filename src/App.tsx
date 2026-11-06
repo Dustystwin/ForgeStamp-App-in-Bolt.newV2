@@ -2,11 +2,8 @@ import { useState, createContext, useContext, useCallback } from "react"
 import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
 import { Hero } from "@/components/landing/Hero"
-import { CreativeIntro } from "@/components/landing/CreativeIntro"
-import { ProductExperience } from "@/components/landing/ProductExperience"
 import { PatternShowcase } from "@/components/landing/PatternShowcase"
 import { Workflow } from "@/components/landing/Workflow"
-import { CreatorValue } from "@/components/landing/CreatorValue"
 import { Pricing } from "@/components/landing/Pricing"
 import { FAQ } from "@/components/landing/FAQ"
 import { FinalCTA } from "@/components/landing/FinalCTA"
@@ -125,11 +122,8 @@ function AppInner() {
         <Header />
         <main>
           <Hero />
-          <CreativeIntro />
-          <ProductExperience />
           <PatternShowcase />
           <Workflow />
-          <CreatorValue />
           <Pricing />
           <FAQ />
           <FinalCTA />
