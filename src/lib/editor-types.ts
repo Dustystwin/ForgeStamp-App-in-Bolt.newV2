@@ -138,7 +138,7 @@ export const TEXT_DIRECTION_OPTIONS: { value: TextDirection; label: string }[] =
 ]
 
 export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl" | "error"> = {
-  watermarkText: "SAMPLE TEXT",
+  watermarkText: "Your Text",
   fontFamily: "Inter",
   fontSize: 48,
   color: "#FF8A00",
