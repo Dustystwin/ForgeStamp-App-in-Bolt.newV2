@@ -1,6 +1,10 @@
 import { Download } from "lucide-react"
-import ridge from "@/assets/demos/ridge.jpg"
-import ridgeMarked from "@/assets/demos/ridge-marked.jpg"
+import donut from "@/assets/demos/donut.jpg"
+import donutHoneycomb from "@/assets/demos/donut-honeycomb.jpg"
+
+// Steps use a different Unsplash photo than the ridge before/after.
+// images.unsplash.com/photo-1551024601-bec78aea704b
+// Download repeats Your Text as a honeycomb, not the diagonal pattern.
 
 const PLACEMENT_CELLS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 
@@ -18,10 +22,10 @@ export function Workflow() {
               <div className="flex h-[232px] flex-col bg-[color-mix(in_oklch,var(--fs-amber)_16%,white)] p-3 shadow-[0_16px_28px_-20px_rgba(48,32,16,0.55)] md:h-[248px]">
                 <div className="flex min-h-0 flex-1 flex-col rounded-lg border-2 border-dashed border-[color-mix(in_oklch,var(--fs-orange-deep)_50%,white)] bg-white p-2.5">
                   <img
-                    src={ridge}
-                    alt="The mountain photograph in the upload tray, before a watermark."
-                    width={1600}
-                    height={1066}
+                    src={donut}
+                    alt="A stack of sprinkled donuts in the upload tray, before a watermark."
+                    width={1400}
+                    height={933}
                     className="min-h-0 w-full flex-1 object-cover"
                   />
                   <p className="mt-2 text-center text-xs font-medium text-[var(--fs-ink)]">photo.jpg</p>
@@ -42,10 +46,10 @@ export function Workflow() {
               <div className="flex h-[232px] flex-col overflow-hidden bg-white shadow-[0_16px_28px_-20px_rgba(48,32,16,0.55)] md:h-[248px]">
                 <div className="relative min-h-0 flex-1">
                   <img
-                    src={ridge}
-                    alt="The same mountain photograph with Your Text placed in the center. Text is selected; Logo and QR are the other choices."
-                    width={1600}
-                    height={1066}
+                    src={donut}
+                    alt="The same donut photograph with Your Text placed in the center. Text is selected; Logo and QR are the other choices."
+                    width={1400}
+                    height={933}
                     className="h-full w-full object-cover"
                   />
                   <span className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-lg font-semibold tracking-tight text-white [text-shadow:0_1px_2px_rgba(20,12,6,0.7)]">
@@ -88,10 +92,10 @@ export function Workflow() {
             <figure>
               <div className="flex h-[232px] flex-col overflow-hidden bg-white shadow-[0_16px_28px_-20px_rgba(48,32,16,0.55)] md:h-[248px]">
                 <img
-                  src={ridgeMarked}
-                  alt="The same mountain photograph with Your Text repeated across it, shown as a finished PNG."
-                  width={1600}
-                  height={1066}
+                  src={donutHoneycomb}
+                  alt="The same donut photograph with Your Text repeated in a honeycomb, shown as a finished PNG."
+                  width={1400}
+                  height={933}
                   className="min-h-0 w-full flex-1 object-cover"
                 />
                 <div className="flex items-center justify-between gap-2 border-t border-black/10 px-2.5 py-2">
