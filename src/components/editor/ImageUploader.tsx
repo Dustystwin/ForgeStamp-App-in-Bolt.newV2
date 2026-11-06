@@ -5,21 +5,34 @@ import { ACCEPTED_IMAGE_TYPES } from "@/lib/editor-types"
 
 interface ImageUploaderProps {
   onImageSelect: (file: File) => void
+  onFiles?: (files: File[]) => void
   hasImage: boolean
+  multiple?: boolean
+  detail?: string
 }
 
-export function ImageUploader({ onImageSelect, hasImage }: ImageUploaderProps) {
+export function ImageUploader({
+  onImageSelect,
+  onFiles,
+  hasImage,
+  multiple = false,
+  detail,
+}: ImageUploaderProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dragCounter = useRef(0)
 
   const handleFiles = useCallback(
-    (files: FileList | null) => {
-      if (files && files.length > 0) {
-        onImageSelect(files[0])
+    (fileList: FileList | null) => {
+      if (!fileList || fileList.length === 0) return
+      const files = Array.from(fileList)
+      if (onFiles) {
+        onFiles(files)
+        return
       }
+      onImageSelect(files[0])
     },
-    [onImageSelect]
+    [onFiles, onImageSelect]
   )
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -82,6 +95,7 @@ export function ImageUploader({ onImageSelect, hasImage }: ImageUploaderProps) {
           ref={inputRef}
           type="file"
           accept={ACCEPTED_IMAGE_TYPES.join(",")}
+          multiple={multiple}
           onChange={handleInputChange}
           className="hidden"
           aria-label="Replace image"
@@ -94,7 +108,7 @@ export function ImageUploader({ onImageSelect, hasImage }: ImageUploaderProps) {
     <div
       role="button"
       tabIndex={0}
-      aria-label="Upload an image. Drag and drop or click to browse."
+      aria-label={multiple ? "Upload photos. Drag and drop or click to browse." : "Upload an image. Drag and drop or click to browse."}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -117,19 +131,22 @@ export function ImageUploader({ onImageSelect, hasImage }: ImageUploaderProps) {
       </div>
       <div className="text-center">
         <p className="text-sm font-medium text-foreground">
-          {isDragOver ? "Drop your image here" : "Drag & drop your image here"}
+          {isDragOver
+            ? multiple ? "Drop your photos here" : "Drop your image here"
+            : multiple ? "Drag & drop photos here" : "Drag & drop your image here"}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          or click to browse. PNG, JPG, WebP up to 15MB.
+          {detail ?? "or click to browse. PNG, JPG, WebP up to 15MB."}
         </p>
       </div>
       <input
         ref={inputRef}
         type="file"
         accept={ACCEPTED_IMAGE_TYPES.join(",")}
+        multiple={multiple}
         onChange={handleInputChange}
         className="hidden"
-        aria-label="Choose image file"
+        aria-label={multiple ? "Choose photo files" : "Choose image file"}
       />
     </div>
   )

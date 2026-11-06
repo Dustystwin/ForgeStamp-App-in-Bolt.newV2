@@ -37,7 +37,7 @@ export const WORKFLOW_STEPS = [
     number: 2,
     title: "Shape Your Watermark",
     description:
-      "Customize text, font, size, opacity, placement, spacing, color, and rotation until it looks exactly how you want.",
+      "Customize text, a logo, or a QR code — plus size, opacity, placement, spacing, color, and rotation — until it looks exactly how you want.",
     icon: Paintbrush,
   },
   {
@@ -137,21 +137,24 @@ export const WHY_REASONS = [
 
 // PRICING PLANS — preview only
 // ---------------------------------------------------------------------------
-// Free is the only plan someone can use today.
-// Spark and Forge stay unavailable. Prices on those cards are planned prices,
-// not something the app charges. There is no checkout.
+// Free is the only plan someone can buy today. Spark and Forge stay unavailable.
+// Prices on those cards are planned prices, not something the app charges.
+// There is no checkout. A Pro account, which an admin can turn on for testing,
+// can export a batch of 25 photos. Free can export 3. Unlimited batch is not built.
 export const PRICING_PLANS = [
   {
     name: "Free",
     tagline: "Use it today",
     badge: null as string | null,
-    description: "Enough to place a text watermark and download a PNG.",
+    description: "Enough to place text, a logo, or a QR code, and download a PNG.",
     monthlyPrice: "$0",
     annualPrice: "$0",
     annualSavings: null as string | null,
     featuresIntro: null as string | null,
     features: [
       "Text watermarking",
+      "Logo watermark",
+      "QR code watermark",
       "Standard fonts",
       "Standard colors",
       "All watermark placements",
@@ -160,7 +163,13 @@ export const PRICING_PLANS = [
       "PNG export",
       "Live watermark preview",
     ],
-    batch: null as { title: string; items: string[] } | null,
+    batch: {
+      title: "Batch processing",
+      items: [
+        "Up to 3 photos in one export",
+        "Monthly batch allowance (coming soon)",
+      ],
+    } as { title: string; items: string[] } | null,
     support: {
       title: "Email Support",
       detail: "Typically within 3 business days",
@@ -184,13 +193,15 @@ export const PRICING_PLANS = [
       "High-resolution exports (coming soon)",
       "JPG export (coming soon)",
       "WebP export (coming soon)",
-      "Logo watermarking (coming soon)",
       "Save watermark presets (coming soon)",
       "Expanded export history (coming soon)",
     ],
     batch: {
-      title: "Batch processing (coming soon)",
-      items: ["Up to 25 images per batch", "Up to 500 batch-processed images per month"],
+      title: "Batch processing",
+      items: [
+        "Up to 25 photos in one export",
+        "Monthly batch allowance (coming soon)",
+      ],
     } as { title: string; items: string[] } | null,
     support: {
       title: "Priority Email Support",

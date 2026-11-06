@@ -1,15 +1,15 @@
 const STEPS = [
   {
     title: "Upload",
-    description: "Add the image you want to mark.",
+    description: "Add the image you want to mark. Free can take up to 3 at once.",
   },
   {
     title: "Adjust",
-    description: "Set the words, color, size, and placement. Repeat the mark across the picture if you want.",
+    description: "Set words, a logo, or a QR code, then size, color, and placement. Repeat the mark across the picture if you want.",
   },
   {
     title: "Download",
-    description: "Export a PNG when it looks right.",
+    description: "Export a PNG, or a ZIP when you mark more than one photo.",
   },
 ] as const
 

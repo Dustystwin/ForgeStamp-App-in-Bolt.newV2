@@ -9,6 +9,12 @@ export type CurveOrientation = "readable" | "natural"
 
 export type CoverageMode = "single" | "full"
 
+export type WatermarkMode = "text" | "logo" | "qr"
+
+export function isWatermarkMode(value: unknown): value is WatermarkMode {
+  return value === "text" || value === "logo" || value === "qr"
+}
+
 export type Pattern =
   | "diagonal"
   | "reverse-diagonal"
@@ -30,6 +36,7 @@ export type Pattern =
 export interface EditorState {
   image: File | null
   imagePreviewUrl: string | null
+  watermarkMode: WatermarkMode
   watermarkText: string
   fontFamily: string
   fontSize: number
@@ -42,6 +49,14 @@ export interface EditorState {
   pattern: Pattern
   density: number
   curveOrientation: CurveOrientation
+  // Pixel size of a logo or QR stamp before it is scaled to the photo.
+  stampSize: number
+  qrUrl: string
+  // Separate from text color so a scannable black QR does not recolor the words.
+  qrColor: string
+  // Session-only. The logo file is not stored with saved images.
+  logoPreviewUrl: string | null
+  logoName: string | null
   error: string | null
 }
 
@@ -137,7 +152,8 @@ export const TEXT_DIRECTION_OPTIONS: { value: TextDirection; label: string }[] =
   { value: "vertical-up", label: "Vertical Up" },
 ]
 
-export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl" | "error"> = {
+export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl" | "logoPreviewUrl" | "logoName" | "error"> = {
+  watermarkMode: "text",
   watermarkText: "Your Text",
   fontFamily: "Inter",
   fontSize: 48,
@@ -150,14 +166,22 @@ export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl"
   pattern: "diagonal",
   density: 90,
   curveOrientation: "readable",
+  stampSize: 112,
+  qrUrl: "",
+  qrColor: "#000000",
 }
 
 export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"]
 export const MAX_FILE_SIZE_MB = 15
 export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+export const LOGO_MAX_FILE_SIZE_MB = 8
+export const LOGO_MAX_FILE_SIZE_BYTES = LOGO_MAX_FILE_SIZE_MB * 1024 * 1024
+export const LOGO_MAX_EDGE_PX = 8000
 
 export const FONT_SIZE_MIN = 12
 export const FONT_SIZE_MAX = 160
+export const STAMP_SIZE_MIN = 24
+export const STAMP_SIZE_MAX = 240
 export const OPACITY_MIN = 0
 export const OPACITY_MAX = 100
 export const ROTATION_MIN = -180
