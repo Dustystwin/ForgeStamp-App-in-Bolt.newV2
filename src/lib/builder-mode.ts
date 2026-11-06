@@ -11,12 +11,17 @@ export function canUsePremiumFeatures(tier: string | null | undefined): boolean 
   return BUILDER_MODE || tier === "pro"
 }
 
-// Free exports one photo. Pro matches the Spark plan: 25 photos in one export.
-// Forge's unlimited batch is not available, because there is no Forge tier yet.
-// There is no monthly batch counter.
-export const FREE_BATCH_LIMIT = 1
+// Free matches the Free plan: 3 photos in one export.
+// Pro matches the Spark plan: 25 photos in one export. Admins can test that
+// higher limit too. Forge's unlimited batch is not available, because there
+// is no Forge tier yet. There is no monthly batch counter.
+export const FREE_BATCH_LIMIT = 3
 export const PRO_BATCH_LIMIT = 25
 
-export function batchLimitForTier(tier: string | null | undefined): number {
-  return canUsePremiumFeatures(tier) ? PRO_BATCH_LIMIT : FREE_BATCH_LIMIT
+export function batchLimitForTier(
+  tier: string | null | undefined,
+  isAdmin = false
+): number {
+  if (isAdmin || canUsePremiumFeatures(tier)) return PRO_BATCH_LIMIT
+  return FREE_BATCH_LIMIT
 }

@@ -21,7 +21,7 @@ const FAQS = [
   },
   {
     q: "Can I watermark more than one photo?",
-    a: "Free exports one photo at a time. A Pro account can export up to 25 photos together as a ZIP, using the same text, logo, or QR on each. Pro is turned on for testing. Spark and Forge are not for sale, and unlimited batches are not available yet.",
+    a: "Free can export up to 3 photos together as a ZIP, using the same text, logo, or QR on each. A Pro account can export up to 25, and an admin can test that higher limit. Spark and Forge are not for sale, and unlimited batches are not available yet.",
   },
 ] as const
 

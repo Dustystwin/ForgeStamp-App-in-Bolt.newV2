@@ -11,7 +11,7 @@ import { ScanResults } from "./ScanResults"
 import { exportToPng, type CanvasWatermarkOptions } from "@/lib/watermark-utils"
 import { inspectQrUrl } from "@/lib/qr-watermark"
 import { dataUrlToBytes, downloadBlob, downloadUrl, stampedFileName, zipPngs } from "@/lib/batch-export"
-import { batchLimitForTier, FREE_BATCH_LIMIT } from "@/lib/builder-mode"
+import { batchLimitForTier, FREE_BATCH_LIMIT, PRO_BATCH_LIMIT } from "@/lib/builder-mode"
 import { BatchStrip } from "./BatchStrip"
 import { useAuth } from "@/context/AuthContext"
 import { useNavigation } from "@/App"
@@ -55,7 +55,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
   } = useEditorState(initialData)
 
   const { session, profile } = useAuth()
-  const batchLimit = batchLimitForTier(profile?.tier)
+  const batchLimit = batchLimitForTier(profile?.tier, Boolean(profile?.is_admin))
   const { openAuthModal } = useNavigation()
 
   const [finishedImages, setFinishedImages] = useState<FinishedImage[]>([])
@@ -127,7 +127,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     if (result.leftOut > 0) {
       toast(
         batchLimit <= FREE_BATCH_LIMIT
-          ? "Free exports one photo at a time. Batch export will be available with paid plans."
+          ? `Free exports up to ${FREE_BATCH_LIMIT} photos at a time. A ${PRO_BATCH_LIMIT}-photo batch will be available with paid plans.`
           : `A batch stops at ${batchLimit} photos. Unlimited batches are not available yet.`
       )
     }
@@ -335,11 +335,11 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             state={state}
             onImageSelect={setImage}
             onFiles={handleAddPhotos}
-            multiple={batchLimit > FREE_BATCH_LIMIT}
+            multiple={batchLimit > 1}
             uploadDetail={
               batchLimit > FREE_BATCH_LIMIT
-                ? "or click to browse. PNG, JPG, or WebP up to 15MB each. Up to 25 photos."
-                : "or click to browse. PNG, JPG, or WebP up to 15MB. One photo on the Free plan."
+                ? `or click to browse. PNG, JPG, or WebP up to 15MB each. Up to ${PRO_BATCH_LIMIT} photos.`
+                : `or click to browse. PNG, JPG, or WebP up to 15MB each. Up to ${FREE_BATCH_LIMIT} photos on the Free plan.`
             }
             coverageClearedAt={coverageClearedAt}
           />

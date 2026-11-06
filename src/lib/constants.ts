@@ -140,7 +140,7 @@ export const WHY_REASONS = [
 // Free is the only plan someone can buy today. Spark and Forge stay unavailable.
 // Prices on those cards are planned prices, not something the app charges.
 // There is no checkout. A Pro account, which an admin can turn on for testing,
-// can export a batch of 25 photos. Unlimited batch is not built.
+// can export a batch of 25 photos. Free can export 3. Unlimited batch is not built.
 export const PRICING_PLANS = [
   {
     name: "Free",
@@ -162,10 +162,15 @@ export const PRICING_PLANS = [
       "All watermark patterns",
       "Opacity, size, and rotation",
       "PNG export",
-      "One photo per export",
       "Live watermark preview",
     ],
-    batch: null as { title: string; items: string[] } | null,
+    batch: {
+      title: "Batch processing",
+      items: [
+        "Up to 3 photos in one export",
+        "Monthly batch allowance (coming soon)",
+      ],
+    } as { title: string; items: string[] } | null,
     support: {
       title: "Email Support",
       detail: "Typically within 3 business days",

@@ -34,9 +34,7 @@ export function BatchStrip({
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium">
           {photos.length === 1 ? "1 photo" : `${photos.length} photos`}
-          {paid && (
-            <span className="font-normal text-muted-foreground"> · up to {PRO_BATCH_LIMIT}</span>
-          )}
+          <span className="font-normal text-muted-foreground"> · up to {limit}</span>
         </p>
         <Button
           type="button"
@@ -104,7 +102,9 @@ export function BatchStrip({
           ? full
             ? `This batch is full at ${limit} photos. Unlimited batches are not available yet.`
             : "The same watermark is applied to every photo. More than one photo downloads as a ZIP."
-          : `Free exports one photo at a time. A ${PRO_BATCH_LIMIT}-photo batch will be available with paid plans. Those plans are not for sale yet.`}
+          : full
+            ? `This batch is full at ${limit} photos. A ${PRO_BATCH_LIMIT}-photo batch will be available with paid plans. Those plans are not for sale yet.`
+            : `Up to ${limit} photos on Free. The same watermark goes on each one. More than one downloads as a ZIP.`}
       </p>
     </div>
   )
