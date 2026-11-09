@@ -53,8 +53,11 @@ export function PhotoPrints() {
           </figure>
         ))}
       </div>
-      <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed fs-text-soft md:mx-0">
-        Your Text on the portrait. Sample Test on the coffee. A QR code on the bowl.
+      <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed fs-text-soft md:mx-0">
+        Your Text on the portrait. Sample Test on the coffee.{" "}
+        <span className="text-[var(--fs-ink)]">
+          A QR watermark, like the one on the bowl, can open a portfolio, shop, or website when someone scans it.
+        </span>
       </p>
     </div>
   )
