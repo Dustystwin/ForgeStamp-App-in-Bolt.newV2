@@ -4,8 +4,16 @@ const FAQS = [
     a: "No. You can upload an image and try the editor without signing up. Creating a free account lets you save exported images for 30 days and revisit them later.",
   },
   {
+    q: "What happens to a photo I upload?",
+    a: "You can try without an account. The photo stays in your browser while you preview it and download a PNG, and ForgeStamp does not store that file. If you are signed in, exporting saves the original and the PNG to My Images for 30 days. You can delete them there sooner.",
+  },
+  {
+    q: "Does a watermark stop someone from copying my photo?",
+    a: "A visible watermark helps keep credit on the photo. It is not a guarantee against copying or misuse.",
+  },
+  {
     q: "What image formats does ForgeStamp export?",
-    a: "Today, ForgeStamp exports PNG only. JPG and WebP export are listed as coming soon on Spark. They are not available yet.",
+    a: "You can upload a JPG, PNG, or WebP. Today, ForgeStamp exports PNG only. JPG and WebP export are listed as coming soon on Spark. They are not available yet.",
   },
   {
     q: "Can I change my plan later?",
@@ -17,7 +25,7 @@ const FAQS = [
   },
   {
     q: "Can I add my logo or a QR code?",
-    a: "Yes. In the editor, switch the watermark to Text, Logo, or QR. Logo uses a PNG, JPG, or WebP you upload. QR turns an http or https link into a code that can be scanned.",
+    a: "Yes. In the editor, switch the watermark to Text, Logo, or QR. Logo uses a PNG, JPG, or WebP you upload. QR turns an http or https link into a code. Someone who scans it can open a portfolio, shop, or website.",
   },
   {
     q: "Can I watermark more than one photo?",

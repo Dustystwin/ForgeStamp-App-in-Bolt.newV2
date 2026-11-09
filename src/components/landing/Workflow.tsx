@@ -36,7 +36,7 @@ export function Workflow() {
                 Upload
               </h3>
               <p className="mt-1 max-w-prose text-sm leading-relaxed fs-text-soft">
-                Add the image you want to mark. Free can take up to 3 at once.
+                Add a JPG, PNG, or WebP. Free can take up to 3 at once.
               </p>
             </figure>
           </li>
@@ -116,6 +116,10 @@ export function Workflow() {
             </figure>
           </li>
         </ol>
+
+        <p className="mt-5 max-w-2xl text-sm leading-relaxed fs-text-soft md:mt-6">
+          A visible watermark helps keep credit on a photo. It is not a guarantee against copying or misuse.
+        </p>
       </div>
     </section>
   )

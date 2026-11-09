@@ -14,7 +14,7 @@ export function Hero() {
               Watermark your images before you share them.
             </h1>
             <p className="mt-4 max-w-md text-base leading-relaxed fs-text-soft md:mt-5 md:text-lg">
-              Add words, a logo, or a QR code. See the result immediately, and download a PNG.
+              Upload a JPG, PNG, or WebP. Add words, a logo, or a QR code, see it right away, and download a PNG.
             </p>
             <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
