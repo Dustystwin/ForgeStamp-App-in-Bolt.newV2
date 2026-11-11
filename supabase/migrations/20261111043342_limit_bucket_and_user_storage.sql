@@ -137,8 +137,18 @@ CREATE TRIGGER enforce_watermark_storage_cap
   WHEN (NEW.bucket_id = 'watermark-images')
   EXECUTE FUNCTION private.enforce_watermark_storage_cap();
 
-CREATE INDEX IF NOT EXISTS watermark_objects_owner_folder_idx
-  ON storage.objects (bucket_id, (split_part(name, '/', 1)))
-  WHERE bucket_id = 'watermark-images';
+-- Hosted postgres can create the trigger but does not own storage.objects.
+-- Skip the index when ownership is required. The cap does not depend on it.
+DO $$
+BEGIN
+  EXECUTE $index$
+    CREATE INDEX IF NOT EXISTS watermark_objects_owner_folder_idx
+      ON storage.objects (bucket_id, (split_part(name, '/', 1)))
+      WHERE bucket_id = 'watermark-images'
+  $index$;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    RAISE NOTICE 'skipped watermark_objects_owner_folder_idx: %', SQLERRM;
+END $$;
 
 NOTIFY pgrst, 'reload schema';
