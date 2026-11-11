@@ -11,7 +11,8 @@ import { EditorPage } from "@/components/editor/EditorPage"
 import { MyImagesPage } from "@/components/my-images/MyImagesPage"
 import { AdminPage } from "@/components/admin/AdminPage"
 import { AuthModal } from "@/components/auth/AuthModal"
-import { AuthProvider } from "@/context/AuthContext"
+import { SetNewPasswordModal } from "@/components/auth/SetNewPasswordModal"
+import { AuthProvider, useAuth } from "@/context/AuthContext"
 import type { EditorState } from "@/lib/editor-types"
 
 export type View = "landing" | "editor" | "my-images" | "admin" | "legal"
@@ -51,6 +52,7 @@ function getInitialView(): View {
 }
 
 function AppInner() {
+  const { passwordRecovery } = useAuth()
   const [view, setView] = useState<View>(getInitialView)
   const [editorKey, setEditorKey] = useState(0)
   const [editorInitialData, setEditorInitialData] = useState<EditorInitialData | null>(null)
@@ -139,6 +141,7 @@ function AppInner() {
         defaultMode={authModalMode}
         onClose={() => setAuthModalOpen(false)}
       />
+      <SetNewPasswordModal open={passwordRecovery} />
     </NavigationContext.Provider>
   )
 }
