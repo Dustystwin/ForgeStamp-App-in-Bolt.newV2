@@ -16,6 +16,12 @@ import { BatchStrip } from "./BatchStrip"
 import { useAuth } from "@/context/AuthContext"
 import { useNavigation } from "@/App"
 import { supabase } from "@/lib/supabase"
+import {
+  STORAGE_LIMIT_MESSAGE,
+  calmStorageError,
+  savedImagesExceedLimit,
+  storageObjectPath,
+} from "@/lib/storage-quota"
 import type { EditorInitialData } from "@/App"
 
 interface EditorPageProps {
@@ -76,50 +82,72 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     if (!session?.user) return
     const userId = session.user.id
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-
-    const originalPath = `${userId}/originals/${id}_${file.name}`
-    const { error: origErr } = await supabase.storage
-      .from("watermark-images")
-      .upload(originalPath, file, { contentType: file.type || "image/png" })
-    if (origErr) throw new Error(`Failed to upload original: ${origErr.message}`)
-
     const outputBlob = await fetch(dataUrl).then((r) => r.blob())
-    const outputPath = `${userId}/outputs/${id}_${filename}`
-    const { error: outErr } = await supabase.storage
-      .from("watermark-images")
-      .upload(outputPath, outputBlob, { contentType: "image/png" })
-    if (outErr) throw new Error(`Failed to upload output: ${outErr.message}`)
-
-    const totalSize = file.size + outputBlob.size
-
-    const settings = {
-      watermarkMode: state.watermarkMode,
-      watermarkText: state.watermarkText,
-      fontFamily: state.fontFamily,
-      fontSize: state.fontSize,
-      color: state.color,
-      opacity: state.opacity,
-      rotation: state.rotation,
-      placement: state.placement,
-      textDirection: state.textDirection,
-      coverageMode: state.coverageMode,
-      pattern: state.pattern,
-      density: state.density,
-      curveOrientation: state.curveOrientation,
-      stampSize: state.stampSize,
-      qrUrl: state.qrUrl,
-      qrColor: state.qrColor,
+    const incomingBytes = file.size + outputBlob.size
+    if (await savedImagesExceedLimit(incomingBytes)) {
+      throw new Error(STORAGE_LIMIT_MESSAGE)
     }
 
-    const { error: dbErr } = await supabase.from("images").insert({
-      user_id: userId,
-      original_path: originalPath,
-      output_path: outputPath,
-      settings,
-      filename,
-      total_size: totalSize,
-    })
-    if (dbErr) throw new Error(`Failed to save record: ${dbErr.message}`)
+    const originalPath = storageObjectPath(userId, "originals", id, file.name)
+    const outputPath = storageObjectPath(userId, "outputs", id, filename)
+    let uploadedOriginal = false
+    let uploadedOutput = false
+
+    try {
+      const { error: origErr } = await supabase.storage
+        .from("watermark-images")
+        .upload(originalPath, file, { contentType: file.type || "image/png" })
+      if (origErr) throw new Error(calmStorageError(`Failed to upload original: ${origErr.message}`))
+      uploadedOriginal = true
+
+      const { error: outErr } = await supabase.storage
+        .from("watermark-images")
+        .upload(outputPath, outputBlob, { contentType: "image/png" })
+      if (outErr) throw new Error(calmStorageError(`Failed to upload output: ${outErr.message}`))
+      uploadedOutput = true
+
+      const settings = {
+        watermarkMode: state.watermarkMode,
+        watermarkText: state.watermarkText,
+        fontFamily: state.fontFamily,
+        fontSize: state.fontSize,
+        color: state.color,
+        opacity: state.opacity,
+        rotation: state.rotation,
+        placement: state.placement,
+        textDirection: state.textDirection,
+        coverageMode: state.coverageMode,
+        pattern: state.pattern,
+        density: state.density,
+        curveOrientation: state.curveOrientation,
+        stampSize: state.stampSize,
+        qrUrl: state.qrUrl,
+        qrColor: state.qrColor,
+      }
+
+      const { error: dbErr } = await supabase.from("images").insert({
+        user_id: userId,
+        original_path: originalPath,
+        output_path: outputPath,
+        settings,
+        filename,
+        total_size: incomingBytes,
+      })
+      if (dbErr) throw new Error(calmStorageError(`Failed to save record: ${dbErr.message}`))
+    } catch (error) {
+      const paths = [
+        uploadedOriginal ? originalPath : null,
+        uploadedOutput ? outputPath : null,
+      ].filter((path): path is string => path !== null)
+      if (paths.length > 0) {
+        try {
+          await supabase.storage.from("watermark-images").remove(paths)
+        } catch {
+          // Show the upload error. A leftover file still counts toward the 500 MB cap.
+        }
+      }
+      throw error
+    }
   }, [session, state])
 
   const handleAddPhotos = useCallback((files: File[]) => {
