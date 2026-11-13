@@ -22,6 +22,8 @@ import {
   savedImagesExceedLimit,
   storageObjectPath,
 } from "@/lib/storage-quota"
+import { replaceFileExtension, saveResultMessages, shouldRetryOutputCompact, type SaveFailure } from "@/lib/save-messages"
+import { compactWatermark, outputForStorage } from "@/lib/stored-output"
 import type { EditorInitialData } from "@/App"
 
 interface EditorPageProps {
@@ -79,17 +81,19 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     dataUrl: string,
     filename: string
   ) => {
-    if (!session?.user) return
+    if (!session?.user) throw new Error("Sign in to save images.")
     const userId = session.user.id
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-    const outputBlob = await fetch(dataUrl).then((r) => r.blob())
-    const incomingBytes = file.size + outputBlob.size
-    if (await savedImagesExceedLimit(incomingBytes)) {
+    const prepared = await outputForStorage(dataUrl, filename)
+    let outputBlob = prepared.blob
+    let contentType = prepared.contentType
+    let storedFilename = prepared.filename
+    if (await savedImagesExceedLimit(file.size + outputBlob.size)) {
       throw new Error(STORAGE_LIMIT_MESSAGE)
     }
 
     const originalPath = storageObjectPath(userId, "originals", id, file.name)
-    const outputPath = storageObjectPath(userId, "outputs", id, filename)
+    let outputPath = storageObjectPath(userId, "outputs", id, storedFilename)
     let uploadedOriginal = false
     let uploadedOutput = false
 
@@ -100,9 +104,21 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       if (origErr) throw new Error(calmStorageError(`Failed to upload original: ${origErr.message}`))
       uploadedOriginal = true
 
-      const { error: outErr } = await supabase.storage
-        .from("watermark-images")
-        .upload(outputPath, outputBlob, { contentType: "image/png" })
+      const uploadOutput = (path: string, blob: Blob, type: string) =>
+        supabase.storage.from("watermark-images").upload(path, blob, { contentType: type })
+
+      let outErr = (await uploadOutput(outputPath, outputBlob, contentType)).error
+      // A PNG between 15 MB and 50 MB needs the newer bucket limit. Until that
+      // migration is applied, keep a smaller copy of the same picture instead.
+      if (outErr && shouldRetryOutputCompact(contentType, outputBlob.size, outErr.message)) {
+        await supabase.storage.from("watermark-images").remove([outputPath])
+        const compact = await compactWatermark(dataUrl)
+        outputBlob = compact.blob
+        contentType = compact.contentType
+        storedFilename = replaceFileExtension(filename, compact.extension)
+        outputPath = storageObjectPath(userId, "outputs", id, storedFilename)
+        outErr = (await uploadOutput(outputPath, outputBlob, contentType)).error
+      }
       if (outErr) throw new Error(calmStorageError(`Failed to upload output: ${outErr.message}`))
       uploadedOutput = true
 
@@ -130,8 +146,8 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         original_path: originalPath,
         output_path: outputPath,
         settings,
-        filename,
-        total_size: incomingBytes,
+        filename: storedFilename,
+        total_size: file.size + outputBlob.size,
       })
       if (dbErr) throw new Error(calmStorageError(`Failed to save record: ${dbErr.message}`))
     } catch (error) {
@@ -247,16 +263,22 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       if (session) {
         setIsSaving(true)
         try {
+          const failures: SaveFailure[] = []
+          let savedCount = 0
           for (const item of exported) {
-            await saveToMyImages(item.file, item.dataUrl, item.filename)
+            try {
+              await saveToMyImages(item.file, item.dataUrl, item.filename)
+              savedCount += 1
+            } catch (err) {
+              failures.push({
+                filename: item.filename,
+                message: err instanceof Error ? err.message : "Failed to save image.",
+              })
+            }
           }
-          toast.success(
-            exported.length === 1
-              ? "Saved to My Images. Expires in 30 days."
-              : `Saved ${exported.length} images to My Images. Each expires in 30 days.`
-          )
-        } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Failed to save image.")
+          const report = saveResultMessages(savedCount, exported.length, failures)
+          if (report.success) toast.success(report.success)
+          if (report.error) toast.error(report.error)
         } finally {
           setIsSaving(false)
         }

@@ -22,7 +22,7 @@ interface AuthContextType {
   profile: Profile | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string) => Promise<{ error: string | null; signedIn: boolean }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: string | null }>
   updatePassword: (password: string) => Promise<{ error: string | null }>
@@ -44,7 +44,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   signIn: async () => ({ error: null }),
-  signUp: async () => ({ error: null }),
+  signUp: async () => ({ error: null, signedIn: false }),
   signOut: async () => {},
   resetPassword: async () => ({ error: null }),
   updatePassword: async () => ({ error: null }),
@@ -141,11 +141,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signUp({ email, password })
-      if (error) return { error: extractMessage(error) }
-      return { error: null }
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      if (error) return { error: extractMessage(error), signedIn: false }
+      // Email confirmation leaves session empty. A session means they are signed in.
+      return { error: null, signedIn: data.session != null }
     } catch (e) {
-      return { error: extractMessage(e) }
+      return { error: extractMessage(e), signedIn: false }
     }
   }, [])
 

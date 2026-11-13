@@ -1,12 +1,13 @@
 import { supabase } from "@/lib/supabase"
+import { FILE_TOO_LARGE_MESSAGE, isFileTooLargeMessage } from "@/lib/save-messages"
+
+export { FILE_TOO_LARGE_MESSAGE } from "@/lib/save-messages"
 
 /** 500 MB for every account until paid plans exist. Matches the database trigger. */
 export const USER_STORAGE_LIMIT_BYTES = 500 * 1024 * 1024
 
 export const STORAGE_LIMIT_MESSAGE =
   "This account can store up to 500 MB. Delete some saved images to make room."
-
-export const FILE_TOO_LARGE_MESSAGE = "This file is too large. The limit is 15 MB."
 
 export function safeStorageFileName(name: string): string {
   const base = name.split(/[/\\]/).pop() ?? "image"
@@ -29,13 +30,10 @@ export function calmStorageError(message: string): string {
   if (lower.includes("could not read the file size")) {
     return "That upload did not finish. Please try again."
   }
-  if (
-    message.includes("15 MB") ||
-    lower.includes("maximum allowed size") ||
-    lower.includes("too large")
-  ) {
-    return FILE_TOO_LARGE_MESSAGE
+  if (lower.includes("finished image")) {
+    return "This watermarked image is too large to save."
   }
+  if (isFileTooLargeMessage(message)) return FILE_TOO_LARGE_MESSAGE
   return message
 }
 

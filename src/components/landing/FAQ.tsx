@@ -5,7 +5,7 @@ const FAQS = [
   },
   {
     q: "What happens to a photo I upload?",
-    a: "You can try without an account. The photo stays in your browser while you preview it and download a PNG, and ForgeStamp does not store that file. If you are signed in, exporting saves the original and the PNG to My Images for 30 days. You can delete them there sooner.",
+    a: "You can try without an account. The photo stays in your browser while you preview it and download a PNG, and ForgeStamp does not store that file. If you are signed in, exporting also saves the original and the watermarked image to My Images for 30 days. Photos you upload can be up to 15 MB. If the watermarked PNG would be too big to store, ForgeStamp keeps a smaller copy of the same picture. You can delete saved images sooner.",
   },
   {
     q: "Does a watermark stop someone from copying my photo?",

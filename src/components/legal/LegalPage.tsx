@@ -23,15 +23,14 @@ export const LEGAL_PAGES = {
     title: "Contact",
     paragraphs: [
       "This is a draft placeholder. A contact form and support inbox are not connected to this page yet.",
-      "Support times listed on the pricing cards are not active, because Spark and Forge are not for sale.",
-      "A real way to reach ForgeStamp will be added here before the app takes payment.",
+      "There is no email support yet. A way to reach ForgeStamp will be added here before the app takes payment.",
     ],
   },
   help: {
     title: "Help",
     paragraphs: [
       "This is a draft placeholder. A full help center is not written yet.",
-      "What works today: add a text, logo, or QR watermark, place it, use a pattern, watch the live preview, and export a PNG. Free can export up to 3 photos at once as a ZIP. A Pro account can export up to 25, with the same watermark on each. An admin can test that 25-photo batch. You can try the editor without an account. A free account can save exports for 30 days.",
+      "What works today: add a text, logo, or QR watermark, place it, use a pattern, watch the live preview, and export a PNG. Free can export up to 3 photos at once as a ZIP. A Pro account can export up to 25, with the same watermark on each. An admin can test that 25-photo batch. You can try the editor without an account. A free account can save exports for 30 days. Photos you upload can be up to 15 MB.",
       "What is not available yet: unlimited batches, a monthly batch allowance, JPG or WebP export, and saved presets. Spark and Forge cannot be purchased.",
     ],
   },

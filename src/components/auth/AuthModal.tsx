@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Eye, EyeOff, Loader as Loader2, Mail, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner"
 import { useAuth } from "@/context/AuthContext"
 import { checkPasswordBreach } from "@/lib/password-check"
+import { accountCreatedMessage } from "@/lib/save-messages"
 
 type Mode = "sign-in" | "sign-up" | "reset-password"
 
@@ -31,7 +32,15 @@ export function AuthModal({ open, defaultMode = "sign-in", onClose, onSuccess }:
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Reset fields when modal opens/mode changes
+  // The dialog stays mounted, so the requested mode has to be applied each time it opens.
+  useEffect(() => {
+    if (!open) return
+    setMode(defaultMode)
+    setEmail("")
+    setPassword("")
+    setShowPassword(false)
+  }, [open, defaultMode])
+
   const switchMode = (m: Mode) => {
     setMode(m)
     setEmail("")
@@ -85,13 +94,16 @@ export function AuthModal({ open, defaultMode = "sign-in", onClose, onSuccess }:
           )
           return
         }
-        const { error } = await signUp(email.trim(), password)
+        const { error, signedIn } = await signUp(email.trim(), password)
         if (error) {
           toast.error(error)
-        } else {
-          toast.success("Account created! You are now signed in.")
+        } else if (signedIn) {
+          toast.success(accountCreatedMessage(true))
           handleClose()
           onSuccess?.()
+        } else {
+          toast.info(accountCreatedMessage(false), { duration: 8000 })
+          handleClose()
         }
       }
     } finally {
