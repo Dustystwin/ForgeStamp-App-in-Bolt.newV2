@@ -2,20 +2,6 @@ import {
   Upload,
   Paintbrush,
   Download,
-  Type,
-  Palette,
-  SlidersHorizontal,
-  RotateCw,
-  LayoutGrid,
-  Eye,
-  Smartphone,
-  Move,
-  BookOpen,
-  Zap,
-  Award,
-  Shield,
-  Sparkles,
-  Users,
   Check,
 } from "lucide-react"
 
@@ -46,92 +32,6 @@ export const WORKFLOW_STEPS = [
     description:
       "Preview your final image before exporting a clean professional watermarked copy.",
     icon: Download,
-  },
-] as const
-
-export const FEATURES = [
-  {
-    title: "Text Watermarks",
-    description: "Add custom text overlays with full typographic control.",
-    icon: Type,
-  },
-  {
-    title: "Font Selection",
-    description: "Choose from a curated set of professional display and body fonts.",
-    icon: BookOpen,
-  },
-  {
-    title: "Color Selection",
-    description: "Pick any color for your watermark text with a visual color picker.",
-    icon: Palette,
-  },
-  {
-    title: "Opacity Controls",
-    description: "Fine-tune transparency to balance visibility and subtlety.",
-    icon: SlidersHorizontal,
-  },
-  {
-    title: "Rotation Controls",
-    description: "Angle your watermark for diagonal or custom orientations.",
-    icon: RotateCw,
-  },
-  {
-    title: "Watermark Placement",
-    description: "Position your watermark exactly where you want it on the image.",
-    icon: Move,
-  },
-  {
-    title: "Full Image Tiling",
-    description: "Repeat your watermark across the entire image for maximum protection.",
-    icon: LayoutGrid,
-  },
-  {
-    title: "Live Preview",
-    description: "See changes instantly as you adjust every watermark setting.",
-    icon: Eye,
-  },
-  {
-    title: "PNG Export",
-    description: "Download your watermarked image as a high-quality PNG file.",
-    icon: Download,
-  },
-  {
-    title: "Mobile Friendly Workflow",
-    description: "Works beautifully on phones and tablets, not just desktops.",
-    icon: Smartphone,
-  },
-] as const
-
-export const WHY_REASONS = [
-  {
-    title: "Easy to Learn",
-    description: "No tutorials needed. The interface is intuitive from the first click.",
-    icon: Sparkles,
-  },
-  {
-    title: "Fast Workflow",
-    description: "Go from upload to protected image in under a minute.",
-    icon: Zap,
-  },
-  {
-    title: "Professional Results",
-    description: "Output that looks polished and intentional, never amateur.",
-    icon: Award,
-  },
-  {
-    title: "Protect Your Creative Work",
-    description: "Discourage unauthorized use of your creative images.",
-    icon: Shield,
-  },
-  {
-    title: "Clean Modern Interface",
-    description: "A focused workspace free of clutter and distractions.",
-    icon: Eye,
-  },
-  {
-    title: "Built For Creators",
-    description: "Designed by creatives, for photographers, designers, and artists.",
-    icon: Users,
   },
 ] as const
 
@@ -170,10 +70,6 @@ export const PRICING_PLANS = [
         "Monthly batch allowance (coming soon)",
       ],
     } as { title: string; items: string[] } | null,
-    support: {
-      title: "Email Support",
-      detail: "Typically within 3 business days",
-    },
     cta: "Try a watermark",
     available: true,
     highlighted: false,
@@ -203,10 +99,6 @@ export const PRICING_PLANS = [
         "Monthly batch allowance (coming soon)",
       ],
     } as { title: string; items: string[] } | null,
-    support: {
-      title: "Priority Email Support",
-      detail: "Typically within 2 business days",
-    },
     cta: "Coming soon",
     available: false,
     highlighted: true,
@@ -228,10 +120,6 @@ export const PRICING_PLANS = [
       "Early access to new features",
     ],
     batch: null as { title: string; items: string[] } | null,
-    support: {
-      title: "Premium Priority Email Support",
-      detail: "Typically within 1 business day",
-    },
     cta: "Coming soon",
     available: false,
     highlighted: false,

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, Layers, Mail } from "lucide-react"
+import { Check, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PRICING_PLANS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
@@ -111,14 +111,6 @@ export function Pricing() {
                       </ul>
                     </div>
                   )}
-
-                  <div className="flex items-start gap-2 border-t border-black/10 pt-4">
-                    <Mail className="mt-0.5 size-4 shrink-0 fs-text-soft" aria-hidden="true" />
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--fs-ink)]">{plan.support.title}</p>
-                      <p className="text-sm fs-text-soft">{plan.support.detail}</p>
-                    </div>
-                  </div>
                 </div>
 
                 {plan.available ? (
