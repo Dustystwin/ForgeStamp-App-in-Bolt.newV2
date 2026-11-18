@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect, useLayoutEffect, useMemo } from "react"
-import { releaseCanvas } from "@/lib/image-resources"
+import { canvasToBlob, releaseCanvas } from "@/lib/image-resources"
+import { frameFile } from "@/lib/frame-image"
+import { composeWatermarkText, scaledTextPaint, textPaintPadding } from "@/lib/text-style"
 import type { EditorState } from "@/lib/editor-types"
 import { ImageUploader } from "./ImageUploader"
 import {
@@ -57,13 +59,27 @@ export function WatermarkPreview({
     qrUrl,
     qrColor,
     logoPreviewUrl,
+    signaturePreviewUrl,
+    outlineWidth,
+    outlineColor,
+    shadowEnabled,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
+    dateStamp,
+    cropAspect,
+    quarterTurns,
   } = state
+
+  const label = composeWatermarkText(watermarkText, dateStamp)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [containerWidth, setContainerWidth] = useState(600)
   const [containerHeight, setContainerHeight] = useState(400)
   const [stampSource, setStampSource] = useState<{ src: string; image: HTMLImageElement } | null>(null)
+  const [framedUrl, setFramedUrl] = useState<string | null>(null)
   // Tracks the last clearAt value we have acted on
   const lastClearedAtRef = useRef(0)
 
@@ -72,7 +88,45 @@ export function WatermarkPreview({
     return renderQrDataUrl(qrUrl, qrColor)
   }, [watermarkMode, qrUrl, qrColor])
 
-  const stampSrc = watermarkMode === "logo" ? logoPreviewUrl : watermarkMode === "qr" ? qrDataUrl : null
+  const stampSrc = watermarkMode === "logo"
+    ? logoPreviewUrl
+    : watermarkMode === "signature"
+      ? signaturePreviewUrl
+      : watermarkMode === "qr"
+        ? qrDataUrl
+        : null
+
+  useEffect(() => {
+    if (!state.image || (cropAspect === "original" && quarterTurns % 4 === 0)) {
+      setFramedUrl(null)
+      return
+    }
+    let cancelled = false
+    let url: string | null = null
+    frameFile(state.image, cropAspect, quarterTurns, 1600)
+      .then(async (canvas) => {
+        const blob = await canvasToBlob(canvas, "image/jpeg", 0.85)
+        releaseCanvas(canvas)
+        if (!blob || cancelled) return
+        url = URL.createObjectURL(blob)
+        if (cancelled) {
+          URL.revokeObjectURL(url)
+          return
+        }
+        setFramedUrl(url)
+      })
+      .catch(() => {
+        if (!cancelled) setFramedUrl(null)
+      })
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+      setFramedUrl((current) => {
+        if (current && current !== url) URL.revokeObjectURL(current)
+        return null
+      })
+    }
+  }, [state.image, cropAspect, quarterTurns])
 
   useEffect(() => {
     if (!stampSrc) {
@@ -206,7 +260,19 @@ export function WatermarkPreview({
       const stackedLineHeight = stacked ? scaledFontSize * 1.02 : undefined
       const totalRotation = rotation + getDirectionRotationOffset(textDirection) + patternAngle
       const normalizedSpacing = density * sizeScale
-      const text = watermarkText || "\u00A0"
+      const text = label || "\u00A0"
+      const paint = scaledTextPaint({
+        fontSize,
+        scaledFont: scaledFontSize,
+        outlineWidth,
+        outlineColor,
+        shadowEnabled,
+        shadowColor,
+        shadowBlur,
+        shadowOffsetX,
+        shadowOffsetY,
+      })
+      const paintPad = textPaintPadding(paint)
       // See watermark-utils.ts for the full explanation. Shape patterns
       // (radial/spiral/concentric/honeycomb/border) always use the normal
       // single-line footprint. Grid-style patterns need to know a stacked
@@ -219,10 +285,10 @@ export function WatermarkPreview({
       // uncapped stacked height for row spacing, or the actual (always
       // full-height) rendered text will overlap neighboring rows.
       const fullStackedHeight = chars.length * scaledFontSize * 1.02
-      const textWidth = !isShapePattern && stacked
+      const textWidth = (!isShapePattern && stacked
         ? Math.max(...chars.map((c) => ctx.measureText(c).width), 1)
-        : measuredWidth
-      const effTextHeight = !isShapePattern && stacked ? fullStackedHeight : scaledFontSize
+        : measuredWidth) + paintPad * 2
+      const effTextHeight = (!isShapePattern && stacked ? fullStackedHeight : scaledFontSize) + paintPad * 2
       const points = getPatternPoints(
         containerWidth,
         containerHeight,
@@ -236,7 +302,7 @@ export function WatermarkPreview({
       )
 
       for (const pt of points) {
-        drawStamp(ctx, text, pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward)
+        drawStamp(ctx, text, pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward, paint)
       }
     }
 
@@ -252,7 +318,7 @@ export function WatermarkPreview({
       const fontSpec = `bold ${Math.max(12, Math.round(fontSize * (Math.sqrt(containerWidth * containerHeight) / 800)))}px "${fontFamily}"`
       if (!document.fonts.check(fontSpec)) {
         document.fonts
-          .load(fontSpec, watermarkText || "M")
+          .load(fontSpec, label || "M")
           .then(() => {
             if (!cancelled) draw()
           })
@@ -280,6 +346,14 @@ export function WatermarkPreview({
     density,
     pattern,
     watermarkText,
+    label,
+    outlineWidth,
+    outlineColor,
+    shadowEnabled,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
     curveOrientation,
     watermarkMode,
     stampSize,
@@ -306,20 +380,34 @@ export function WatermarkPreview({
       cancelled = true
     }
   }, [fontFamily, scaledFontSize, watermarkText])
+  const singlePaint = scaledTextPaint({
+    fontSize,
+    scaledFont: scaledFontSize,
+    outlineWidth,
+    outlineColor,
+    shadowEnabled,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
+  })
   const textBox = useMemo(() => {
     const canvas = document.createElement("canvas")
     const ctx = canvas.getContext("2d")
     if (!ctx) return { width: scaledFontSize * 4, height: scaledFontSize }
     const box = measureTextStamp(
       ctx,
-      watermarkText,
+      label,
       scaledFontSize,
       fontFamily,
       isStackedDirection(textDirection),
     )
+    const pad = textPaintPadding(singlePaint)
+    box.width += pad * 2
+    box.height += pad * 2
     releaseCanvas(canvas)
     return box
-  }, [watermarkText, scaledFontSize, fontFamily, textDirection, fontEpoch])
+  }, [label, scaledFontSize, fontFamily, textDirection, fontEpoch, singlePaint])
   const textCenter = placedStampCenter(
     placement,
     containerWidth,
@@ -367,6 +455,12 @@ export function WatermarkPreview({
     // your head. For Vertical Up the character string is reversed (below) so the
     // word reads correctly from the bottom upward while still stacking downward.
     ...(stackedSingle ? { writingMode: "vertical-rl" as const, textOrientation: "upright" as const, letterSpacing: "0.05em" } : {}),
+    ...(singlePaint && singlePaint.outlineWidth > 0
+      ? { WebkitTextStroke: `${singlePaint.outlineWidth}px ${singlePaint.outlineColor}`, paintOrder: "stroke fill" as const }
+      : {}),
+    ...(singlePaint && (singlePaint.shadowBlur > 0 || singlePaint.shadowOffsetX !== 0 || singlePaint.shadowOffsetY !== 0)
+      ? { textShadow: `${singlePaint.shadowOffsetX}px ${singlePaint.shadowOffsetY}px ${singlePaint.shadowBlur}px ${singlePaint.shadowColor}` }
+      : {}),
     pointerEvents: "none",
     userSelect: "none",
   }
@@ -397,7 +491,7 @@ export function WatermarkPreview({
         {/* Uploaded image */}
         {imagePreviewUrl ? (
           <img
-            src={imagePreviewUrl}
+            src={framedUrl ?? imagePreviewUrl}
             alt="Uploaded image preview"
             className="block max-h-[45vh] md:max-h-[min(45vh,460px)] max-w-full object-contain"
             draggable={false}
@@ -430,13 +524,16 @@ export function WatermarkPreview({
             <div style={singleWatermarkStyle}>
               <span className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
                 {stackedSingleUpward
-                  ? Array.from(watermarkText || "\u00A0").reverse().join("")
-                  : watermarkText || "\u00A0"}
+                  ? Array.from(label || "\u00A0").reverse().join("")
+                  : label || "\u00A0"}
               </span>
             </div>
           )}
           {coverageMode === "single" && watermarkMode === "logo" && logoPreviewUrl && (
             <img src={logoPreviewUrl} alt="" style={singleImageStyle} draggable={false} />
+          )}
+          {coverageMode === "single" && watermarkMode === "signature" && signaturePreviewUrl && (
+            <img src={signaturePreviewUrl} alt="" style={singleImageStyle} draggable={false} />
           )}
           {coverageMode === "single" && watermarkMode === "qr" && qrDataUrl && (
             <img
@@ -445,6 +542,13 @@ export function WatermarkPreview({
               style={singleImageStyle}
               draggable={false}
             />
+          )}
+          {imagePreviewUrl && watermarkMode === "signature" && !signaturePreviewUrl && (
+            <p className="absolute inset-x-0 bottom-2 text-center">
+              <span className="rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium text-foreground/80 shadow-sm">
+                Draw a signature to stamp it here
+              </span>
+            </p>
           )}
           {imagePreviewUrl && watermarkMode === "logo" && !logoPreviewUrl && (
             <p className="absolute inset-x-0 bottom-2 text-center">

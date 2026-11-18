@@ -3,21 +3,33 @@ import {
   DEFAULT_EDITOR_STATE,
   DENSITY_MAX,
   DENSITY_MIN,
+  EXPORT_QUALITY_MAX,
+  EXPORT_QUALITY_MIN,
   FONT_OPTIONS,
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
   OPACITY_MAX,
   OPACITY_MIN,
+  OUTLINE_WIDTH_MAX,
+  OUTLINE_WIDTH_MIN,
   PATTERN_OPTIONS,
   PLACEMENT_GRID,
   ROTATION_MAX,
   ROTATION_MIN,
+  SHADOW_BLUR_MAX,
+  SHADOW_BLUR_MIN,
+  SHADOW_OFFSET_MAX,
+  SHADOW_OFFSET_MIN,
   STAMP_SIZE_MAX,
   STAMP_SIZE_MIN,
   TEXT_DIRECTION_OPTIONS,
+  isCropAspect,
+  isDateStampFormat,
   isWatermarkMode,
   type CoverageMode,
+  type CropAspect,
   type CurveOrientation,
+  type DateStampFormat,
   type EditorState,
   type ExportFormat,
   type Pattern,
@@ -25,7 +37,7 @@ import {
   type TextDirection,
 } from "@/lib/editor-types"
 
-/** Saved with a preset. The logo file stays on this device and is not included. */
+/** Saved with a preset. The logo file and signature drawing stay on this device. */
 export interface PresetSettings {
   watermarkMode: EditorState["watermarkMode"]
   watermarkText: string
@@ -44,6 +56,18 @@ export interface PresetSettings {
   qrUrl: string
   qrColor: string
   exportFormat: ExportFormat
+  exportLongEdge: number
+  exportQuality: number
+  outlineWidth: number
+  outlineColor: string
+  shadowEnabled: boolean
+  shadowColor: string
+  shadowBlur: number
+  shadowOffsetX: number
+  shadowOffsetY: number
+  dateStamp: DateStampFormat
+  cropAspect: CropAspect
+  quarterTurns: number
 }
 
 const PLACEMENTS = new Set<string>(PLACEMENT_GRID.map((item) => item.value))
@@ -98,6 +122,18 @@ export function settingsFromEditor(state: EditorState): PresetSettings {
     qrUrl: state.qrUrl,
     qrColor: state.qrColor,
     exportFormat: state.exportFormat,
+    exportLongEdge: state.exportLongEdge,
+    exportQuality: state.exportQuality,
+    outlineWidth: state.outlineWidth,
+    outlineColor: state.outlineColor,
+    shadowEnabled: state.shadowEnabled,
+    shadowColor: state.shadowColor,
+    shadowBlur: state.shadowBlur,
+    shadowOffsetX: state.shadowOffsetX,
+    shadowOffsetY: state.shadowOffsetY,
+    dateStamp: state.dateStamp,
+    cropAspect: state.cropAspect,
+    quarterTurns: state.quarterTurns,
   }
 }
 
@@ -125,5 +161,19 @@ export function parsePresetSettings(raw: unknown): PresetSettings | null {
     qrUrl: typeof row.qrUrl === "string" ? row.qrUrl.trim().slice(0, 2000) : "",
     qrColor: hexColor(row.qrColor, defaults.qrColor),
     exportFormat: isExportFormat(row.exportFormat) ? row.exportFormat : "png",
+    exportLongEdge: [0, 1080, 1600, 2048].includes(Number(row.exportLongEdge))
+      ? Number(row.exportLongEdge)
+      : 0,
+    exportQuality: clampNumber(row.exportQuality, EXPORT_QUALITY_MIN, EXPORT_QUALITY_MAX, defaults.exportQuality),
+    outlineWidth: clampNumber(row.outlineWidth, OUTLINE_WIDTH_MIN, OUTLINE_WIDTH_MAX, defaults.outlineWidth),
+    outlineColor: hexColor(row.outlineColor, defaults.outlineColor),
+    shadowEnabled: row.shadowEnabled === true,
+    shadowColor: hexColor(row.shadowColor, defaults.shadowColor),
+    shadowBlur: clampNumber(row.shadowBlur, SHADOW_BLUR_MIN, SHADOW_BLUR_MAX, defaults.shadowBlur),
+    shadowOffsetX: clampNumber(row.shadowOffsetX, SHADOW_OFFSET_MIN, SHADOW_OFFSET_MAX, defaults.shadowOffsetX),
+    shadowOffsetY: clampNumber(row.shadowOffsetY, SHADOW_OFFSET_MIN, SHADOW_OFFSET_MAX, defaults.shadowOffsetY),
+    dateStamp: isDateStampFormat(row.dateStamp) ? row.dateStamp : "off",
+    cropAspect: isCropAspect(row.cropAspect) ? row.cropAspect : "original",
+    quarterTurns: clampNumber(row.quarterTurns, 0, 3, 0),
   }
 }

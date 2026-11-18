@@ -24,6 +24,7 @@ import {
   type PlanId,
 } from "@/lib/plans"
 import { parsePresetSettings, settingsFromEditor, type PresetSettings } from "@/lib/preset-settings"
+import { STARTER_PRESETS, type StarterPreset } from "@/lib/starter-presets"
 import { supabase, type WatermarkPreset } from "@/lib/supabase"
 
 interface PresetControlProps {
@@ -53,6 +54,18 @@ function forPlan(settings: PresetSettings, plan: PlanId): { settings: PresetSett
   if (next.exportFormat !== "png") {
     next.exportFormat = "png"
     notes.push("Free exports PNG.")
+  }
+  if (next.watermarkMode === "signature") {
+    next.watermarkMode = "text"
+    notes.push("Signature watermarks stay off on Free.")
+  }
+  if (next.shadowEnabled) {
+    next.shadowEnabled = false
+    notes.push("Drop shadow stays off on Free.")
+  }
+  if (next.exportLongEdge !== 0) {
+    next.exportLongEdge = 0
+    notes.push("Free keeps the original photo size.")
   }
   return { settings: next, notes }
 }
@@ -118,21 +131,31 @@ export function PresetControl({ state, onApply }: PresetControlProps) {
     }
   }, [session?.user])
 
+  const applyLook = (settings: PresetSettings, name: string) => {
+    const fitted = forPlan(settings, plan)
+    onApply(fitted.settings)
+    if (fitted.settings.watermarkMode === "logo") {
+      toast(`${name} loaded. Upload the logo again — looks don't keep the logo file.`)
+    } else if (fitted.settings.watermarkMode === "signature") {
+      toast(`${name} loaded. Draw the signature again — looks don't keep the drawing.`)
+    } else if (fitted.notes.length > 0) {
+      toast(fitted.notes[0])
+    } else {
+      toast.success(`Loaded “${name}”.`)
+    }
+  }
+
+  const applyStarter = (starter: StarterPreset) => {
+    applyLook(starter.settings, starter.name)
+  }
+
   const applyPreset = (preset: WatermarkPreset) => {
     const parsed = parsePresetSettings(preset.settings)
     if (!parsed) {
       toast.error("That preset could not be read.")
       return
     }
-    const fitted = forPlan(parsed, plan)
-    onApply(fitted.settings)
-    if (fitted.settings.watermarkMode === "logo") {
-      toast("Preset loaded. Upload the logo again — presets don't keep the logo file.")
-    } else if (fitted.notes.length > 0) {
-      toast(fitted.notes[0])
-    } else {
-      toast.success(`Loaded “${preset.name}”.`)
-    }
+    applyLook(parsed, preset.name)
   }
 
   const savePreset = async () => {
@@ -186,7 +209,27 @@ export function PresetControl({ state, onApply }: PresetControlProps) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium">Starter looks</Label>
+        <div className="grid grid-cols-2 gap-1.5">
+          {STARTER_PRESETS.map((starter) => (
+            <button
+              key={starter.id}
+              type="button"
+              onClick={() => applyStarter(starter)}
+              className="min-h-11 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 text-left hover:bg-muted"
+            >
+              <span className="block text-[11px] font-medium text-foreground">{starter.name}</span>
+              <span className="block text-[10px] leading-snug text-muted-foreground">{starter.blurb}</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] leading-snug text-muted-foreground">
+          One tap. These are not saved presets, so they don't count toward your limit. Spark and Forge extras stay off on Free.
+        </p>
+      </div>
+
       <div className="flex items-baseline justify-between gap-2">
         <Label className="text-xs font-medium">Saved presets</Label>
         {session && limit > 0 && (

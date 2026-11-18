@@ -9,6 +9,9 @@ import {
 } from "@/lib/editor-types"
 import { renderQrDataUrl } from "@/lib/qr-watermark"
 import { canvasToBlob, closeBitmap, releaseCanvas, scaledPreviewBlob } from "@/lib/image-resources"
+import { frameBitmap, needsFrame } from "@/lib/frame-image"
+import type { CropAspect, DateStampFormat } from "@/lib/editor-types"
+import { composeWatermarkText, paintFill, scaledTextPaint, textPaintPadding, type TextPaint } from "@/lib/text-style"
 import {
   getPatternPoints,
   measureTextStamp,
@@ -131,7 +134,8 @@ export function drawStamp(
   // directions); the value is the line height between stacked characters.
   stackedLineHeight?: number,
   // When true, stack from the bottom up so the word reads upward (Vertical Up).
-  stackUpward = false
+  stackUpward = false,
+  paint?: TextPaint,
 ) {
   if (pt.arc && pt.arc.r > 4) {
     const { cx, cy, r } = pt.arc
@@ -160,7 +164,7 @@ export function drawStamp(
         ctx.save()
         ctx.translate(cx + r * Math.cos(mid), cy + r * Math.sin(mid))
         ctx.rotate(mid + (dir * Math.PI) / 2)
-        ctx.fillText(chars[i], 0, 0)
+        paintFill(ctx, chars[i], 0, 0, paint)
         ctx.restore()
         a += dir * charArc
       }
@@ -189,10 +193,10 @@ export function drawStamp(
     const ordered = stackUpward ? [...chars].reverse() : chars
     const startY = -((ordered.length - 1) / 2) * stackedLineHeight
     for (let i = 0; i < ordered.length; i++) {
-      ctx.fillText(ordered[i], 0, startY + i * stackedLineHeight)
+      paintFill(ctx, ordered[i], 0, startY + i * stackedLineHeight, paint)
     }
   } else {
-    ctx.fillText(text, 0, 0)
+    paintFill(ctx, text, 0, 0, paint)
   }
   ctx.restore()
 }
@@ -335,6 +339,19 @@ export interface CanvasWatermarkOptions {
   stampSize?: number
   logoUrl?: string | null
   qrUrl?: string | null
+  signatureUrl?: string | null
+  outlineWidth?: number
+  outlineColor?: string
+  shadowEnabled?: boolean
+  shadowColor?: string
+  shadowBlur?: number
+  shadowOffsetX?: number
+  shadowOffsetY?: number
+  dateStamp?: DateStampFormat
+  frameAspect?: CropAspect
+  quarterTurns?: number
+  longEdge?: number | null
+  exportQuality?: number
   imageWidth: number
   imageHeight: number
   // JPEG has no transparency. A white matte keeps a transparent PNG from turning black.
@@ -345,6 +362,10 @@ async function loadStampSource(opts: CanvasWatermarkOptions): Promise<HTMLImageE
   if (opts.mode === "logo") {
     if (!opts.logoUrl) return null
     return loadHtmlImage(opts.logoUrl)
+  }
+  if (opts.mode === "signature") {
+    if (!opts.signatureUrl) return null
+    return loadHtmlImage(opts.signatureUrl)
   }
   if (opts.mode === "qr") {
     const dataUrl = renderQrDataUrl(opts.qrUrl ?? "", opts.color)
@@ -359,8 +380,9 @@ export async function drawWatermarkOnCanvas(
   image: CanvasImageSource,
   opts: CanvasWatermarkOptions
 ): Promise<void> {
-  const { text, fontFamily, fontSize, color, opacity, rotation, placement,
+  const { fontFamily, fontSize, color, opacity, rotation, placement,
     textDirection, coverageMode, pattern, density, imageWidth, imageHeight } = opts
+  const text = composeWatermarkText(opts.text, opts.dateStamp ?? "off")
   const curveOrientation = opts.curveOrientation ?? "readable"
   const mode = opts.mode ?? "text"
 
@@ -374,7 +396,7 @@ export async function drawWatermarkOnCanvas(
   }
   ctx.drawImage(image, 0, 0, imageWidth, imageHeight)
 
-  if (mode === "logo" || mode === "qr") {
+  if (mode === "logo" || mode === "qr" || mode === "signature") {
     const source = await loadStampSource(opts)
     if (source) {
       drawImageWatermark(ctx, source, {
@@ -425,6 +447,17 @@ export async function drawWatermarkOnCanvas(
   // column would blow that shape up. Every other pattern, including a single
   // stamp, needs the real stacked footprint so the letters stay on the photo.
   const isShapePattern = coverageMode === "full" && usesShapeGeometry(pattern)
+  const paint = scaledTextPaint({
+    fontSize,
+    scaledFont: clampedFontSize,
+    outlineWidth: opts.outlineWidth ?? 0,
+    outlineColor: opts.outlineColor ?? "#FFFFFF",
+    shadowEnabled: Boolean(opts.shadowEnabled),
+    shadowColor: opts.shadowColor ?? "#111111",
+    shadowBlur: opts.shadowBlur ?? 0,
+    shadowOffsetX: opts.shadowOffsetX ?? 0,
+    shadowOffsetY: opts.shadowOffsetY ?? 0,
+  })
   const measured = measureTextStamp(
     ctx,
     text || "\u00A0",
@@ -432,6 +465,9 @@ export async function drawWatermarkOnCanvas(
     fontFamily,
     stacked && !isShapePattern,
   )
+  const pad = textPaintPadding(paint)
+  measured.width += pad * 2
+  measured.height += pad * 2
 
   if (coverageMode === "full") {
     const normalizedSpacing = density * sizeScale
@@ -447,7 +483,7 @@ export async function drawWatermarkOnCanvas(
       totalRotation,
     )
     for (const pt of points) {
-      drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward)
+      drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward, paint)
     }
   } else {
     const { x, y } = placedStampCenter(
@@ -467,10 +503,10 @@ export async function drawWatermarkOnCanvas(
       const ordered = stackUpward ? [...chars].reverse() : chars
       const startY = -((ordered.length - 1) / 2) * stackedLineHeight
       for (let i = 0; i < ordered.length; i++) {
-        ctx.fillText(ordered[i], 0, startY + i * stackedLineHeight)
+        paintFill(ctx, ordered[i], 0, startY + i * stackedLineHeight, paint)
       }
     } else {
-      ctx.fillText(text || "\u00A0", 0, 0)
+      paintFill(ctx, text || "\u00A0", 0, 0, paint)
     }
     ctx.restore()
   }
@@ -494,12 +530,32 @@ export async function exportWatermarked(
 ): Promise<ExportedImage> {
   const bitmap = await createImageBitmap(image)
   const canvas = document.createElement("canvas")
-  const { mime, quality } = EXPORT_MIME[format]
+  let framed: HTMLCanvasElement | null = null
+  const { mime, quality: defaultQuality } = EXPORT_MIME[format]
+  const requested = opts.exportQuality
+  const quality = format === "png"
+    ? undefined
+    : requested == null
+      ? defaultQuality
+      : Math.min(1, Math.max(0.6, requested > 1 ? requested / 100 : requested))
   try {
-    await drawWatermarkOnCanvas(canvas, bitmap, {
+    const aspect = opts.frameAspect ?? "original"
+    const turns = opts.quarterTurns ?? 0
+    const longEdge = opts.longEdge ?? null
+    let source: CanvasImageSource = bitmap
+    let width = bitmap.width
+    let height = bitmap.height
+    if (needsFrame(bitmap.width, bitmap.height, aspect, turns, longEdge)) {
+      framed = frameBitmap(bitmap, aspect, turns, longEdge)
+      source = framed
+      width = framed.width
+      height = framed.height
+      closeBitmap(bitmap)
+    }
+    await drawWatermarkOnCanvas(canvas, source, {
       ...opts,
-      imageWidth: bitmap.width,
-      imageHeight: bitmap.height,
+      imageWidth: width,
+      imageHeight: height,
       matte: format === "jpeg" ? "#ffffff" : opts.matte,
     })
     const blob = await canvasToBlob(canvas, mime, quality)
@@ -508,10 +564,11 @@ export async function exportWatermarked(
     }
     // Preview while the full canvas is still alive, so the gallery does not
     // decode the finished photo a second time.
-    const preview = await scaledPreviewBlob(canvas, bitmap.width, bitmap.height, 640)
+    const preview = await scaledPreviewBlob(canvas, width, height, 640)
     return { blob, preview }
   } finally {
     closeBitmap(bitmap)
+    releaseCanvas(framed)
     releaseCanvas(canvas)
   }
 }

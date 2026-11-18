@@ -9,12 +9,24 @@ export type CurveOrientation = "readable" | "natural"
 
 export type CoverageMode = "single" | "full"
 
-export type WatermarkMode = "text" | "logo" | "qr"
+export type WatermarkMode = "text" | "logo" | "qr" | "signature"
 
 export type ExportFormat = "png" | "jpeg" | "webp"
 
+export type DateStampFormat = "off" | "medium" | "numeric" | "year"
+
+export type CropAspect = "original" | "1:1" | "4:5" | "3:4" | "2:3" | "9:16" | "16:9"
+
 export function isWatermarkMode(value: unknown): value is WatermarkMode {
-  return value === "text" || value === "logo" || value === "qr"
+  return value === "text" || value === "logo" || value === "qr" || value === "signature"
+}
+
+export function isDateStampFormat(value: unknown): value is DateStampFormat {
+  return value === "off" || value === "medium" || value === "numeric" || value === "year"
+}
+
+export function isCropAspect(value: unknown): value is CropAspect {
+  return value === "original" || value === "1:1" || value === "4:5" || value === "3:4" || value === "2:3" || value === "9:16" || value === "16:9"
 }
 
 export type Pattern =
@@ -60,6 +72,21 @@ export interface EditorState {
   logoPreviewUrl: string | null
   logoName: string | null
   exportFormat: ExportFormat
+  // 0 keeps the photo's long edge. 1080, 1600, and 2048 fit the long edge to that many pixels.
+  exportLongEdge: number
+  exportQuality: number
+  outlineWidth: number
+  outlineColor: string
+  shadowEnabled: boolean
+  shadowColor: string
+  shadowBlur: number
+  shadowOffsetX: number
+  shadowOffsetY: number
+  dateStamp: DateStampFormat
+  cropAspect: CropAspect
+  quarterTurns: number
+  // Session-only drawing. Not stored with saved images or presets.
+  signaturePreviewUrl: string | null
   error: string | null
 }
 
@@ -155,7 +182,7 @@ export const TEXT_DIRECTION_OPTIONS: { value: TextDirection; label: string }[] =
   { value: "vertical-up", label: "Vertical Up" },
 ]
 
-export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl" | "logoPreviewUrl" | "logoName" | "error"> = {
+export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl" | "logoPreviewUrl" | "logoName" | "signaturePreviewUrl" | "error"> = {
   watermarkMode: "text",
   watermarkText: "Your Text",
   fontFamily: "Inter",
@@ -173,6 +200,18 @@ export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl"
   qrUrl: "",
   qrColor: "#000000",
   exportFormat: "png",
+  exportLongEdge: 0,
+  exportQuality: 92,
+  outlineWidth: 0,
+  outlineColor: "#FFFFFF",
+  shadowEnabled: false,
+  shadowColor: "#111111",
+  shadowBlur: 8,
+  shadowOffsetX: 2,
+  shadowOffsetY: 3,
+  dateStamp: "off",
+  cropAspect: "original",
+  quarterTurns: 0,
 }
 
 export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"]
@@ -192,3 +231,11 @@ export const ROTATION_MIN = -180
 export const ROTATION_MAX = 180
 export const DENSITY_MIN = 40
 export const DENSITY_MAX = 400
+export const OUTLINE_WIDTH_MIN = 0
+export const OUTLINE_WIDTH_MAX = 8
+export const SHADOW_BLUR_MIN = 0
+export const SHADOW_BLUR_MAX = 24
+export const SHADOW_OFFSET_MIN = -20
+export const SHADOW_OFFSET_MAX = 20
+export const EXPORT_QUALITY_MIN = 60
+export const EXPORT_QUALITY_MAX = 100

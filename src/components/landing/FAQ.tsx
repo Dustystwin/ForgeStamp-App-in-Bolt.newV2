@@ -13,7 +13,7 @@ const FAQS = [
   },
   {
     q: "What image formats does ForgeStamp export?",
-    a: "You can upload a JPG, PNG, or WebP. Every plan downloads at the photo's original size. Free exports PNG. Spark and Forge can also export JPG and WebP. The format you pick is used for a single download, a ZIP of several photos, and the copy saved to My Images.",
+    a: "You can upload a JPG, PNG, or WebP. Free exports a PNG at the photo's original size. Spark and Forge can also export JPG or WebP, choose a quality from 60 to 100, and fit the long edge to 2048, 1600, or 1080. The format you pick is used for a single download, a ZIP of several photos, and the copy saved to My Images.",
   },
   {
     q: "Can I change my plan later?",
@@ -21,11 +21,11 @@ const FAQS = [
   },
   {
     q: "What's the difference between Single Placement and Full Coverage?",
-    a: "Single Placement puts one watermark exactly where you choose. Full Coverage repeats it across the image using one of ForgeStamp's patterns, making it harder to crop out. Both work for text, logo, and QR.",
+    a: "Single Placement puts one watermark exactly where you choose. Full Coverage repeats it across the image using one of ForgeStamp's patterns, making it harder to crop out. Both work for text, logo, QR, and a signature on Spark or Forge.",
   },
   {
     q: "Can I add my logo or a QR code?",
-    a: "Yes. In the editor, switch the watermark to Text, Logo, or QR. Logo uses a PNG, JPG, or WebP you upload. QR turns an http or https link into a code. Someone who scans it can open a portfolio, shop, or website.",
+    a: "Yes. In the editor, switch the watermark to Text, Logo, QR, or Sign. Logo uses a PNG, JPG, or WebP you upload. QR turns an http or https link into a code. Sign is a drawing you make with a mouse or finger, and it is included with Spark and Forge. Free includes a text outline, a copyright mark, a date stamp, and crop and rotate.",
   },
   {
     q: "Can I watermark more than one photo?",

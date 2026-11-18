@@ -86,6 +86,25 @@ export function formatOption(format: ExportFormat) {
   return FORMAT_OPTIONS.find((option) => option.value === format) ?? FORMAT_OPTIONS[0]
 }
 
+export const EXPORT_LONG_EDGES = [2048, 1600, 1080] as const
+
+/** Null keeps the photo's long edge. Free always keeps the original. */
+export function resolveLongEdge(plan: PlanId, edge: number): number | null {
+  if (plan === "free") return null
+  return (EXPORT_LONG_EDGES as readonly number[]).includes(edge) ? edge : null
+}
+
+/** JPG and WebP quality. Free does not use this; PNG stays lossless. */
+export function resolveExportQuality(plan: PlanId, quality: number): number {
+  if (plan === "free") return 92
+  if (!Number.isFinite(quality)) return 92
+  return Math.min(100, Math.max(60, Math.round(quality)))
+}
+
+export function canUseSparkTools(tier: string | null | undefined, isAdmin = false): boolean {
+  return effectivePlan(tier, isAdmin) !== "free"
+}
+
 /** How many saved images this plan can keep. Forge has no count cap. */
 export function historyCap(plan: PlanId): number | null {
   if (plan === "forge") return null

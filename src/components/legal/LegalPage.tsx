@@ -30,7 +30,7 @@ export const LEGAL_PAGES = {
     title: "Help",
     paragraphs: [
       "This is a draft placeholder. A full help center is not written yet.",
-      "What works today: add a text, logo, or QR watermark, place it, use a pattern, and watch the live preview. Every plan exports at the photo's original size. Free exports PNG, up to 3 photos at once as a ZIP, and can save up to 20 images for 30 days. Spark adds premium fonts and colors, JPG and WebP, 10 saved presets, up to 25 photos at once, and up to 100 images kept for 180 days. Forge adds up to 200 presets, up to 50 photos at once, and images that stay until you delete them. You can try the editor without an account. Photos you upload can be up to 15 MB. Each account can store 500 MB.",
+      "What works today: add a text, logo, or QR watermark, place it, use a pattern, and watch the live preview. Free also includes a text outline, a copyright mark, a date stamp, crop and rotate, and starter looks. Free exports PNG at the photo's original size, up to 3 photos at once as a ZIP, and can save up to 20 images for 30 days. Spark adds premium fonts and colors, drop shadow, a signature watermark, JPG and WebP with a quality slider, smaller export sizes, 10 saved presets, up to 25 photos at once, and up to 100 images kept for 180 days. Forge adds up to 200 presets, up to 50 photos at once, and images that stay until you delete them. You can try the editor without an account. Photos you upload can be up to 15 MB. Each account can store 500 MB.",
       "Spark and Forge cannot be purchased here. There is no checkout. Watermarking runs in the browser, so there is no priority queue and no monthly batch allowance.",
     ],
   },

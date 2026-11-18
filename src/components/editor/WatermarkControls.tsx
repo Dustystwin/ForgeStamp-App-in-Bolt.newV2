@@ -6,6 +6,8 @@ import type {
   CurveOrientation,
   Pattern,
   WatermarkMode,
+  DateStampFormat,
+  CropAspect,
 } from "@/lib/editor-types"
 import { STAMP_SIZE_MAX, STAMP_SIZE_MIN } from "@/lib/editor-types"
 import { TextControl } from "./controls/TextControl"
@@ -24,6 +26,12 @@ import { WatermarkModeControl } from "./controls/WatermarkModeControl"
 import { LogoControl } from "./controls/LogoControl"
 import { QrControl } from "./controls/QrControl"
 import { PresetControl } from "./controls/PresetControl"
+import { DateStampControl } from "./controls/DateStampControl"
+import { TextStyleControl } from "./controls/TextStyleControl"
+import { FrameControl } from "./controls/FrameControl"
+import { SignatureControl } from "./controls/SignatureControl"
+import { useAuth } from "@/context/AuthContext"
+import { canUseSparkTools } from "@/lib/plans"
 import type { PresetSettings } from "@/lib/preset-settings"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -49,6 +57,18 @@ interface WatermarkControlsProps {
   onQrColorChange: (value: string) => void
   onLogoSelect: (file: File) => void
   onLogoClear: () => void
+  onSignatureChange: (blob: Blob) => void
+  onSignatureClear: () => void
+  onOutlineWidthChange: (value: number) => void
+  onOutlineColorChange: (value: string) => void
+  onShadowEnabledChange: (value: boolean) => void
+  onShadowColorChange: (value: string) => void
+  onShadowBlurChange: (value: number) => void
+  onShadowOffsetXChange: (value: number) => void
+  onShadowOffsetYChange: (value: number) => void
+  onDateStampChange: (value: DateStampFormat) => void
+  onCropAspectChange: (value: CropAspect) => void
+  onQuarterTurnsChange: (value: number) => void
   onClearCoverage: () => void
   onApplySettings: (settings: PresetSettings) => void
 }
@@ -81,9 +101,23 @@ export function WatermarkControls({
   onQrColorChange,
   onLogoSelect,
   onLogoClear,
+  onSignatureChange,
+  onSignatureClear,
+  onOutlineWidthChange,
+  onOutlineColorChange,
+  onShadowEnabledChange,
+  onShadowColorChange,
+  onShadowBlurChange,
+  onShadowOffsetXChange,
+  onShadowOffsetYChange,
+  onDateStampChange,
+  onCropAspectChange,
+  onQuarterTurnsChange,
   onClearCoverage,
   onApplySettings,
 }: WatermarkControlsProps) {
+  const { profile } = useAuth()
+  const spark = canUseSparkTools(profile?.tier, Boolean(profile?.is_admin))
   const mode = state.watermarkMode
   // Curve direction changes radial stamp angles. Spiral and concentric only
   // bend text, so those toggles stay hidden for a logo or QR.
@@ -95,7 +129,13 @@ export function WatermarkControls({
 
   return (
     <div className="space-y-4">
-      <WatermarkModeControl value={mode} onChange={onModeChange} />
+      <WatermarkModeControl value={mode} signatureUnlocked={spark} onChange={onModeChange} />
+      <FrameControl
+        aspect={state.cropAspect}
+        quarterTurns={state.quarterTurns}
+        onAspectChange={onCropAspectChange}
+        onQuarterTurnsChange={onQuarterTurnsChange}
+      />
       <PresetControl state={state} onApply={onApplySettings} />
 
       <Separator />
@@ -104,9 +144,42 @@ export function WatermarkControls({
         <div className="space-y-3">
           <SectionLabel>Text</SectionLabel>
           <TextControl value={state.watermarkText} onChange={onTextChange} />
+          <DateStampControl value={state.dateStamp} onChange={onDateStampChange} />
           <FontControl value={state.fontFamily} onChange={onFontChange} />
           <FontSizeControl value={state.fontSize} onChange={onFontSizeChange} />
           <TextDirectionControl value={state.textDirection} onChange={onTextDirectionChange} />
+          <TextStyleControl
+            outlineWidth={state.outlineWidth}
+            outlineColor={state.outlineColor}
+            shadowEnabled={state.shadowEnabled}
+            shadowColor={state.shadowColor}
+            shadowBlur={state.shadowBlur}
+            shadowOffsetX={state.shadowOffsetX}
+            shadowOffsetY={state.shadowOffsetY}
+            shadowUnlocked={spark}
+            onOutlineWidthChange={onOutlineWidthChange}
+            onOutlineColorChange={onOutlineColorChange}
+            onShadowEnabledChange={onShadowEnabledChange}
+            onShadowColorChange={onShadowColorChange}
+            onShadowBlurChange={onShadowBlurChange}
+            onShadowOffsetXChange={onShadowOffsetXChange}
+            onShadowOffsetYChange={onShadowOffsetYChange}
+          />
+        </div>
+      )}
+
+      {mode === "signature" && (
+        <div className="space-y-3">
+          <SectionLabel>Signature</SectionLabel>
+          <SignatureControl onChange={onSignatureChange} onClear={onSignatureClear} />
+          <FontSizeControl
+            id="stamp-size"
+            label="Size"
+            min={STAMP_SIZE_MIN}
+            max={STAMP_SIZE_MAX}
+            value={state.stampSize}
+            onChange={onStampSizeChange}
+          />
         </div>
       )}
 

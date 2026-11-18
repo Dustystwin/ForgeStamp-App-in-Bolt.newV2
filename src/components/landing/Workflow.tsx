@@ -111,7 +111,7 @@ export function Workflow() {
                 Download
               </h3>
               <p className="mt-1 max-w-prose text-sm leading-relaxed fs-text-soft">
-                Free downloads a PNG. Spark and Forge can also download JPG or WebP. More than one photo comes as a ZIP.
+                Free downloads a PNG at the original size. Spark and Forge can also download JPG or WebP, set the quality, and fit the long edge to 2048, 1600, or 1080. More than one photo comes as a ZIP.
               </p>
             </figure>
           </li>

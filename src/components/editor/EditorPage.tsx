@@ -21,6 +21,8 @@ import {
   historyCap,
   historySavePhrase,
   resolveExportFormat,
+  resolveExportQuality,
+  resolveLongEdge,
   savedCountLabel,
   saveFitWarning,
 } from "@/lib/plans"
@@ -73,9 +75,23 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     setQrUrl,
     setQrColor,
     setExportFormat,
+    setExportLongEdge,
+    setExportQuality,
+    setOutlineWidth,
+    setOutlineColor,
+    setShadowEnabled,
+    setShadowColor,
+    setShadowBlur,
+    setShadowOffsetX,
+    setShadowOffsetY,
+    setDateStamp,
+    setCropAspect,
+    setQuarterTurns,
     applySettings,
     setLogo,
     clearLogo,
+    setSignature,
+    clearSignature,
     reset,
     clearError,
   } = useEditorState(initialData)
@@ -187,6 +203,18 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         qrUrl: state.qrUrl,
         qrColor: state.qrColor,
         exportFormat,
+        exportLongEdge: state.exportLongEdge,
+        exportQuality: state.exportQuality,
+        outlineWidth: state.outlineWidth,
+        outlineColor: state.outlineColor,
+        shadowEnabled: plan !== "free" && state.shadowEnabled,
+        shadowColor: state.shadowColor,
+        shadowBlur: state.shadowBlur,
+        shadowOffsetX: state.shadowOffsetX,
+        shadowOffsetY: state.shadowOffsetY,
+        dateStamp: state.dateStamp,
+        cropAspect: state.cropAspect,
+        quarterTurns: state.quarterTurns,
       }
 
       const { error: dbErr } = await supabase.from("images").insert({
@@ -212,7 +240,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       }
       throw error
     }
-  }, [session, state, exportFormat])
+  }, [session, state, exportFormat, plan])
 
   const handleAddPhotos = useCallback((files: File[]) => {
     const result = addPhotos(files, batchLimit)
@@ -269,6 +297,19 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       stampSize: state.stampSize,
       logoUrl: state.logoPreviewUrl,
       qrUrl: state.qrUrl,
+      signatureUrl: state.signaturePreviewUrl,
+      outlineWidth: state.outlineWidth,
+      outlineColor: state.outlineColor,
+      shadowEnabled: plan !== "free" && state.shadowEnabled,
+      shadowColor: state.shadowColor,
+      shadowBlur: state.shadowBlur,
+      shadowOffsetX: state.shadowOffsetX,
+      shadowOffsetY: state.shadowOffsetY,
+      dateStamp: state.dateStamp,
+      frameAspect: state.cropAspect,
+      quarterTurns: state.quarterTurns,
+      longEdge: resolveLongEdge(plan, state.exportLongEdge),
+      exportQuality: resolveExportQuality(plan, state.exportQuality) / 100,
       color: state.watermarkMode === "qr" ? state.qrColor : state.color,
       imageWidth: 0,
       imageHeight: 0,
@@ -537,6 +578,18 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             onQrColorChange={setQrColor}
             onLogoSelect={setLogo}
             onLogoClear={clearLogo}
+            onSignatureChange={setSignature}
+            onSignatureClear={clearSignature}
+            onOutlineWidthChange={setOutlineWidth}
+            onOutlineColorChange={setOutlineColor}
+            onShadowEnabledChange={setShadowEnabled}
+            onShadowColorChange={setShadowColor}
+            onShadowBlurChange={setShadowBlur}
+            onShadowOffsetXChange={setShadowOffsetX}
+            onShadowOffsetYChange={setShadowOffsetY}
+            onDateStampChange={setDateStamp}
+            onCropAspectChange={setCropAspect}
+            onQuarterTurnsChange={setQuarterTurns}
             onClearCoverage={handleClearCoverage}
             onApplySettings={applySettings}
           />
@@ -545,7 +598,11 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             <ExportFormatControl
               value={state.exportFormat}
               plan={plan}
+              longEdge={state.exportLongEdge}
+              quality={state.exportQuality}
               onChange={setExportFormat}
+              onLongEdgeChange={setExportLongEdge}
+              onQualityChange={setExportQuality}
             />
             {session && savedUsage && (
               <p className={cn(

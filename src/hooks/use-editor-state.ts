@@ -18,6 +18,18 @@ import {
   STAMP_SIZE_MIN,
   isWatermarkMode,
   type ExportFormat,
+  type DateStampFormat,
+  type CropAspect,
+  OUTLINE_WIDTH_MIN,
+  OUTLINE_WIDTH_MAX,
+  SHADOW_BLUR_MIN,
+  SHADOW_BLUR_MAX,
+  SHADOW_OFFSET_MIN,
+  SHADOW_OFFSET_MAX,
+  EXPORT_QUALITY_MIN,
+  EXPORT_QUALITY_MAX,
+  isDateStampFormat,
+  isCropAspect,
 } from "@/lib/editor-types"
 import { isExportFormat, type PresetSettings } from "@/lib/preset-settings"
 import { scheduleThumb, thumbnailBlob } from "@/lib/image-resources"
@@ -90,12 +102,61 @@ export function useEditorState(initialData?: EditorInitialData) {
   const [exportFormat, setExportFormat] = useState<ExportFormat>(
     isExportFormat(init.exportFormat) ? init.exportFormat : DEFAULT_EDITOR_STATE.exportFormat
   )
+  const [exportLongEdge, setExportLongEdge] = useState(() => {
+    const n = init.exportLongEdge
+    return n === 1080 || n === 1600 || n === 2048 ? n : 0
+  })
+  const [exportQuality, setExportQuality] = useState(() => {
+    const n = init.exportQuality
+    if (typeof n !== "number" || !Number.isFinite(n)) return DEFAULT_EDITOR_STATE.exportQuality
+    return Math.min(EXPORT_QUALITY_MAX, Math.max(EXPORT_QUALITY_MIN, Math.round(n)))
+  })
+  const [outlineWidth, setOutlineWidth] = useState(() => {
+    const n = init.outlineWidth
+    if (typeof n !== "number" || !Number.isFinite(n)) return DEFAULT_EDITOR_STATE.outlineWidth
+    return Math.min(OUTLINE_WIDTH_MAX, Math.max(OUTLINE_WIDTH_MIN, Math.round(n)))
+  })
+  const [outlineColor, setOutlineColor] = useState(
+    typeof init.outlineColor === "string" ? init.outlineColor : DEFAULT_EDITOR_STATE.outlineColor
+  )
+  const [shadowEnabled, setShadowEnabled] = useState(init.shadowEnabled === true)
+  const [shadowColor, setShadowColor] = useState(
+    typeof init.shadowColor === "string" ? init.shadowColor : DEFAULT_EDITOR_STATE.shadowColor
+  )
+  const [shadowBlur, setShadowBlur] = useState(() => {
+    const n = init.shadowBlur
+    if (typeof n !== "number" || !Number.isFinite(n)) return DEFAULT_EDITOR_STATE.shadowBlur
+    return Math.min(SHADOW_BLUR_MAX, Math.max(SHADOW_BLUR_MIN, Math.round(n)))
+  })
+  const [shadowOffsetX, setShadowOffsetX] = useState(() => {
+    const n = init.shadowOffsetX
+    if (typeof n !== "number" || !Number.isFinite(n)) return DEFAULT_EDITOR_STATE.shadowOffsetX
+    return Math.min(SHADOW_OFFSET_MAX, Math.max(SHADOW_OFFSET_MIN, Math.round(n)))
+  })
+  const [shadowOffsetY, setShadowOffsetY] = useState(() => {
+    const n = init.shadowOffsetY
+    if (typeof n !== "number" || !Number.isFinite(n)) return DEFAULT_EDITOR_STATE.shadowOffsetY
+    return Math.min(SHADOW_OFFSET_MAX, Math.max(SHADOW_OFFSET_MIN, Math.round(n)))
+  })
+  const [dateStamp, setDateStamp] = useState<DateStampFormat>(
+    isDateStampFormat(init.dateStamp) ? init.dateStamp : "off"
+  )
+  const [cropAspect, setCropAspect] = useState<CropAspect>(
+    isCropAspect(init.cropAspect) ? init.cropAspect : "original"
+  )
+  const [quarterTurns, setQuarterTurns] = useState(() => {
+    const n = init.quarterTurns
+    if (typeof n !== "number" || !Number.isFinite(n)) return 0
+    return ((Math.round(n) % 4) + 4) % 4
+  })
+  const [signaturePreviewUrl, setSignaturePreviewUrl] = useState<string | null>(null)
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
   const [logoName, setLogoName] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const logoUrlRef = useRef<string | null>(null)
   const logoLoadId = useRef(0)
+  const signatureUrlRef = useRef<string | null>(null)
   const alive = useRef(true)
   const thumbGen = useRef(new Map<string, number>())
 
@@ -157,6 +218,10 @@ export function useEditorState(initialData?: EditorInitialData) {
         URL.revokeObjectURL(logoUrlRef.current)
         logoUrlRef.current = null
       }
+      if (signatureUrlRef.current) {
+        URL.revokeObjectURL(signatureUrlRef.current)
+        signatureUrlRef.current = null
+      }
     }
   }, [])
 
@@ -168,6 +233,22 @@ export function useEditorState(initialData?: EditorInitialData) {
     }
     setLogoPreviewUrl(null)
     setLogoName(null)
+  }, [])
+
+  const setSignature = useCallback((blob: Blob) => {
+    const url = URL.createObjectURL(blob)
+    if (signatureUrlRef.current) URL.revokeObjectURL(signatureUrlRef.current)
+    signatureUrlRef.current = url
+    setSignaturePreviewUrl(url)
+    setError(null)
+  }, [])
+
+  const clearSignature = useCallback(() => {
+    if (signatureUrlRef.current) {
+      URL.revokeObjectURL(signatureUrlRef.current)
+      signatureUrlRef.current = null
+    }
+    setSignaturePreviewUrl(null)
   }, [])
 
   const setLogo = useCallback((file: File) => {
@@ -338,9 +419,22 @@ export function useEditorState(initialData?: EditorInitialData) {
     setQrUrl(DEFAULT_EDITOR_STATE.qrUrl)
     setQrColor(DEFAULT_EDITOR_STATE.qrColor)
     setExportFormat(DEFAULT_EDITOR_STATE.exportFormat)
+    setExportLongEdge(DEFAULT_EDITOR_STATE.exportLongEdge)
+    setExportQuality(DEFAULT_EDITOR_STATE.exportQuality)
+    setOutlineWidth(DEFAULT_EDITOR_STATE.outlineWidth)
+    setOutlineColor(DEFAULT_EDITOR_STATE.outlineColor)
+    setShadowEnabled(DEFAULT_EDITOR_STATE.shadowEnabled)
+    setShadowColor(DEFAULT_EDITOR_STATE.shadowColor)
+    setShadowBlur(DEFAULT_EDITOR_STATE.shadowBlur)
+    setShadowOffsetX(DEFAULT_EDITOR_STATE.shadowOffsetX)
+    setShadowOffsetY(DEFAULT_EDITOR_STATE.shadowOffsetY)
+    setDateStamp(DEFAULT_EDITOR_STATE.dateStamp)
+    setCropAspect(DEFAULT_EDITOR_STATE.cropAspect)
+    setQuarterTurns(DEFAULT_EDITOR_STATE.quarterTurns)
     releaseLogo()
+    clearSignature()
     setError(null)
-  }, [commitBatch, releaseLogo])
+  }, [commitBatch, releaseLogo, clearSignature])
 
   const clearError = useCallback(() => setError(null), [])
 
@@ -362,6 +456,18 @@ export function useEditorState(initialData?: EditorInitialData) {
     setQrUrl(settings.qrUrl)
     setQrColor(settings.qrColor)
     setExportFormat(settings.exportFormat)
+    setExportLongEdge(settings.exportLongEdge)
+    setExportQuality(settings.exportQuality)
+    setOutlineWidth(settings.outlineWidth)
+    setOutlineColor(settings.outlineColor)
+    setShadowEnabled(settings.shadowEnabled)
+    setShadowColor(settings.shadowColor)
+    setShadowBlur(settings.shadowBlur)
+    setShadowOffsetX(settings.shadowOffsetX)
+    setShadowOffsetY(settings.shadowOffsetY)
+    setDateStamp(settings.dateStamp)
+    setCropAspect(settings.cropAspect)
+    setQuarterTurns(settings.quarterTurns)
     setError(null)
   }, [])
 
@@ -387,8 +493,21 @@ export function useEditorState(initialData?: EditorInitialData) {
     qrUrl,
     qrColor,
     exportFormat,
+    exportLongEdge,
+    exportQuality,
+    outlineWidth,
+    outlineColor,
+    shadowEnabled,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
+    dateStamp,
+    cropAspect,
+    quarterTurns,
     logoPreviewUrl,
     logoName,
+    signaturePreviewUrl,
     error,
   }
 
@@ -417,9 +536,23 @@ export function useEditorState(initialData?: EditorInitialData) {
     setQrUrl,
     setQrColor,
     setExportFormat,
+    setExportLongEdge,
+    setExportQuality,
+    setOutlineWidth,
+    setOutlineColor,
+    setShadowEnabled,
+    setShadowColor,
+    setShadowBlur,
+    setShadowOffsetX,
+    setShadowOffsetY,
+    setDateStamp,
+    setCropAspect,
+    setQuarterTurns,
     applySettings,
     setLogo,
     clearLogo: releaseLogo,
+    setSignature,
+    clearSignature,
     reset,
     clearError,
   }
