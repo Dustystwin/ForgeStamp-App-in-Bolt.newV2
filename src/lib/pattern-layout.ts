@@ -11,7 +11,7 @@ export interface GridPoint {
   // so a tall column does not swing into its neighbors.
   readingOrientationOnly?: boolean
   // Curved text follows this circle. Logo and QR ignore it and stay square.
-  arc?: { cx: number; cy: number; r: number }
+  arc?: { cx: number; cy: number; r: number; continuous?: boolean }
 }
 
 export function rotatedHalfExtents(
@@ -230,26 +230,24 @@ export function getPatternPoints(
       })
     })
   } else if (pattern === "crisscross") {
-    // Two diagonal families, +30° and -30°, phased so the copies sit in the
-    // gaps of the other family and cross as an X instead of a chevron row.
-    const tilt = 30
+    // Two families of straight diagonal lines, +45° and -45°. Copies sit on
+    // the middle of each segment, so the crossings stay empty and the lines
+    // read as an X from across the room.
+    const tilt = 45
     const theta = (tilt * Math.PI) / 180
     const finalA = baseRotation + tilt
     const finalB = baseRotation - tilt
     const boxA = rotatedHalfExtents(markW, markH, finalA)
     const boxB = rotatedHalfExtents(markW, markH, finalB)
-    const crossGap = Math.max(gap, Math.min(markW, markH) * 0.3)
-    const sVert = (boxA.halfH + boxB.halfH + crossGap) / Math.sin(theta)
-    const sHoriz = (boxA.halfW + boxB.halfW + crossGap) / Math.cos(theta)
+    const crossGap = Math.max(gap, Math.min(markW, markH) * 0.4)
     const alongA = projectExtent(finalA, tilt, markW / 2, markH / 2) * 2 + crossGap
     const alongB = projectExtent(finalB, -tilt, markW / 2, markH / 2) * 2 + crossGap
-    const perpA = projectExtent(finalA, tilt + 90, markW / 2, markH / 2) * 2 + crossGap
-    const sPerp = perpA / Math.sin(theta * 2)
-    const step = Math.max(spacing, sVert, sHoriz, alongA, alongB, sPerp) * 1.06
+    const sepNeed = Math.max(boxA.halfW + boxB.halfW, boxA.halfH + boxB.halfH) + crossGap
+    const step = Math.max(spacing, alongA, alongB, sepNeed * Math.SQRT2) * 1.06
     const ux = Math.cos(theta)
     const uy = Math.sin(theta)
-    const vx = ux
-    const vy = -uy
+    const vx = Math.cos(-theta)
+    const vy = Math.sin(-theta)
     const reach = Math.hypot(width, height) / 2 + step
     const n = Math.ceil(reach / step) + 2
     for (let i = -n; i <= n; i++) {
@@ -509,30 +507,29 @@ export function getPatternPoints(
       phi += along / Math.max(Math.hypot(dx, dy), 1)
     }
   } else if (pattern === "concentric") {
-    // Center-to-center ring spacing stays at least 1.8 text-heights so the
-    // bands do not collide. Along a ring, each copy takes its measured arc
-    // length plus a gap on the order of the text height.
-    const ringStep = Math.max(spacing, markH * 1.8)
-    const arcGap = Math.max(gap, markH * 0.9, markW * 0.16)
+    // Same centered circles as the original rings, with a little extra room
+    // along each ring and between rings. Rings that are too small for a
+    // curved word are skipped so a straight stamp does not sit in the middle.
+    const ringStep = Math.max(spacing, markH + gap * 2.4)
+    const arcGap = Math.max(gap * 1.8, markH * 0.36)
     const slot = markW + arcGap
-    const first = Math.max(ringStep, (slot / (2 * Math.PI)) * 1.25, markH * 1.8)
+    const first = Math.max(ringStep, markW * 0.78, markH * 2.2)
     let ring = 0
     for (let r = first; r <= maxRadius + ringStep * 0.2; r += ringStep, ring++) {
+      if (markW / r > Math.PI * 0.72) continue
       const n = Math.floor((2 * Math.PI * r) / slot)
-      if (n < 1) continue
+      if (n < 2) continue
       const offset = ring % 2 === 1 ? Math.PI / n : 0
       for (let k = 0; k < n; k++) {
         const theta = (k * 2 * Math.PI) / n + offset
-        let tangent = (theta * 180) / Math.PI + 90
-        // Straight fallback (very small rings) uses this angle. Readable mode
-        // turns the lower half right-side up. Curved text does the same flip
-        // while it is drawn.
-        if (orientation === "readable") tangent = upright(tangent)
+        // One tangent all the way around. Flipping the lower half bends those
+        // copies the other way and breaks the circle.
+        const tangent = (theta * 180) / Math.PI + 90
         push({
           x: centerX + r * Math.cos(theta),
           y: centerY + r * Math.sin(theta),
           angle: tangent,
-          arc: { cx: centerX, cy: centerY, r },
+          arc: { cx: centerX, cy: centerY, r, continuous: true },
         })
       }
     }

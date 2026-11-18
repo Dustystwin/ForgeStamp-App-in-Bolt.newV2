@@ -149,7 +149,9 @@ export function drawStamp(
       // stays right-side-up while still bending along the curve.
       // "Follow the shape": text flows continuously around the circle, even
       // where that means appearing upside down at the bottom.
-      const flip = orientation === "readable" && Math.sin(centerAngle) > 0
+      // Concentric rings ask for one tangent all the way around. Flipping the
+      // lower half bends those copies backward and breaks the circle.
+      const flip = !pt.arc.continuous && orientation === "readable" && Math.sin(centerAngle) > 0
       const dir = flip ? -1 : 1
       let a = centerAngle - (dir * totalArc) / 2
       for (let i = 0; i < chars.length; i++) {
