@@ -2,8 +2,6 @@ import { useRef, useState, useEffect, useLayoutEffect, useMemo } from "react"
 import type { EditorState } from "@/lib/editor-types"
 import { ImageUploader } from "./ImageUploader"
 import {
-  getPlacementPositionStyle,
-  getWatermarkTransform,
   getPatternPoints,
   getDirectionRotationOffset,
   isStackedDirection,
@@ -12,7 +10,9 @@ import {
   getPatternTextAngle,
   drawStamp,
   drawImageWatermark,
-  getStampAnchor,
+  placedStampCenter,
+  measureTextStamp,
+  scaledStampFont,
   stampPixelSize,
 } from "@/lib/watermark-utils"
 import { renderQrDataUrl } from "@/lib/qr-watermark"
@@ -215,7 +215,17 @@ export function WatermarkPreview({
         ? Math.max(...chars.map((c) => ctx.measureText(c).width), 1)
         : measuredWidth
       const effTextHeight = !isShapePattern && stacked ? fullStackedHeight : scaledFontSize
-      const points = getPatternPoints(containerWidth, containerHeight, pattern, normalizedSpacing, textWidth, effTextHeight, curveOrientation, !isShapePattern && stacked)
+      const points = getPatternPoints(
+        containerWidth,
+        containerHeight,
+        pattern,
+        normalizedSpacing,
+        textWidth,
+        effTextHeight,
+        curveOrientation,
+        !isShapePattern && stacked,
+        totalRotation,
+      )
 
       for (const pt of points) {
         drawStamp(ctx, text, pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward)
@@ -270,15 +280,56 @@ export function WatermarkPreview({
     placement,
   ])
 
-  const scaledFontSize = Math.max(12, Math.round(fontSize * (Math.sqrt(containerWidth * containerHeight) / 800)))
-  const positionStyle = getPlacementPositionStyle(placement)
-  const transformStyle = getWatermarkTransform(placement, rotation, textDirection)
+  const scaledFontSize = scaledStampFont(fontSize, containerWidth, containerHeight)
   const stampPx = stampPixelSize(containerWidth, containerHeight, stampSize)
-  const stampAnchor = getStampAnchor(placement, containerWidth, containerHeight)
+  const [fontEpoch, setFontEpoch] = useState(0)
+  useEffect(() => {
+    const spec = `bold ${scaledFontSize}px "${fontFamily}"`
+    let cancelled = false
+    document.fonts
+      .load(spec, watermarkText || "M")
+      .then(() => {
+        if (!cancelled) setFontEpoch((n) => n + 1)
+      })
+      .catch(() => {
+        // System fonts are not in the FontFaceSet.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [fontFamily, scaledFontSize, watermarkText])
+  const textBox = useMemo(() => {
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return { width: scaledFontSize * 4, height: scaledFontSize }
+    return measureTextStamp(
+      ctx,
+      watermarkText,
+      scaledFontSize,
+      fontFamily,
+      isStackedDirection(textDirection),
+    )
+  }, [watermarkText, scaledFontSize, fontFamily, textDirection, fontEpoch])
+  const textCenter = placedStampCenter(
+    placement,
+    containerWidth,
+    containerHeight,
+    textBox.width,
+    textBox.height,
+    rotation,
+  )
+  const imageCenter = placedStampCenter(
+    placement,
+    containerWidth,
+    containerHeight,
+    stampPx,
+    stampPx,
+    rotation,
+  )
   const singleImageStyle: React.CSSProperties = {
     position: "absolute",
-    left: `${(stampAnchor.x / Math.max(containerWidth, 1)) * 100}%`,
-    top: `${(stampAnchor.y / Math.max(containerHeight, 1)) * 100}%`,
+    left: `${(imageCenter.x / Math.max(containerWidth, 1)) * 100}%`,
+    top: `${(imageCenter.y / Math.max(containerHeight, 1)) * 100}%`,
     width: stampPx,
     height: stampPx,
     objectFit: "contain",
@@ -291,12 +342,13 @@ export function WatermarkPreview({
   const stackedSingle = isStackedDirection(textDirection)
   const stackedSingleUpward = isStackedUpward(textDirection)
   const singleWatermarkStyle: React.CSSProperties = {
-    ...positionStyle,
+    left: `${(textCenter.x / Math.max(containerWidth, 1)) * 100}%`,
+    top: `${(textCenter.y / Math.max(containerHeight, 1)) * 100}%`,
     fontFamily,
     fontSize: `${scaledFontSize}px`,
     color,
     opacity: opacity / 100,
-    transform: transformStyle,
+    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
     position: "absolute",
     whiteSpace: "nowrap",
     fontWeight: "bold",

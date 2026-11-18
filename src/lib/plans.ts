@@ -86,6 +86,36 @@ export function formatOption(format: ExportFormat) {
   return FORMAT_OPTIONS.find((option) => option.value === format) ?? FORMAT_OPTIONS[0]
 }
 
+/** How many saved images this plan can keep. Forge has no count cap. */
+export function historyCap(plan: PlanId): number | null {
+  if (plan === "forge") return null
+  if (plan === "spark") return SPARK_HISTORY_COUNT
+  return FREE_HISTORY_COUNT
+}
+
+/** "18 of 20 saved", or "12 saved" when the plan has no count cap. */
+export function savedCountLabel(count: number, plan: PlanId): string {
+  const cap = historyCap(plan)
+  if (cap == null) return `${count} saved`
+  return `${count} of ${cap} saved`
+}
+
+/**
+ * Shown before export when this batch cannot all be kept.
+ * Null when everything fits, or when the plan has no count cap.
+ */
+export function saveFitWarning(plan: PlanId, saved: number, exporting: number): string | null {
+  const cap = historyCap(plan)
+  if (cap == null || exporting <= 0) return null
+  const room = Math.max(0, cap - saved)
+  if (exporting <= room) return null
+  if (room <= 0) {
+    return `This will still download. Nothing more can be saved (${saved} of ${cap}). Delete some in My Images to make room.`
+  }
+  const noun = room === 1 ? "image" : "images"
+  return `This will still download. Only ${room} more ${noun} can be saved (${saved} of ${cap}).`
+}
+
 /** Short line for My Images and the account area. */
 export function historySummary(plan: PlanId): string {
   if (plan === "forge") return "kept until you delete them"
