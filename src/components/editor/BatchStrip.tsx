@@ -33,8 +33,8 @@ export function BatchStrip({
     <div className="mt-3 rounded-xl border border-border/50 bg-card p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium">
-          {photos.length === 1 ? "1 photo" : `${photos.length} photos`}
-          <span className="font-normal text-muted-foreground"> · up to {limit}</span>
+          Batch preview
+          <span className="font-normal text-muted-foreground"> · tap a photo to see this watermark · {photos.length} of {limit}</span>
         </p>
         <Button
           type="button"
@@ -78,7 +78,7 @@ export function BatchStrip({
                   selected ? "border-primary ring-2 ring-primary/40" : "border-border/60"
                 )}
               >
-                <img src={photo.previewUrl} alt="" className="h-full w-full object-cover" />
+                <img src={photo.thumbUrl ?? photo.previewUrl} alt="" className="h-full w-full object-cover" />
               </button>
               <span className="pointer-events-none absolute bottom-0.5 left-0.5 rounded bg-background/85 px-1 text-[9px] font-medium">
                 {index + 1}

@@ -11,7 +11,7 @@ export interface GridPoint {
   // so a tall column does not swing into its neighbors.
   readingOrientationOnly?: boolean
   // Curved text follows this circle. Logo and QR ignore it and stay square.
-  arc?: { cx: number; cy: number; r: number }
+  arc?: { cx: number; cy: number; r: number; continuous?: boolean }
 }
 
 export function rotatedHalfExtents(
@@ -195,25 +195,79 @@ export function getPatternPoints(
     candidates.push(pt)
   }
 
-  if (pattern === "grid" || pattern === "checkerboard" || pattern === "brick" || pattern === "crisscross") {
-    const angles = pattern === "crisscross" ? [24, -24] : [0]
-    const finals = angles.map((angle) => baseRotation + angle)
-    const xNeed = Math.max(...finals.map((angle) => rotatedHalfExtents(markW, markH, angle).halfW * 2 + gap))
-    const yNeed = Math.max(...finals.map((angle) => rotatedHalfExtents(markW, markH, angle).halfH * 2 + gap))
-    const xStep = Math.max(spacing, xNeed)
-    const yStep = Math.max(spacing, pattern === "brick" ? yNeed * 0.92 : yNeed)
+  if (pattern === "grid" || pattern === "checkerboard") {
+    const ext = rotatedHalfExtents(markW, markH, baseRotation)
+    const xStep = Math.max(spacing, ext.halfW * 2 + gap)
+    const yStep = Math.max(spacing, ext.halfH * 2 + gap)
     const ys = axisCenters(height, yStep)
     const xs = axisCenters(width, xStep)
     ys.forEach((y, row) => {
-      const shift = pattern === "brick" && row % 2 === 1 ? xStep / 2 : 0
       xs.forEach((x, col) => {
-        const px = x + shift
-        if (px < -xStep || px > width + xStep) return
         if (pattern === "checkerboard" && (row + col) % 2 === 1) return
-        const angle = pattern === "crisscross" ? angles[(row + col) % 2] : 0
-        push({ x: px, y, angle })
+        push({ x, y, angle: 0 })
       })
     })
+  } else if (pattern === "brick") {
+    // The horizontal gap tracks the measured word, not only its height, so a
+    // long label on a narrow portrait photo does not run into the next copy.
+    const ext = rotatedHalfExtents(markW, markH, baseRotation)
+    const hGap = Math.max(gap, markW * 0.34, markH * 0.5)
+    const vGap = Math.max(gap, markH * 0.7)
+    const xStep = Math.max(spacing, ext.halfW * 2 + hGap)
+    const yStep = Math.max(spacing * 0.85, ext.halfH * 2 + vGap)
+    const ys = axisCenters(height, yStep)
+    const xs = axisCenters(width, xStep)
+    // A one-column portrait still offsets every other row, but only as far as
+    // the stamp can move without leaving the photo.
+    const shiftCap = Math.max(0, width / 2 - ext.halfW)
+    const shiftAmount = Math.min(xStep / 2, shiftCap)
+    ys.forEach((y, row) => {
+      const shift = row % 2 === 1 ? shiftAmount : 0
+      xs.forEach((x) => {
+        const px = x + shift
+        if (px < -ext.halfW || px > width + ext.halfW) return
+        push({ x: px, y, angle: 0 })
+      })
+    })
+  } else if (pattern === "crisscross") {
+    // Two families of straight diagonal lines, +45° and -45°. Copies sit on
+    // the middle of each segment, so the crossings stay empty and the lines
+    // read as an X from across the room.
+    const tilt = 45
+    const theta = (tilt * Math.PI) / 180
+    const finalA = baseRotation + tilt
+    const finalB = baseRotation - tilt
+    const boxA = rotatedHalfExtents(markW, markH, finalA)
+    const boxB = rotatedHalfExtents(markW, markH, finalB)
+    const crossGap = Math.max(gap, Math.min(markW, markH) * 0.4)
+    const alongA = projectExtent(finalA, tilt, markW / 2, markH / 2) * 2 + crossGap
+    const alongB = projectExtent(finalB, -tilt, markW / 2, markH / 2) * 2 + crossGap
+    const sepNeed = Math.max(boxA.halfW + boxB.halfW, boxA.halfH + boxB.halfH) + crossGap
+    const step = Math.max(spacing, alongA, alongB, sepNeed * Math.SQRT2) * 1.06
+    const ux = Math.cos(theta)
+    const uy = Math.sin(theta)
+    const vx = Math.cos(-theta)
+    const vy = Math.sin(-theta)
+    const reach = Math.hypot(width, height) / 2 + step
+    const n = Math.ceil(reach / step) + 2
+    for (let i = -n; i <= n; i++) {
+      for (let j = -n; j <= n; j++) {
+        const ax = (i + 0.5) * step
+        const ay = j * step
+        push({
+          x: centerX + ax * ux + ay * vx,
+          y: centerY + ax * uy + ay * vy,
+          angle: tilt,
+        })
+        const bx = i * step
+        const by = (j + 0.5) * step
+        push({
+          x: centerX + bx * ux + by * vx,
+          y: centerY + bx * uy + by * vy,
+          angle: -tilt,
+        })
+      }
+    }
   } else if (pattern === "diagonal" || pattern === "reverse-diagonal") {
     const tilt = pattern === "diagonal" ? -25 : 25
     const final = baseRotation + tilt
@@ -281,25 +335,70 @@ export function getPatternPoints(
         }
       })
     })
-  } else if (pattern === "honeycomb" || pattern === "diamond") {
-    const diamond = pattern === "diamond"
-    const sides = diamond ? 4 : 6
+  } else if (pattern === "diamond") {
+    // Size the diamond around the chosen stamp. The words stay at full size
+    // instead of being shrunk to fit a small cell.
+    const edgeGap = Math.max(gap, markH * 0.4)
+    const boxA = rotatedHalfExtents(markW, markH, baseRotation + 45)
+    const boxB = rotatedHalfExtents(markW, markH, baseRotation - 45)
+    const sep = Math.max(boxA.halfW + boxB.halfW, boxA.halfH + boxB.halfH) + edgeGap
+    const alongEdge = Math.max(
+      projectExtent(baseRotation + 45, 45, markW / 2, markH / 2),
+      projectExtent(baseRotation - 45, -45, markW / 2, markH / 2),
+    ) * 2 + edgeGap
+    const edgeLen = Math.max(markW + edgeGap, alongEdge, sep * Math.SQRT2, spacing) * 1.08
+    const cell = edgeLen * Math.SQRT2
+    const cols = Math.ceil(width / cell) + 1
+    const rows = Math.ceil(height / cell) + 1
+    const seen = new Set<string>()
+    const quant = Math.max(2, edgeLen * 0.08)
+    for (let row = -1; row < rows; row++) {
+      for (let col = -1; col < cols; col++) {
+        const x0 = col * cell
+        const y0 = row * cell
+        const cx = x0 + cell / 2
+        const cy = y0 + cell / 2
+        const verts: [number, number][] = [
+          [cx, y0],
+          [x0 + cell, cy],
+          [cx, y0 + cell],
+          [x0, cy],
+        ]
+        for (let k = 0; k < 4; k++) {
+          const ax = verts[k][0]
+          const ay = verts[k][1]
+          const bx = verts[(k + 1) % 4][0]
+          const by = verts[(k + 1) % 4][1]
+          const mx = (ax + bx) / 2
+          const my = (ay + by) / 2
+          if (mx < -edgeLen || my < -edgeLen || mx > width + edgeLen || my > height + edgeLen) continue
+          const key = `${Math.round(mx / quant)}:${Math.round(my / quant)}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          let angle = (Math.atan2(by - ay, bx - ax) * 180) / Math.PI
+          if (angle > 90) angle -= 180
+          if (angle <= -90) angle += 180
+          push({ x: mx, y: my, angle })
+        }
+      }
+    }
+  } else if (pattern === "honeycomb") {
+    const sides = 6
     // Keep the shapes small enough that several of them fit, and shrink the
     // words to the edge instead of growing one giant cell around the words.
-    const edgeCap = Math.min(width, height) / (diamond ? 2.15 : 2.45)
+    const edgeCap = Math.min(width, height) / 2.45
     const targetEdge = Math.max(
       markH * 2.5,
       Math.min(edgeCap, Math.max(spacing * 1.25, markW * 0.7)),
     )
-    const R = diamond ? targetEdge / Math.SQRT2 : targetEdge
-    const edgeLen = diamond ? targetEdge : R
+    const R = targetEdge
+    const edgeLen = R
     let scale = Math.min(1, (edgeLen * 0.58) / markW)
-    const apothem = diamond ? edgeLen / 2 : (Math.sqrt(3) / 2) * R
+    const apothem = (Math.sqrt(3) / 2) * R
     if (markH * scale > apothem * 0.62) scale = Math.min(scale, (apothem * 0.62) / markH)
     scale = Math.max(0.2, Math.min(1, scale))
     const seen = new Set<string>()
     const quant = Math.max(2, edgeLen * 0.1)
-
     const emit = (ax: number, ay: number, bx: number, by: number) => {
       const mx = (ax + bx) / 2
       const my = (ay + by) / 2
@@ -312,42 +411,20 @@ export function getPatternPoints(
       if (angle <= -90) angle += 180
       push({ x: mx, y: my, angle, fontScale: scale })
     }
-
-    if (diamond) {
-      const cell = targetEdge * Math.SQRT2
-      const cols = Math.ceil(width / cell) + 1
-      const rows = Math.ceil(height / cell) + 1
-      for (let row = -1; row < rows; row++) {
-        for (let col = -1; col < cols; col++) {
-          const x0 = col * cell
-          const y0 = row * cell
-          const cx = x0 + cell / 2
-          const cy = y0 + cell / 2
-          const verts: [number, number][] = [
-            [cx, y0],
-            [x0 + cell, cy],
-            [cx, y0 + cell],
-            [x0, cy],
-          ]
-          for (let k = 0; k < 4; k++) emit(verts[k][0], verts[k][1], verts[(k + 1) % 4][0], verts[(k + 1) % 4][1])
+    const stepX = 1.5 * R
+    const stepY = Math.sqrt(3) * R
+    const cols = Math.ceil(width / stepX) + 3
+    const rows = Math.ceil(height / stepY) + 3
+    for (let col = -2; col < cols; col++) {
+      for (let row = -2; row < rows; row++) {
+        const x0 = col * stepX
+        const y0 = row * stepY + (((col % 2) + 2) % 2) * (stepY / 2)
+        const verts: [number, number][] = []
+        for (let k = 0; k < sides; k++) {
+          const a = (Math.PI / 3) * k
+          verts.push([x0 + R * Math.cos(a), y0 + R * Math.sin(a)])
         }
-      }
-    } else {
-      const stepX = 1.5 * R
-      const stepY = Math.sqrt(3) * R
-      const cols = Math.ceil(width / stepX) + 3
-      const rows = Math.ceil(height / stepY) + 3
-      for (let col = -2; col < cols; col++) {
-        for (let row = -2; row < rows; row++) {
-          const x0 = col * stepX
-          const y0 = row * stepY + (((col % 2) + 2) % 2) * (stepY / 2)
-          const verts: [number, number][] = []
-          for (let k = 0; k < sides; k++) {
-            const a = (Math.PI / 3) * k
-            verts.push([x0 + R * Math.cos(a), y0 + R * Math.sin(a)])
-          }
-          for (let k = 0; k < sides; k++) emit(verts[k][0], verts[k][1], verts[(k + 1) % sides][0], verts[(k + 1) % sides][1])
-        }
+        for (let k = 0; k < sides; k++) emit(verts[k][0], verts[k][1], verts[(k + 1) % sides][0], verts[(k + 1) % sides][1])
       }
     }
   } else if (pattern === "lattice") {
@@ -373,15 +450,36 @@ export function getPatternPoints(
       }
     }
   } else if (pattern === "radial") {
-    const across = Math.max(markH + gap, 12)
     const along = Math.max(spacing, markW + gap)
-    const r0 = Math.max(markW * 0.55 + across, across * 1.6)
-    const rays = Math.max(6, Math.min(18, Math.floor((2 * Math.PI * r0) / (across * 1.25))))
+    const across = Math.max(markH + gap, 12)
+    // The first ring has to clear the inner corners of neighboring copies.
+    // A square QR is widest on the diagonal, so the old inner radius let the
+    // codes nearly touch around the middle.
+    let rays = 16
+    let r0 = across
+    for (let tryRays = 16; tryRays >= 5; tryRays--) {
+      const dTheta = (2 * Math.PI) / tryRays
+      let need = across
+      for (let i = 0; i < tryRays; i++) {
+        const theta = (i * 2 * Math.PI) / tryRays
+        let raw = (theta * 180) / Math.PI
+        if (orientation === "readable") raw = upright(raw)
+        const final = baseRotation + raw
+        const rayDeg = (theta * 180) / Math.PI
+        const halfAlong = projectExtent(final, rayDeg, markW / 2, markH / 2)
+        const halfAcross = projectExtent(final, rayDeg + 90, markW / 2, markH / 2)
+        const chord = halfAcross * 2 + gap
+        need = Math.max(need, halfAlong + chord / (2 * Math.sin(dTheta / 2)))
+      }
+      rays = tryRays
+      r0 = need
+      if (r0 <= maxRadius * 0.72) break
+    }
     for (let i = 0; i < rays; i++) {
       const theta = (i * 2 * Math.PI) / rays
       let raw = (theta * 180) / Math.PI
       if (orientation === "readable") raw = upright(raw)
-      for (let r = r0; r <= maxRadius + along; r += along) {
+      for (let r = r0; r <= maxRadius + along * 0.2; r += along) {
         push({
           x: centerX + r * Math.cos(theta),
           y: centerY + r * Math.sin(theta),
@@ -409,23 +507,29 @@ export function getPatternPoints(
       phi += along / Math.max(Math.hypot(dx, dy), 1)
     }
   } else if (pattern === "concentric") {
-    const ringStep = Math.max(spacing, markH + gap * 1.5)
-    const slot = markW + gap
-    const first = Math.max(ringStep, markW * 0.72, markH * 2)
+    // Same centered circles as the original rings, with a little extra room
+    // along each ring and between rings. Rings that are too small for a
+    // curved word are skipped so a straight stamp does not sit in the middle.
+    const ringStep = Math.max(spacing, markH + gap * 2.4)
+    const arcGap = Math.max(gap * 1.8, markH * 0.36)
+    const slot = markW + arcGap
+    const first = Math.max(ringStep, markW * 0.78, markH * 2.2)
     let ring = 0
-    for (let r = first; r <= maxRadius + ringStep; r += ringStep, ring++) {
+    for (let r = first; r <= maxRadius + ringStep * 0.2; r += ringStep, ring++) {
+      if (markW / r > Math.PI * 0.72) continue
       const n = Math.floor((2 * Math.PI * r) / slot)
-      if (n < 1) continue
+      if (n < 2) continue
       const offset = ring % 2 === 1 ? Math.PI / n : 0
       for (let k = 0; k < n; k++) {
         const theta = (k * 2 * Math.PI) / n + offset
-        let tangent = (theta * 180) / Math.PI + 90
-        if (orientation === "readable") tangent = upright(tangent)
+        // One tangent all the way around. Flipping the lower half bends those
+        // copies the other way and breaks the circle.
+        const tangent = (theta * 180) / Math.PI + 90
         push({
           x: centerX + r * Math.cos(theta),
           y: centerY + r * Math.sin(theta),
           angle: tangent,
-          arc: { cx: centerX, cy: centerY, r },
+          arc: { cx: centerX, cy: centerY, r, continuous: true },
         })
       }
     }

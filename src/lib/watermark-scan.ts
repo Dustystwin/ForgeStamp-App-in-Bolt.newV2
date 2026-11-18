@@ -636,14 +636,16 @@ export async function scanImageForWatermarks(file: File): Promise<ScanReport> {
 
   let periodic: PeriodicityResult | null = null
   let lsbSuspicious = false
+  let bitmap: ImageBitmap | null = null
+  const canvas = document.createElement("canvas")
+  const canvas2 = document.createElement("canvas")
   try {
-    const bitmap = await createImageBitmap(file)
+    bitmap = await createImageBitmap(file)
 
     // Pass A: downscaled copy for periodicity detection
     const scale = Math.min(1, PERIODICITY_MAX_DIM / Math.max(bitmap.width, bitmap.height))
     const w = Math.max(16, Math.round(bitmap.width * scale))
     const h = Math.max(16, Math.round(bitmap.height * scale))
-    const canvas = document.createElement("canvas")
     canvas.width = w
     canvas.height = h
     const ctx = canvas.getContext("2d", { willReadFrequently: true })
@@ -657,7 +659,6 @@ export async function scanImageForWatermarks(file: File): Promise<ScanReport> {
     if (file.type !== "image/jpeg") {
       const cw = Math.min(bitmap.width, LSB_MAX_DIM)
       const ch = Math.min(bitmap.height, LSB_MAX_DIM)
-      const canvas2 = document.createElement("canvas")
       canvas2.width = cw
       canvas2.height = ch
       const ctx2 = canvas2.getContext("2d", { willReadFrequently: true })
@@ -668,10 +669,20 @@ export async function scanImageForWatermarks(file: File): Promise<ScanReport> {
         lsbSuspicious = analyzeLsb(ctx2.getImageData(0, 0, cw, ch).data, cw, ch)
       }
     }
-
-    bitmap.close()
   } catch {
     // pixel scan unavailable — metadata findings still stand
+  } finally {
+    if (bitmap) {
+      try {
+        bitmap.close()
+      } catch {
+        // Already closed.
+      }
+    }
+    canvas.width = 0
+    canvas.height = 0
+    canvas2.width = 0
+    canvas2.height = 0
   }
 
   if (periodic?.found) {

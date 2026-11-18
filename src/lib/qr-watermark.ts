@@ -81,5 +81,8 @@ export function renderQrDataUrl(raw: string, color: string): string | null {
     }
   }
 
-  return canvas.toDataURL("image/png")
+  const url = canvas.toDataURL("image/png")
+  canvas.width = 0
+  canvas.height = 0
+  return url
 }

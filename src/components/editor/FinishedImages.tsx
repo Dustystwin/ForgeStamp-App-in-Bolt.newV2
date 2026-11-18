@@ -1,11 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Download, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export interface FinishedImage {
   id: string
-  dataUrl: string
+  previewUrl: string
   createdAt: Date
   filename: string
 }
@@ -14,19 +14,15 @@ interface FinishedImagesProps {
   images: FinishedImage[]
   onRemove: (id: string) => void
   onClearAll: () => void
+  onDownload: (image: FinishedImage) => void
 }
 
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const a = document.createElement("a")
-  a.href = dataUrl
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-}
-
-export function FinishedImages({ images, onRemove, onClearAll }: FinishedImagesProps) {
+export function FinishedImages({ images, onRemove, onClearAll, onDownload }: FinishedImagesProps) {
   const [preview, setPreview] = useState<FinishedImage | null>(null)
+
+  useEffect(() => {
+    if (preview && !images.some((image) => image.id === preview.id)) setPreview(null)
+  }, [images, preview])
 
   if (images.length === 0) return null
 
@@ -71,7 +67,7 @@ export function FinishedImages({ images, onRemove, onClearAll }: FinishedImagesP
                   className="relative aspect-[4/3] bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:12px_12px] overflow-hidden cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <img
-                    src={img.dataUrl}
+                    src={img.previewUrl}
                     alt={img.filename}
                     className="absolute inset-0 h-full w-full object-contain"
                     draggable={false}
@@ -91,7 +87,7 @@ export function FinishedImages({ images, onRemove, onClearAll }: FinishedImagesP
                       variant="default"
                       size="sm"
                       className="flex-1 h-8 gap-1.5 text-xs"
-                      onClick={() => downloadDataUrl(img.dataUrl, img.filename)}
+                      onClick={() => onDownload(img)}
                       aria-label={`Download ${img.filename}`}
                     >
                       <Download className="size-3.5" />
@@ -137,7 +133,7 @@ export function FinishedImages({ images, onRemove, onClearAll }: FinishedImagesP
             </button>
             <div className="bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:16px_16px]">
               <img
-                src={preview.dataUrl}
+                src={preview.previewUrl}
                 alt={preview.filename}
                 className="max-h-[80vh] max-w-[86vw] object-contain"
                 draggable={false}
@@ -151,7 +147,7 @@ export function FinishedImages({ images, onRemove, onClearAll }: FinishedImagesP
                 variant="default"
                 size="sm"
                 className="h-8 shrink-0 gap-1.5 text-xs"
-                onClick={() => downloadDataUrl(preview.dataUrl, preview.filename)}
+                onClick={() => onDownload(preview)}
               >
                 <Download className="size-3.5" />
                 Download Image

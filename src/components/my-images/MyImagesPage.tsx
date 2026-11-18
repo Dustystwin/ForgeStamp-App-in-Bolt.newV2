@@ -19,6 +19,8 @@ import { useAuth } from "@/context/AuthContext"
 import { useNavigation } from "@/App"
 import { cn } from "@/lib/utils"
 import { savedDownloadName } from "@/lib/save-messages"
+import { scheduleThumb, thumbnailBlob } from "@/lib/image-resources"
+import { downloadBlob } from "@/lib/batch-export"
 import type { EditorInitialData } from "@/App"
 
 function daysUntil(dateStr: string): number {
@@ -55,12 +57,31 @@ function ImageCard({ image, onDelete, onEdit, onDownload, isDeleting }: ImageCar
   const isExpiringSoon = !kept && days <= 5
 
   useEffect(() => {
-    supabase.storage
-      .from("watermark-images")
-      .createSignedUrl(image.output_path, 3600)
-      .then(({ data }) => {
-        if (data?.signedUrl) setThumbUrl(data.signedUrl)
+    let cancelled = false
+    let objectUrl: string | null = null
+    scheduleThumb(async () => {
+      const { data } = await supabase.storage
+        .from("watermark-images")
+        .createSignedUrl(image.output_path, 3600)
+      if (!data?.signedUrl || cancelled) return null
+      const response = await fetch(data.signedUrl)
+      if (!response.ok || cancelled) return null
+      const blob = await response.blob()
+      if (cancelled) return null
+      return thumbnailBlob(blob, 480)
+    })
+      .then((thumb) => {
+        if (!thumb || cancelled) return
+        objectUrl = URL.createObjectURL(thumb)
+        setThumbUrl(objectUrl)
       })
+      .catch(() => {
+        // The card keeps its loading state rather than decoding the full photo.
+      })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
   }, [image.output_path])
 
   return (
@@ -214,14 +235,7 @@ export function MyImagesPage() {
       const response = await fetch(data.signedUrl)
       if (!response.ok) throw new Error("Could not download that image.")
       const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1500)
+      downloadBlob(blob, filename)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not download that image.")
     }
@@ -269,9 +283,9 @@ export function MyImagesPage() {
   const usedPct = Math.min(100, (usedBytes / USER_STORAGE_LIMIT_BYTES) * 100)
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="fs-studio min-h-svh">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-black/5 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
           <Button
             variant="ghost"

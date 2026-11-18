@@ -1,15 +1,17 @@
 import { useRef, useState, useEffect, useLayoutEffect, useMemo } from "react"
+import { canvasToBlob, releaseCanvas } from "@/lib/image-resources"
+import { frameFile } from "@/lib/frame-image"
+import { composeWatermarkText, scaledTextPaint, textPaintPadding } from "@/lib/text-style"
+import { watermarkStrength } from "@/lib/watermark-strength"
+import { useAuth } from "@/context/AuthContext"
+import { canUseSparkTools } from "@/lib/plans"
 import type { EditorState } from "@/lib/editor-types"
+import type { MarkLayer } from "@/lib/mark-layer"
 import { ImageUploader } from "./ImageUploader"
 import {
-  getPatternPoints,
-  getDirectionRotationOffset,
   isStackedDirection,
   isStackedUpward,
-  usesShapeGeometry,
-  getPatternTextAngle,
-  drawStamp,
-  drawImageWatermark,
+  drawWatermarkOnCanvas,
   placedStampCenter,
   measureTextStamp,
   scaledStampFont,
@@ -36,7 +38,24 @@ export function WatermarkPreview({
   multiple = false,
   uploadDetail,
   coverageClearedAt = 0,
-}: WatermarkPreviewProps) {
+  layers = [],
+  activeLayerId = "",
+  sampling = null,
+  onSample,
+  onFreeMove,
+  onRotate,
+  onResize,
+}: WatermarkPreviewProps & {
+  layers?: MarkLayer[]
+  activeLayerId?: string
+  sampling?: "color" | "outline" | "shadow" | null
+  onSample?: (hex: string) => void
+  onFreeMove?: (x: number, y: number) => void
+  onRotate?: (degrees: number) => void
+  onResize?: (scale: number) => void
+}) {
+  const { profile } = useAuth()
+  const iconsUnlocked = canUseSparkTools(profile?.tier, Boolean(profile?.is_admin))
   const {
     imagePreviewUrl,
     watermarkMode,
@@ -56,13 +75,40 @@ export function WatermarkPreview({
     qrUrl,
     qrColor,
     logoPreviewUrl,
+    signaturePreviewUrl,
+    outlineWidth,
+    outlineColor,
+    shadowEnabled,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
+    dateStamp,
+    cropAspect,
+    quarterTurns,
+    emoji,
+    stickerId,
+    freeX,
+    freeY,
+    gradientOn,
+    gradientA,
+    gradientB,
+    gradientC,
+    gradientAngle,
+    grayscale,
+    autoContrast,
+    handlePlatform,
   } = state
+
+  const label = composeWatermarkText(watermarkText, dateStamp)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [containerWidth, setContainerWidth] = useState(600)
   const [containerHeight, setContainerHeight] = useState(400)
   const [stampSource, setStampSource] = useState<{ src: string; image: HTMLImageElement } | null>(null)
+  const [framedUrl, setFramedUrl] = useState<string | null>(null)
+  const [compare, setCompare] = useState(100)
   // Tracks the last clearAt value we have acted on
   const lastClearedAtRef = useRef(0)
 
@@ -71,7 +117,45 @@ export function WatermarkPreview({
     return renderQrDataUrl(qrUrl, qrColor)
   }, [watermarkMode, qrUrl, qrColor])
 
-  const stampSrc = watermarkMode === "logo" ? logoPreviewUrl : watermarkMode === "qr" ? qrDataUrl : null
+  const stampSrc = watermarkMode === "logo"
+    ? logoPreviewUrl
+    : watermarkMode === "signature"
+      ? signaturePreviewUrl
+      : watermarkMode === "qr"
+        ? qrDataUrl
+        : null
+
+  useEffect(() => {
+    if (!state.image || (cropAspect === "original" && quarterTurns % 4 === 0)) {
+      setFramedUrl(null)
+      return
+    }
+    let cancelled = false
+    let url: string | null = null
+    frameFile(state.image, cropAspect, quarterTurns, 1600)
+      .then(async (canvas) => {
+        const blob = await canvasToBlob(canvas, "image/jpeg", 0.85)
+        releaseCanvas(canvas)
+        if (!blob || cancelled) return
+        url = URL.createObjectURL(blob)
+        if (cancelled) {
+          URL.revokeObjectURL(url)
+          return
+        }
+        setFramedUrl(url)
+      })
+      .catch(() => {
+        if (!cancelled) setFramedUrl(null)
+      })
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+      setFramedUrl((current) => {
+        if (current && current !== url) URL.revokeObjectURL(current)
+        return null
+      })
+    }
+  }, [state.image, cropAspect, quarterTurns])
 
   useEffect(() => {
     if (!stampSrc) {
@@ -91,6 +175,13 @@ export function WatermarkPreview({
       cancelled = true
     }
   }, [stampSrc])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    return () => {
+      releaseCanvas(canvas)
+    }
+  }, [])
 
   // Track container size via ResizeObserver. Guarded so we only update state
   // when the size actually changed (by more than a fraction of a pixel) —
@@ -112,18 +203,6 @@ export function WatermarkPreview({
     return () => observer.disconnect()
   }, [])
 
-  // Wipe the canvas whenever we leave full-coverage mode so there is no
-  // stale content if the user returns to full coverage later.
-  useLayoutEffect(() => {
-    if (coverageMode !== "full") {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const ctx = canvas.getContext("2d")
-      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height)
-      canvas.width = 0
-      canvas.height = 0
-    }
-  }, [coverageMode])
 
   // Full-coverage draw effect.
   //
@@ -135,8 +214,6 @@ export function WatermarkPreview({
   // after a key={pattern}-driven remount. Instead, we CSS-hide the canvas when in single
   // mode and clear it explicitly via canvas.width reassignment at the top of every draw.
   useLayoutEffect(() => {
-    if (coverageMode !== "full") return
-
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -151,90 +228,79 @@ export function WatermarkPreview({
       return
     }
 
-    if (containerWidth <= 0 || containerHeight <= 0) return
+    if (!imagePreviewUrl || containerWidth <= 0 || containerHeight <= 0) {
+      canvas.width = 0
+      canvas.height = 0
+      return
+    }
 
     const draw = () => {
-      // Assigning canvas.width erases all pixel data — this is the authoritative clear
-      // that eliminates any previously drawn pattern before drawing the new one.
       canvas.width = containerWidth
       canvas.height = containerHeight
-
-      const ctx = canvas.getContext("2d")
-      if (!ctx) return
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      if (watermarkMode !== "text") {
-        if (stampSource && stampSrc && stampSource.src === stampSrc) {
-          drawImageWatermark(ctx, stampSource.image, {
-            stampSize,
-            opacity,
-            rotation,
-            placement,
-            coverageMode: "full",
-            pattern,
-            density,
-            curveOrientation,
+      const visible = layers.filter((layer) => !layer.hidden)
+      const marks = visible.length > 0 ? visible : []
+      void (async () => {
+        let photo: HTMLImageElement | null = null
+        if (autoContrast) {
+          photo = new Image()
+          photo.src = framedUrl ?? imagePreviewUrl
+          try {
+            await photo.decode()
+          } catch {
+            photo = null
+          }
+        }
+        for (const layer of marks) {
+          const snap = layer.id === activeLayerId ? null : layer.snap
+          await drawWatermarkOnCanvas(canvas, canvas, {
+            marksOnly: true,
+            mode: snap?.watermarkMode ?? watermarkMode,
+            text: snap?.watermarkText ?? watermarkText,
+            emoji: snap?.emoji ?? emoji,
+            stickerId: snap?.stickerId ?? stickerId,
+            fontFamily: snap?.fontFamily ?? fontFamily,
+            fontSize: snap?.fontSize ?? fontSize,
+            color: (snap?.watermarkMode ?? watermarkMode) === "qr" ? (snap?.qrColor ?? qrColor) : (snap?.color ?? color),
+            opacity: snap?.opacity ?? opacity,
+            rotation: snap?.rotation ?? rotation,
+            placement: snap?.placement ?? placement,
+            freeX: snap ? snap.freeX : freeX,
+            freeY: snap ? snap.freeY : freeY,
+            textDirection: snap?.textDirection ?? textDirection,
+            coverageMode: snap?.coverageMode ?? coverageMode,
+            pattern: snap?.pattern ?? pattern,
+            density: snap?.density ?? density,
+            curveOrientation: snap?.curveOrientation ?? curveOrientation,
+            stampSize: snap?.stampSize ?? stampSize,
+            qrUrl: snap?.qrUrl ?? qrUrl,
+            outlineWidth: snap?.outlineWidth ?? outlineWidth,
+            outlineColor: snap?.outlineColor ?? outlineColor,
+            shadowEnabled: snap?.shadowEnabled ?? shadowEnabled,
+            shadowColor: snap?.shadowColor ?? shadowColor,
+            shadowBlur: snap?.shadowBlur ?? shadowBlur,
+            shadowOffsetX: snap?.shadowOffsetX ?? shadowOffsetX,
+            shadowOffsetY: snap?.shadowOffsetY ?? shadowOffsetY,
+            dateStamp: snap?.dateStamp ?? dateStamp,
+            gradientOn: snap?.gradientOn ?? gradientOn,
+            gradientA: snap?.gradientA ?? gradientA,
+            gradientB: snap?.gradientB ?? gradientB,
+            gradientC: snap?.gradientC ?? gradientC,
+            gradientAngle: snap?.gradientAngle ?? gradientAngle,
+            logoUrl: logoPreviewUrl,
+            signatureUrl: signaturePreviewUrl,
+            autoContrast,
+            handlePlatform: iconsUnlocked ? (snap?.handlePlatform ?? handlePlatform) : "none",
+            backdrop: photo,
             imageWidth: containerWidth,
             imageHeight: containerHeight,
           })
         }
-        return
-      }
-
-      // Match export scaling: geometric mean of dimensions, so ultra-wide or
-      // ultra-tall images get proportionate text instead of oversized rows.
-      const sizeScale = Math.sqrt(containerWidth * containerHeight) / 800
-      const scaledFontSize = Math.max(12, Math.round(fontSize * sizeScale))
-      ctx.font = `bold ${scaledFontSize}px "${fontFamily}", sans-serif`
-      ctx.fillStyle = color
-      ctx.globalAlpha = opacity / 100
-      ctx.textAlign = "center"
-      ctx.textBaseline = "middle"
-
-      const patternAngle = getPatternTextAngle(pattern)
-      const stacked = isStackedDirection(textDirection)
-      const stackUpward = isStackedUpward(textDirection)
-      const stackedLineHeight = stacked ? scaledFontSize * 1.02 : undefined
-      const totalRotation = rotation + getDirectionRotationOffset(textDirection) + patternAngle
-      const normalizedSpacing = density * sizeScale
-      const text = watermarkText || "\u00A0"
-      // See watermark-utils.ts for the full explanation. Shape patterns
-      // (radial/spiral/concentric/honeycomb/border) always use the normal
-      // single-line footprint. Grid-style patterns need to know a stacked
-      // stamp is tall (to space rows apart without overlap), but capped to a
-      // reasonable share of the photo so multiple rows still always fit.
-      const isShapePattern = usesShapeGeometry(pattern)
-      const chars = Array.from(text)
-      const measuredWidth = ctx.measureText(text).width
-      // See watermark-utils.ts: grid-style patterns must use the TRUE
-      // uncapped stacked height for row spacing, or the actual (always
-      // full-height) rendered text will overlap neighboring rows.
-      const fullStackedHeight = chars.length * scaledFontSize * 1.02
-      const textWidth = !isShapePattern && stacked
-        ? Math.max(...chars.map((c) => ctx.measureText(c).width), 1)
-        : measuredWidth
-      const effTextHeight = !isShapePattern && stacked ? fullStackedHeight : scaledFontSize
-      const points = getPatternPoints(
-        containerWidth,
-        containerHeight,
-        pattern,
-        normalizedSpacing,
-        textWidth,
-        effTextHeight,
-        curveOrientation,
-        !isShapePattern && stacked,
-        totalRotation,
-      )
-
-      for (const pt of points) {
-        drawStamp(ctx, text, pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward)
-      }
+      })()
     }
 
     draw()
 
-    if (watermarkMode !== "text") return
+    if (watermarkMode !== "text" && watermarkMode !== "emoji") return
 
     // Web fonts load lazily — if the selected font wasn't downloaded yet, the draw
     // above used a fallback font. Request it and redraw once it arrives so the
@@ -244,7 +310,7 @@ export function WatermarkPreview({
       const fontSpec = `bold ${Math.max(12, Math.round(fontSize * (Math.sqrt(containerWidth * containerHeight) / 800)))}px "${fontFamily}"`
       if (!document.fonts.check(fontSpec)) {
         document.fonts
-          .load(fontSpec, watermarkText || "M")
+          .load(fontSpec, label || "M")
           .then(() => {
             if (!cancelled) draw()
           })
@@ -272,12 +338,41 @@ export function WatermarkPreview({
     density,
     pattern,
     watermarkText,
+    label,
+    outlineWidth,
+    outlineColor,
+    shadowEnabled,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
     curveOrientation,
     watermarkMode,
     stampSize,
     stampSource,
     stampSrc,
     placement,
+    layers,
+    activeLayerId,
+    emoji,
+    stickerId,
+    freeX,
+    freeY,
+    gradientOn,
+    gradientA,
+    gradientB,
+    gradientC,
+    gradientAngle,
+    qrUrl,
+    qrColor,
+    logoPreviewUrl,
+    signaturePreviewUrl,
+    coverageMode,
+    imagePreviewUrl,
+    autoContrast,
+    framedUrl,
+    handlePlatform,
+    iconsUnlocked,
   ])
 
   const scaledFontSize = scaledStampFont(fontSize, containerWidth, containerHeight)
@@ -298,18 +393,34 @@ export function WatermarkPreview({
       cancelled = true
     }
   }, [fontFamily, scaledFontSize, watermarkText])
+  const singlePaint = scaledTextPaint({
+    fontSize,
+    scaledFont: scaledFontSize,
+    outlineWidth,
+    outlineColor,
+    shadowEnabled,
+    shadowColor,
+    shadowBlur,
+    shadowOffsetX,
+    shadowOffsetY,
+  })
   const textBox = useMemo(() => {
     const canvas = document.createElement("canvas")
     const ctx = canvas.getContext("2d")
     if (!ctx) return { width: scaledFontSize * 4, height: scaledFontSize }
-    return measureTextStamp(
+    const box = measureTextStamp(
       ctx,
-      watermarkText,
+      label,
       scaledFontSize,
       fontFamily,
       isStackedDirection(textDirection),
     )
-  }, [watermarkText, scaledFontSize, fontFamily, textDirection, fontEpoch])
+    const pad = textPaintPadding(singlePaint)
+    box.width += pad * 2
+    box.height += pad * 2
+    releaseCanvas(canvas)
+    return box
+  }, [label, scaledFontSize, fontFamily, textDirection, fontEpoch, singlePaint])
   const textCenter = placedStampCenter(
     placement,
     containerWidth,
@@ -357,6 +468,12 @@ export function WatermarkPreview({
     // your head. For Vertical Up the character string is reversed (below) so the
     // word reads correctly from the bottom upward while still stacking downward.
     ...(stackedSingle ? { writingMode: "vertical-rl" as const, textOrientation: "upright" as const, letterSpacing: "0.05em" } : {}),
+    ...(singlePaint && singlePaint.outlineWidth > 0
+      ? { WebkitTextStroke: `${singlePaint.outlineWidth}px ${singlePaint.outlineColor}`, paintOrder: "stroke fill" as const }
+      : {}),
+    ...(singlePaint && (singlePaint.shadowBlur > 0 || singlePaint.shadowOffsetX !== 0 || singlePaint.shadowOffsetY !== 0)
+      ? { textShadow: `${singlePaint.shadowOffsetX}px ${singlePaint.shadowOffsetY}px ${singlePaint.shadowBlur}px ${singlePaint.shadowColor}` }
+      : {}),
     pointerEvents: "none",
     userSelect: "none",
   }
@@ -364,7 +481,7 @@ export function WatermarkPreview({
   return (
     <div
       className={cn(
-        "flex w-full items-center justify-center rounded-xl border border-border/40 overflow-hidden",
+        "flex w-full flex-col items-stretch justify-center rounded-xl border border-border/40 overflow-hidden",
         !imagePreviewUrl &&
           "min-h-[260px] md:min-h-[360px] bg-gradient-to-br from-orange-50/70 via-amber-50/40 to-background"
       )}
@@ -387,7 +504,8 @@ export function WatermarkPreview({
         {/* Uploaded image */}
         {imagePreviewUrl ? (
           <img
-            src={imagePreviewUrl}
+            src={framedUrl ?? imagePreviewUrl}
+            style={grayscale ? { filter: "grayscale(1)" } : undefined}
             alt="Uploaded image preview"
             className="block max-h-[45vh] md:max-h-[min(45vh,460px)] max-w-full object-contain"
             draggable={false}
@@ -404,6 +522,7 @@ export function WatermarkPreview({
         <div
           aria-hidden="true"
           className="pointer-events-none select-none absolute inset-0 overflow-hidden"
+          style={imagePreviewUrl ? { clipPath: `inset(0 ${100 - compare}% 0 0)` } : undefined}
         >
           {/*
             Canvas stays in the DOM at all times so canvasRef is always valid.
@@ -412,29 +531,120 @@ export function WatermarkPreview({
           <canvas
             ref={canvasRef}
             className={cn(
-              "absolute inset-0 w-full h-full",
-              coverageMode !== "full" && "hidden"
+              "absolute inset-0 h-full w-full"
             )}
           />
-          {coverageMode === "single" && watermarkMode === "text" && (
+          {layers.length === 0 && coverageMode === "single" && watermarkMode === "text" && (
             <div style={singleWatermarkStyle}>
               <span className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
                 {stackedSingleUpward
-                  ? Array.from(watermarkText || "\u00A0").reverse().join("")
-                  : watermarkText || "\u00A0"}
+                  ? Array.from(label || "\u00A0").reverse().join("")
+                  : label || "\u00A0"}
               </span>
             </div>
           )}
-          {coverageMode === "single" && watermarkMode === "logo" && logoPreviewUrl && (
+          {layers.length === 0 && coverageMode === "single" && watermarkMode === "logo" && logoPreviewUrl && (
             <img src={logoPreviewUrl} alt="" style={singleImageStyle} draggable={false} />
           )}
-          {coverageMode === "single" && watermarkMode === "qr" && qrDataUrl && (
+          {layers.length === 0 && coverageMode === "single" && watermarkMode === "signature" && signaturePreviewUrl && (
+            <img src={signaturePreviewUrl} alt="" style={singleImageStyle} draggable={false} />
+          )}
+          {layers.length === 0 && coverageMode === "single" && watermarkMode === "qr" && qrDataUrl && (
             <img
               src={qrDataUrl}
               alt=""
               style={singleImageStyle}
               draggable={false}
             />
+          )}
+          {coverageMode === "single" && imagePreviewUrl && onFreeMove && (
+            <div
+              className="absolute z-20 size-6 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-primary bg-white shadow"
+              style={{
+                left: `${((watermarkMode === "text" || watermarkMode === "emoji" ? textCenter.x : imageCenter.x) / Math.max(containerWidth, 1)) * 100}%`,
+                top: `${((watermarkMode === "text" || watermarkMode === "emoji" ? textCenter.y : imageCenter.y) / Math.max(containerHeight, 1)) * 100}%`,
+              }}
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId)
+              }}
+              onPointerMove={(event) => {
+                if (!event.currentTarget.hasPointerCapture(event.pointerId) || !containerRef.current) return
+                const rect = containerRef.current.getBoundingClientRect()
+                onFreeMove(
+                  Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
+                  Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)),
+                )
+              }}
+              aria-label="Drag watermark"
+            />
+          )}
+          {coverageMode === "single" && imagePreviewUrl && onRotate && (
+            <div
+              className="absolute z-20 size-4 -translate-x-1/2 cursor-alias rounded-full border border-primary bg-primary/30"
+              style={{
+                left: `${((watermarkMode === "text" || watermarkMode === "emoji" ? textCenter.x : imageCenter.x) / Math.max(containerWidth, 1)) * 100}%`,
+                top: `calc(${((watermarkMode === "text" || watermarkMode === "emoji" ? textCenter.y : imageCenter.y) / Math.max(containerHeight, 1)) * 100}% - 28px)`,
+              }}
+              onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+              onPointerMove={(event) => {
+                if (!event.currentTarget.hasPointerCapture(event.pointerId) || !containerRef.current) return
+                const rect = containerRef.current.getBoundingClientRect()
+                const cx = (watermarkMode === "text" || watermarkMode === "emoji" ? textCenter.x : imageCenter.x)
+                const cy = (watermarkMode === "text" || watermarkMode === "emoji" ? textCenter.y : imageCenter.y)
+                const dx = event.clientX - rect.left - cx
+                const dy = event.clientY - rect.top - cy
+                onRotate(Math.round((Math.atan2(dy, dx) * 180) / Math.PI))
+              }}
+              aria-label="Rotate watermark"
+            />
+          )}
+          {coverageMode === "single" && imagePreviewUrl && onResize && (
+            <div
+              className="absolute z-20 size-4 -translate-y-1/2 cursor-nwse-resize rounded-sm border border-primary bg-white"
+              style={{
+                left: `calc(${((watermarkMode === "text" || watermarkMode === "emoji" ? textCenter.x : imageCenter.x) / Math.max(containerWidth, 1)) * 100}% + 28px)`,
+                top: `${((watermarkMode === "text" || watermarkMode === "emoji" ? textCenter.y : imageCenter.y) / Math.max(containerHeight, 1)) * 100}%`,
+              }}
+              onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+              onPointerMove={(event) => {
+                if (!event.currentTarget.hasPointerCapture(event.pointerId) || !containerRef.current) return
+                const rect = containerRef.current.getBoundingClientRect()
+                const cx = watermarkMode === "text" || watermarkMode === "emoji" ? textCenter.x : imageCenter.x
+                const dx = Math.abs(event.clientX - rect.left - cx)
+                onResize(Math.min(160, Math.max(12, Math.round(dx))))
+              }}
+              aria-label="Resize watermark"
+            />
+          )}
+          {sampling && (
+            <div
+              className="absolute inset-0 z-30 cursor-crosshair"
+              onClick={(event) => {
+                const host = event.currentTarget.parentElement
+                const img = host?.querySelector("img")
+                if (!(img instanceof HTMLImageElement) || !img.complete || !onSample) return
+                const rect = img.getBoundingClientRect()
+                const sample = document.createElement("canvas")
+                sample.width = Math.max(1, img.naturalWidth)
+                sample.height = Math.max(1, img.naturalHeight)
+                const ctx = sample.getContext("2d")
+                if (!ctx) return
+                ctx.drawImage(img, 0, 0)
+                const x = Math.min(sample.width - 1, Math.max(0, Math.round(((event.clientX - rect.left) / Math.max(rect.width, 1)) * sample.width)))
+                const y = Math.min(sample.height - 1, Math.max(0, Math.round(((event.clientY - rect.top) / Math.max(rect.height, 1)) * sample.height)))
+                const pixel = ctx.getImageData(x, y, 1, 1).data
+                const hex = `#${[pixel[0], pixel[1], pixel[2]].map((part) => part.toString(16).padStart(2, "0")).join("")}`
+                releaseCanvas(sample)
+                onSample(hex)
+              }}
+            />
+          )}
+          {imagePreviewUrl && watermarkMode === "signature" && !signaturePreviewUrl && (
+            <p className="absolute inset-x-0 bottom-2 text-center">
+              <span className="rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium text-foreground/80 shadow-sm">
+                Draw a signature to stamp it here
+              </span>
+            </p>
           )}
           {imagePreviewUrl && watermarkMode === "logo" && !logoPreviewUrl && (
             <p className="absolute inset-x-0 bottom-2 text-center">
@@ -471,6 +681,37 @@ export function WatermarkPreview({
           </div>
         )}
       </div>
+      <StrengthBar state={state} compare={compare} onCompare={setCompare} />
+    </div>
+  )
+}
+
+function StrengthBar({
+  state,
+  compare,
+  onCompare,
+}: {
+  state: EditorState
+  compare: number
+  onCompare: (value: number) => void
+}) {
+  const result = watermarkStrength(state)
+  return (
+    <div data-panel="strength" className="space-y-2 border-t border-black/5 bg-white px-3 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">{result.label}</p>
+        <p className="text-[11px] text-muted-foreground">Before / after</p>
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">{result.note}</p>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={compare}
+        aria-label="Compare before and after"
+        className="w-full accent-orange-500"
+        onChange={(event) => onCompare(Number(event.target.value))}
+      />
     </div>
   )
 }

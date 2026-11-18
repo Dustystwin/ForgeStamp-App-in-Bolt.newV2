@@ -37,14 +37,15 @@ export const WORKFLOW_STEPS = [
 
 // Prices on Spark and Forge are a preview. Nothing on this page charges a card.
 // The features are real for an account that is already on that plan.
-// Every plan exports at the photo's original size. There is no separate
-// high-resolution tier, no processing queue, and no monthly batch counter.
+// Free exports a PNG at the photo's original size. Spark and Forge can also
+// export JPG or WebP and fit the long edge to 2048, 1600, or 1080.
+// There is no processing queue and no monthly batch counter.
 export const PRICING_PLANS = [
   {
     name: "Free",
     tagline: "Use it today",
     badge: null as string | null,
-    description: "Place text, a logo, or a QR code, and download a PNG at the photo's original size.",
+    description: "Place text, a logo, or a QR code. Outline it, add a date, crop, and download a PNG at the original size.",
     monthlyPrice: "$0",
     annualPrice: "$0",
     annualSavings: null as string | null,
@@ -58,8 +59,21 @@ export const PRICING_PLANS = [
       "All watermark placements",
       "All watermark patterns",
       "Opacity, size, and rotation",
+      "Text outline",
+      "Copyright mark and date stamp",
+      "Crop and rotate before export",
+      "Starter looks",
+      "Up to 2 layers on a photo",
+      "Emoji marks",
+      "Eyedropper color pick",
+      "Black and white photo filter",
+      "Auto contrast so a mark stays readable",
+      "Handle stamp",
+      "Watermark strength meter and before/after compare",
+      "Install on your phone, with a short welcome",
       "PNG export at the original photo size",
       "Live watermark preview",
+      "Brand kit preview (saving a kit is on Spark)",
       "Saved images kept 30 days (up to 20)",
     ],
     batch: {
@@ -86,6 +100,16 @@ export const PRICING_PLANS = [
       "Premium color library",
       "JPG export",
       "WebP export",
+      "JPG and WebP quality control",
+      "Export long edge at 2048, 1600, or 1080",
+      "Drop shadow",
+      "Signature watermark",
+      "Sticker pack",
+      "Gradient text",
+      "Up to 5 layers on a photo",
+      "Platform icon next to a handle",
+      "Social size ZIP (Instagram, Story, Pinterest, Etsy, Facebook)",
+      "1 brand kit (logo, fonts, colors, handle)",
       "10 saved watermark presets",
       "Saved images kept 180 days (up to 100)",
     ],
@@ -109,8 +133,11 @@ export const PRICING_PLANS = [
     annualSavings: "Save 33%" as string | null,
     featuresIntro: "Everything in Spark, plus:" as string | null,
     features: [
+      "Up to 5 brand kits",
+      "Up to 10 layers on a photo",
       "Up to 200 saved watermark presets",
       "Saved images stay until you delete them (500 MB storage limit)",
+      "Photo tracking QR with a scan count",
     ],
     batch: {
       title: "Batch processing",

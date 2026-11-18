@@ -7,14 +7,14 @@ import { scanImageForWatermarks, type ScanReport } from "@/lib/watermark-scan"
 interface ScanResultsProps {
   /** The uploaded original file to scan. Panel hides itself when null. */
   file: File | null
-  /** Preview URL of the same file, used for the annotated thumbnail. */
-  previewUrl: string | null
+  /** Kept so callers can pass the preview they already have. The thumbnail is drawn from the file. */
+  previewUrl?: string | null
 }
 
 // Runs the watermark scan whenever a new image is uploaded and shows an
 // honest verdict: what was found, where (highlighted), and what this scan
 // can and cannot see.
-export function ScanResults({ file, previewUrl }: ScanResultsProps) {
+export function ScanResults({ file }: ScanResultsProps) {
   const [report, setReport] = useState<ScanReport | null>(null)
   const [scanning, setScanning] = useState(false)
   const [dismissed, setDismissed] = useState(false)
@@ -44,28 +44,51 @@ export function ScanResults({ file, previewUrl }: ScanResultsProps) {
   // Draw the annotated thumbnail (image + highlight boxes) when findings exist.
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !report || report.highlights.length === 0 || !previewUrl) return
-    const img = new Image()
-    img.onload = () => {
-      const maxW = 480
-      const scale = Math.min(1, maxW / img.naturalWidth)
-      const w = Math.round(img.naturalWidth * scale)
-      const h = Math.round(img.naturalHeight * scale)
-      canvas.width = w
-      canvas.height = h
-      const ctx = canvas.getContext("2d")
-      if (!ctx) return
-      ctx.drawImage(img, 0, 0, w, h)
-      ctx.fillStyle = "rgba(220, 38, 38, 0.18)"
-      ctx.strokeStyle = "rgba(220, 38, 38, 0.9)"
-      ctx.lineWidth = 1.5
-      for (const r of report.highlights) {
-        ctx.fillRect(r.x * w, r.y * h, r.w * w, r.h * h)
-        ctx.strokeRect(r.x * w, r.y * h, r.w * w, r.h * h)
+    if (!canvas || !report || report.highlights.length === 0 || !file) return
+    let cancelled = false
+    let bitmap: ImageBitmap | null = null
+    createImageBitmap(file)
+      .then((decoded) => {
+        bitmap = decoded
+        if (cancelled) {
+          decoded.close()
+          return
+        }
+        const maxW = 480
+        const scale = Math.min(1, maxW / decoded.width)
+        const w = Math.max(1, Math.round(decoded.width * scale))
+        const h = Math.max(1, Math.round(decoded.height * scale))
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return
+        ctx.drawImage(decoded, 0, 0, w, h)
+        decoded.close()
+        bitmap = null
+        ctx.fillStyle = "rgba(220, 38, 38, 0.18)"
+        ctx.strokeStyle = "rgba(220, 38, 38, 0.9)"
+        ctx.lineWidth = 1.5
+        for (const r of report.highlights) {
+          ctx.fillRect(r.x * w, r.y * h, r.w * w, r.h * h)
+          ctx.strokeRect(r.x * w, r.y * h, r.w * w, r.h * h)
+        }
+      })
+      .catch(() => {
+        // The written findings still stand without the thumbnail.
+      })
+    return () => {
+      cancelled = true
+      if (bitmap) {
+        try {
+          bitmap.close()
+        } catch {
+          // Already closed.
+        }
       }
+      canvas.width = 0
+      canvas.height = 0
     }
-    img.src = previewUrl
-  }, [report, previewUrl])
+  }, [report, file])
 
   if (!file || dismissed) return null
   if (!scanning && !report) return null

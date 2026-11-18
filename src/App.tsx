@@ -8,6 +8,7 @@ import { FAQ } from "@/components/landing/FAQ"
 import { FinalCTA } from "@/components/landing/FinalCTA"
 import { LegalPage, type LegalPageId } from "@/components/legal/LegalPage"
 import { EditorPage } from "@/components/editor/EditorPage"
+import { TrackPageView } from "@/components/tracking/TrackPageView"
 import { MyImagesPage } from "@/components/my-images/MyImagesPage"
 import { AdminPage } from "@/components/admin/AdminPage"
 import { AuthModal } from "@/components/auth/AuthModal"
@@ -91,7 +92,13 @@ function AppInner() {
     [navigateTo]
   )
 
+  const trackSlug = (() => {
+    const slug = new URLSearchParams(window.location.search).get("track") ?? ""
+    return /^[a-z0-9-]{3,40}$/.test(slug) ? slug : null
+  })()
+
   const renderView = () => {
+    if (trackSlug) return <TrackPageView slug={trackSlug} />
     if (view === "editor") {
       return (
         <EditorPage

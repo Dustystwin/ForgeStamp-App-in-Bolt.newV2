@@ -1,16 +1,18 @@
-import { useState, useCallback, useEffect } from "react"
-import { ArrowLeft, RotateCcw, Download, Loader as Loader2, Infinity, Save } from "lucide-react"
+import { useState, useCallback, useEffect, useRef } from "react"
+import { ArrowLeft, RotateCcw, Download, Loader as Loader2, Infinity, Save, Undo2, Redo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { useEditorState } from "@/hooks/use-editor-state"
 import { WatermarkPreview } from "./WatermarkPreview"
 import { WatermarkControls } from "./WatermarkControls"
+import { WelcomeTour } from "./WelcomeTour"
 import { ImageUploader } from "./ImageUploader"
 import { FinishedImages, type FinishedImage } from "./FinishedImages"
 import { ScanResults } from "./ScanResults"
 import { exportWatermarked, type CanvasWatermarkOptions } from "@/lib/watermark-utils"
 import { inspectQrUrl } from "@/lib/qr-watermark"
-import { dataUrlToBytes, downloadBlob, downloadUrl, stampedFileName, zipFiles } from "@/lib/batch-export"
+import { downloadBlob, downloadUrl, stampedFileName, zipFiles } from "@/lib/batch-export"
+import { exportSocialZip } from "@/lib/social-export"
 import {
   FREE_BATCH_LIMIT,
   FORGE_BATCH_LIMIT,
@@ -21,6 +23,9 @@ import {
   historyCap,
   historySavePhrase,
   resolveExportFormat,
+  resolveExportQuality,
+  resolveLongEdge,
+  layerLimitForPlan,
   savedCountLabel,
   saveFitWarning,
 } from "@/lib/plans"
@@ -73,20 +78,64 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     setQrUrl,
     setQrColor,
     setExportFormat,
+    setExportLongEdge,
+    setExportQuality,
+    setOutlineWidth,
+    setOutlineColor,
+    setShadowEnabled,
+    setShadowColor,
+    setShadowBlur,
+    setShadowOffsetX,
+    setShadowOffsetY,
+    setDateStamp,
+    setCropAspect,
+    setQuarterTurns,
+    setEmoji,
+    setStickerId,
+    setFreeX,
+    setFreeY,
+    setGradientOn,
+    setGradientA,
+    setGradientB,
+    setGradientC,
+    setGradientAngle,
+    setGrayscale,
+    setKeepInfo,
+    setAutoContrast,
+    setHandlePlatform,
+    layers,
+    activeLayerId,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    selectLayer,
+    addLayer,
+    duplicateLayer,
+    deleteLayer,
+    moveLayer,
+    toggleLayerHidden,
+    toggleLayerLocked,
     applySettings,
     setLogo,
     clearLogo,
+    setSignature,
+    clearSignature,
     reset,
     clearError,
   } = useEditorState(initialData)
 
   const { session, profile } = useAuth()
   const plan = effectivePlan(profile?.tier, Boolean(profile?.is_admin))
+  const layerLimit = layerLimitForPlan(plan)
+  const [sampling, setSampling] = useState<"color" | "outline" | "shadow" | null>(null)
   const batchLimit = batchLimitForPlan(plan)
   const exportFormat = resolveExportFormat(plan, state.exportFormat)
   const { openAuthModal } = useNavigation()
 
   const [finishedImages, setFinishedImages] = useState<FinishedImage[]>([])
+  const outputBlobs = useRef(new Map<string, Blob>())
+  const previewUrls = useRef<string[]>([])
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -107,19 +156,29 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     }
   }, [session])
 
+  useEffect(() => {
+    const blobs = outputBlobs.current
+    const urls = previewUrls
+    return () => {
+      for (const url of urls.current) URL.revokeObjectURL(url)
+      urls.current = []
+      blobs.clear()
+    }
+  }, [])
+
   const handleClearCoverage = useCallback(() => {
     setCoverageClearedAt(Date.now())
   }, [])
 
   const saveToMyImages = useCallback(async (
     file: File,
-    dataUrl: string,
+    output: Blob,
     filename: string
   ) => {
     if (!session?.user) throw new Error("Sign in to save images.")
     const userId = session.user.id
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-    const prepared = await outputForStorage(dataUrl, filename)
+    const prepared = await outputForStorage(output, filename)
     let outputBlob = prepared.blob
     let contentType = prepared.contentType
     let storedFilename = prepared.filename
@@ -147,7 +206,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       // migration is applied, keep a smaller copy of the same picture instead.
       if (outErr && shouldRetryOutputCompact(contentType, outputBlob.size, outErr.message)) {
         await supabase.storage.from("watermark-images").remove([outputPath])
-        const compact = await compactWatermark(dataUrl)
+        const compact = await compactWatermark(output)
         outputBlob = compact.blob
         contentType = compact.contentType
         storedFilename = replaceFileExtension(filename, compact.extension)
@@ -175,6 +234,18 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         qrUrl: state.qrUrl,
         qrColor: state.qrColor,
         exportFormat,
+        exportLongEdge: state.exportLongEdge,
+        exportQuality: state.exportQuality,
+        outlineWidth: state.outlineWidth,
+        outlineColor: state.outlineColor,
+        shadowEnabled: plan !== "free" && state.shadowEnabled,
+        shadowColor: state.shadowColor,
+        shadowBlur: state.shadowBlur,
+        shadowOffsetX: state.shadowOffsetX,
+        shadowOffsetY: state.shadowOffsetY,
+        dateStamp: state.dateStamp,
+        cropAspect: state.cropAspect,
+        quarterTurns: state.quarterTurns,
       }
 
       const { error: dbErr } = await supabase.from("images").insert({
@@ -200,7 +271,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       }
       throw error
     }
-  }, [session, state, exportFormat])
+  }, [session, state, exportFormat, plan])
 
   const handleAddPhotos = useCallback((files: File[]) => {
     const result = addPhotos(files, batchLimit)
@@ -257,7 +328,76 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       stampSize: state.stampSize,
       logoUrl: state.logoPreviewUrl,
       qrUrl: state.qrUrl,
+      signatureUrl: state.signaturePreviewUrl,
+      outlineWidth: state.outlineWidth,
+      outlineColor: state.outlineColor,
+      shadowEnabled: plan !== "free" && state.shadowEnabled,
+      shadowColor: state.shadowColor,
+      shadowBlur: state.shadowBlur,
+      shadowOffsetX: state.shadowOffsetX,
+      shadowOffsetY: state.shadowOffsetY,
+      dateStamp: state.dateStamp,
+      emoji: state.emoji,
+      stickerId: state.stickerId,
+      freeX: state.freeX,
+      freeY: state.freeY,
+      gradientOn: plan !== "free" && state.gradientOn,
+      gradientA: state.gradientA,
+      gradientB: state.gradientB,
+      gradientC: state.gradientC,
+      gradientAngle: state.gradientAngle,
+      grayscale: state.grayscale,
+      keepInfo: state.keepInfo,
+      autoContrast: state.autoContrast,
+      handlePlatform: plan === "free" ? "none" : state.handlePlatform,
+      frameAspect: state.cropAspect,
+      quarterTurns: state.quarterTurns,
+      longEdge: resolveLongEdge(plan, state.exportLongEdge),
+      exportQuality: resolveExportQuality(plan, state.exportQuality) / 100,
       color: state.watermarkMode === "qr" ? state.qrColor : state.color,
+      extraMarks: layers.filter((layer) => !layer.hidden).map((layer) => {
+        const snap = layer.id === activeLayerId ? state : layer.snap
+        return {
+          mode: snap.watermarkMode,
+          text: snap.watermarkText,
+          emoji: "emoji" in snap ? snap.emoji : state.emoji,
+          stickerId: "stickerId" in snap ? snap.stickerId : state.stickerId,
+          fontFamily: snap.fontFamily,
+          fontSize: snap.fontSize,
+          color: snap.watermarkMode === "qr" ? snap.qrColor : snap.color,
+          opacity: snap.opacity,
+          rotation: snap.rotation,
+          placement: snap.placement,
+          freeX: snap.freeX,
+          freeY: snap.freeY,
+          textDirection: snap.textDirection,
+          coverageMode: snap.coverageMode,
+          pattern: snap.pattern,
+          density: snap.density,
+          curveOrientation: snap.curveOrientation,
+          stampSize: snap.stampSize,
+          qrUrl: snap.qrUrl,
+          outlineWidth: snap.outlineWidth,
+          outlineColor: snap.outlineColor,
+          shadowEnabled: plan !== "free" && snap.shadowEnabled,
+          shadowColor: snap.shadowColor,
+          shadowBlur: snap.shadowBlur,
+          shadowOffsetX: snap.shadowOffsetX,
+          shadowOffsetY: snap.shadowOffsetY,
+          dateStamp: snap.dateStamp,
+          gradientOn: plan !== "free" && snap.gradientOn,
+          gradientA: snap.gradientA,
+          gradientB: snap.gradientB,
+          gradientC: snap.gradientC,
+          gradientAngle: snap.gradientAngle,
+          logoUrl: state.logoPreviewUrl,
+          signatureUrl: state.signaturePreviewUrl,
+          autoContrast: state.autoContrast,
+          handlePlatform: plan === "free" ? "none" : ("handlePlatform" in snap ? snap.handlePlatform : "none"),
+          imageWidth: 0,
+          imageHeight: 0,
+        }
+      }),
       imageWidth: 0,
       imageHeight: 0,
     }
@@ -271,41 +411,55 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
         `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
 
-      const exported: { id: string; dataUrl: string; filename: string; file: File }[] = []
-      for (let i = 0; i < queue.length; i++) {
-        setExportProgress(queue.length > 1 ? `Exporting ${i + 1} of ${queue.length}...` : "Exporting...")
-        const file = queue[i].file
-        const dataUrl = await exportWatermarked(file, options, exportFormat)
-        exported.push({
-          id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 5)}`,
-          dataUrl,
-          filename: stampedFileName(file, i, queue.length, stamp, formatOption(exportFormat).extension),
-          file,
-        })
+      const made: { id: string; filename: string; file: File; previewUrl: string; blob: Blob }[] = []
+      try {
+        for (let i = 0; i < queue.length; i++) {
+          setExportProgress(queue.length > 1 ? `Exporting ${i + 1} of ${queue.length}...` : "Exporting...")
+          const file = queue[i].file
+          const exported = await exportWatermarked(file, options, exportFormat)
+          const id = `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 5)}`
+          const previewUrl = URL.createObjectURL(exported.preview)
+          outputBlobs.current.set(id, exported.blob)
+          made.push({
+            id,
+            previewUrl,
+            filename: stampedFileName(file, i, queue.length, stamp, formatOption(exportFormat).extension),
+            file,
+            blob: exported.blob,
+          })
+        }
+      } catch (error) {
+        for (const item of made) {
+          URL.revokeObjectURL(item.previewUrl)
+          outputBlobs.current.delete(item.id)
+        }
+        throw error
       }
 
-      if (exported.length === 1) {
-        downloadUrl(exported[0].dataUrl, exported[0].filename)
+      if (made.length === 1) {
+        downloadBlob(made[0].blob, made[0].filename)
       } else {
-        downloadBlob(
-          zipFiles(exported.map((item) => ({ name: item.filename, bytes: dataUrlToBytes(item.dataUrl) }))),
-          `forgestamp-batch-${stamp}.zip`
-        )
+        const entries: { name: string; bytes: Uint8Array }[] = []
+        for (const item of made) {
+          entries.push({ name: item.filename, bytes: new Uint8Array(await item.blob.arrayBuffer()) })
+        }
+        const zip = zipFiles(entries)
+        entries.length = 0
+        downloadBlob(zip, `forgestamp-batch-${stamp}.zip`)
       }
 
-      setFinishedImages((prev) => [
-        ...exported.map(({ id, dataUrl, filename }) => ({ id, dataUrl, createdAt: now, filename })),
-        ...prev,
-      ])
+      const finished = made.map(({ id, previewUrl, filename }) => ({ id, previewUrl, createdAt: now, filename }))
+      previewUrls.current = [...finished.map((item) => item.previewUrl), ...previewUrls.current]
+      setFinishedImages((prev) => [...finished, ...prev])
 
       setIsExporting(false)
 
       if (session) {
         setIsSaving(true)
         const cap = historyCap(plan)
-        const room = savedUsage && cap != null ? Math.max(0, cap - savedUsage.count) : exported.length
-        const toSave = exported.slice(0, room)
-        const skipped = exported.slice(room)
+        const room = savedUsage && cap != null ? Math.max(0, cap - savedUsage.count) : made.length
+        const toSave = made.slice(0, room)
+        const skipped = made.slice(room)
         try {
           const failures: SaveFailure[] = skipped.map((item) => ({
             filename: item.filename,
@@ -314,16 +468,16 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
           let savedCount = 0
           let capHit = false
           for (let i = 0; i < toSave.length; i++) {
-            setExportProgress(`Downloaded. Saving to My Images ${savedCount + 1} of ${exported.length}...`)
+            setExportProgress(`Downloaded. Saving to My Images ${savedCount + 1} of ${made.length}...`)
             const item = toSave[i]
             if (capHit) {
               failures.push({ filename: item.filename, message: savedImageCapFailure(plan) })
               continue
             }
             try {
-              await saveToMyImages(item.file, item.dataUrl, item.filename)
+              await saveToMyImages(item.file, item.blob, item.filename)
               savedCount += 1
-              setExportProgress(`Downloaded. Saving to My Images ${savedCount} of ${exported.length}...`)
+              setExportProgress(`Downloaded. Saving to My Images ${savedCount} of ${made.length}...`)
             } catch (err) {
               const message = err instanceof Error ? err.message : "Failed to save image."
               failures.push({ filename: item.filename, message })
@@ -334,9 +488,9 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
           }
           const report = saveResultMessages(
             savedCount,
-            exported.length,
+            made.length,
             failures,
-            historySavePhrase(plan, savedCount || exported.length)
+            historySavePhrase(plan, savedCount || made.length)
           )
           if (report.success) toast.success(report.success)
           if (report.warning) toast.warning(report.warning, { duration: 8000 })
@@ -363,12 +517,137 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     }
   }, [state, photos, batchLimit, exportFormat, plan, session, savedUsage, saveToMyImages, openAuthModal])
 
+  const handleSocial = useCallback(async () => {
+    if (plan === "free") {
+      toast("Social sizes are included with Spark and Forge. Those plans are not for sale.")
+      return
+    }
+    if (!state.image) {
+      toast.error("Upload a photo first.")
+      return
+    }
+    setIsExporting(true)
+    setExportProgress("Preparing six sizes...")
+    try {
+      const base: CanvasWatermarkOptions = {
+        mode: state.watermarkMode,
+        text: state.watermarkText,
+        fontFamily: state.fontFamily,
+        fontSize: state.fontSize,
+        color: state.watermarkMode === "qr" ? state.qrColor : state.color,
+        opacity: state.opacity,
+        rotation: state.rotation,
+        placement: state.placement,
+        textDirection: state.textDirection,
+        coverageMode: state.coverageMode,
+        pattern: state.pattern,
+        density: state.density,
+        curveOrientation: state.curveOrientation,
+        stampSize: state.stampSize,
+        logoUrl: state.logoPreviewUrl,
+        qrUrl: state.qrUrl,
+        signatureUrl: state.signaturePreviewUrl,
+        outlineWidth: state.outlineWidth,
+        outlineColor: state.outlineColor,
+        shadowEnabled: state.shadowEnabled,
+        shadowColor: state.shadowColor,
+        shadowBlur: state.shadowBlur,
+        shadowOffsetX: state.shadowOffsetX,
+        shadowOffsetY: state.shadowOffsetY,
+        dateStamp: state.dateStamp,
+        emoji: state.emoji,
+        stickerId: state.stickerId,
+        freeX: state.freeX,
+        freeY: state.freeY,
+        gradientOn: state.gradientOn,
+        gradientA: state.gradientA,
+        gradientB: state.gradientB,
+        gradientC: state.gradientC,
+        gradientAngle: state.gradientAngle,
+        grayscale: state.grayscale,
+        autoContrast: state.autoContrast,
+        handlePlatform: state.handlePlatform,
+        quarterTurns: state.quarterTurns,
+        extraMarks: layers.filter((layer) => !layer.hidden).map((layer) => {
+          const snap = layer.id === activeLayerId ? state : layer.snap
+          return {
+            mode: snap.watermarkMode,
+            text: snap.watermarkText,
+            emoji: snap.emoji,
+            stickerId: snap.stickerId,
+            fontFamily: snap.fontFamily,
+            fontSize: snap.fontSize,
+            color: snap.watermarkMode === "qr" ? snap.qrColor : snap.color,
+            opacity: snap.opacity,
+            rotation: snap.rotation,
+            placement: snap.placement,
+            freeX: snap.freeX,
+            freeY: snap.freeY,
+            textDirection: snap.textDirection,
+            coverageMode: snap.coverageMode,
+            pattern: snap.pattern,
+            density: snap.density,
+            curveOrientation: snap.curveOrientation,
+            stampSize: snap.stampSize,
+            qrUrl: snap.qrUrl,
+            outlineWidth: snap.outlineWidth,
+            outlineColor: snap.outlineColor,
+            shadowEnabled: snap.shadowEnabled,
+            shadowColor: snap.shadowColor,
+            shadowBlur: snap.shadowBlur,
+            shadowOffsetX: snap.shadowOffsetX,
+            shadowOffsetY: snap.shadowOffsetY,
+            dateStamp: snap.dateStamp,
+            gradientOn: snap.gradientOn,
+            gradientA: snap.gradientA,
+            gradientB: snap.gradientB,
+            gradientC: snap.gradientC,
+            gradientAngle: snap.gradientAngle,
+            logoUrl: state.logoPreviewUrl,
+            signatureUrl: state.signaturePreviewUrl,
+            autoContrast: state.autoContrast,
+            handlePlatform: snap.handlePlatform,
+            grayscale: state.grayscale,
+            imageWidth: 0,
+            imageHeight: 0,
+          }
+        }),
+        imageWidth: 0,
+        imageHeight: 0,
+      }
+      const blob = await exportSocialZip(state.image, base)
+      downloadBlob(blob, "forgestamp-social-sizes.zip")
+      toast.success("Six sizes are in the ZIP.")
+    } catch {
+      toast.error("Those sizes could not be made. Please try again.")
+    } finally {
+      setIsExporting(false)
+      setExportProgress(null)
+    }
+  }, [state, plan, layers, activeLayerId])
+
   const handleRemoveImage = useCallback((id: string) => {
-    setFinishedImages((prev) => prev.filter((img) => img.id !== id))
+    setFinishedImages((prev) => {
+      const target = prev.find((img) => img.id === id)
+      if (target) URL.revokeObjectURL(target.previewUrl)
+      const next = prev.filter((img) => img.id !== id)
+      previewUrls.current = next.map((img) => img.previewUrl)
+      return next
+    })
+    outputBlobs.current.delete(id)
   }, [])
 
   const handleClearImages = useCallback(() => {
+    for (const url of previewUrls.current) URL.revokeObjectURL(url)
+    previewUrls.current = []
+    outputBlobs.current.clear()
     setFinishedImages([])
+  }, [])
+
+  const handleDownloadFinished = useCallback((image: FinishedImage) => {
+    const blob = outputBlobs.current.get(image.id)
+    if (blob) downloadBlob(blob, image.filename)
+    else downloadUrl(image.previewUrl, image.filename)
   }, [])
 
   // Full Reset: return the EDITOR to a fresh session (image + all settings),
@@ -381,6 +660,18 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     toast.dismiss()
   }, [reset])
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const meta = event.metaKey || event.ctrlKey
+      if (!meta || event.key.toLowerCase() !== "z") return
+      event.preventDefault()
+      if (event.shiftKey) redo()
+      else undo()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [undo, redo])
+
   const isProcessing = isExporting || isSaving
   const exportCount = Math.min(photos.length, batchLimit)
   const fitWarning = session && savedUsage
@@ -388,9 +679,10 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     : null
 
   return (
-    <div className="flex min-h-svh flex-col bg-background">
+    <div className="fs-studio flex min-h-svh flex-col">
+      <WelcomeTour />
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-black/5 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-3">
             <Button
@@ -413,6 +705,12 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             {state.image && (
               <ImageUploader onImageSelect={setImage} hasImage={true} />
             )}
+            <Button variant="outline" size="sm" onClick={undo} disabled={!canUndo} aria-label="Undo" className="px-2">
+              <Undo2 className="size-3.5" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={redo} disabled={!canRedo} aria-label="Redo" className="px-2">
+              <Redo2 className="size-3.5" />
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -446,7 +744,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       {/* Main layout */}
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4 md:grid md:grid-cols-[1fr_300px] md:items-start md:gap-5 md:p-6 lg:grid-cols-[1fr_320px]">
         <section
-          className="flex-1 min-w-0 md:sticky md:top-16"
+          className="min-w-0 flex-1 rounded-2xl bg-white/95 p-2 shadow-[0_16px_40px_-24px_rgba(90,40,10,0.55)] md:sticky md:top-16 md:p-3"
           aria-label="Image preview"
         >
           <WatermarkPreview
@@ -456,6 +754,24 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             multiple={batchLimit > 1}
             uploadDetail={`or click to browse. PNG, JPG, or WebP up to 15MB each. Up to ${batchLimit} photos.`}
             coverageClearedAt={coverageClearedAt}
+            layers={layers}
+            activeLayerId={activeLayerId}
+            sampling={sampling}
+            onSample={(hex) => {
+              if (sampling === "outline") setOutlineColor(hex)
+              else if (sampling === "shadow") setShadowColor(hex)
+              else setColor(hex)
+              setSampling(null)
+            }}
+            onFreeMove={(x, y) => {
+              setFreeX(x)
+              setFreeY(y)
+            }}
+            onRotate={setRotation}
+            onResize={(size) => {
+              if (state.watermarkMode === "text" || state.watermarkMode === "emoji") setFontSize(size)
+              else setStampSize(size)
+            }}
           />
           {photos.length > 0 && (
             <BatchStrip
@@ -472,7 +788,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         </section>
 
         <aside
-          className="md:max-h-[calc(100svh-80px)] md:overflow-y-auto md:rounded-xl md:border md:border-border/40 md:bg-card md:p-4 md:shadow-sm"
+          className="rounded-2xl border border-black/5 bg-white/95 p-3 shadow-[0_16px_40px_-24px_rgba(90,40,10,0.45)] md:max-h-[calc(100svh-80px)] md:overflow-y-auto md:p-4"
           aria-label="Watermark controls"
         >
           <WatermarkControls
@@ -495,15 +811,70 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             onQrColorChange={setQrColor}
             onLogoSelect={setLogo}
             onLogoClear={clearLogo}
+            onSignatureChange={setSignature}
+            onSignatureClear={clearSignature}
+            onOutlineWidthChange={setOutlineWidth}
+            onOutlineColorChange={setOutlineColor}
+            onShadowEnabledChange={setShadowEnabled}
+            onShadowColorChange={setShadowColor}
+            onShadowBlurChange={setShadowBlur}
+            onShadowOffsetXChange={setShadowOffsetX}
+            onShadowOffsetYChange={setShadowOffsetY}
+            onDateStampChange={setDateStamp}
+            onCropAspectChange={setCropAspect}
+            onQuarterTurnsChange={setQuarterTurns}
+            onEmojiChange={setEmoji}
+            onStickerChange={setStickerId}
+            onGradientOnChange={setGradientOn}
+            onGradientAChange={setGradientA}
+            onGradientBChange={setGradientB}
+            onGradientCChange={setGradientC}
+            onGradientAngleChange={setGradientAngle}
+            onGrayscaleChange={setGrayscale}
+            onSampleRequest={setSampling}
+            layers={layers}
+            activeLayerId={activeLayerId}
+            layerLimit={layerLimit}
+            onSelectLayer={selectLayer}
+            onAddLayer={addLayer}
+            onDuplicateLayer={duplicateLayer}
+            onDeleteLayer={deleteLayer}
+            onMoveLayer={moveLayer}
+            onHideLayer={toggleLayerHidden}
+            onLockLayer={toggleLayerLocked}
             onClearCoverage={handleClearCoverage}
             onApplySettings={applySettings}
+            onAutoContrastChange={setAutoContrast}
+            onHandlePlatformChange={setHandlePlatform}
+            onUseBrand={(kit) => {
+              const handle = kit.handles.find((item) => item.trim())
+              if (handle) setWatermarkText(handle)
+              if (kit.fonts[0]) setFontFamily(kit.fonts[0])
+              if (kit.colors[0]) setColor(kit.colors[0])
+              if (kit.colors[1]) setOutlineColor(kit.colors[1])
+              if (kit.website) setQrUrl(kit.website.startsWith("http") ? kit.website : `https://${kit.website}`)
+              if (kit.logoDataUrl) {
+                void fetch(kit.logoDataUrl)
+                  .then((response) => response.blob())
+                  .then((blob) => setLogo(new File([blob], "brand-logo.png", { type: blob.type || "image/png" })))
+                  .catch(() => toast.error("The brand logo could not be loaded."))
+              }
+              toast.success(handle ? "Brand applied to this mark." : "Brand colors applied. Add a handle to fill the words.")
+            }}
           />
 
           <div className="mt-5 flex flex-col gap-3 border-t border-border/40 pt-4">
             <ExportFormatControl
               value={state.exportFormat}
               plan={plan}
+              longEdge={state.exportLongEdge}
+              quality={state.exportQuality}
               onChange={setExportFormat}
+              onLongEdgeChange={setExportLongEdge}
+              onQualityChange={setExportQuality}
+              keepInfo={state.keepInfo}
+              onKeepInfoChange={setKeepInfo}
+              onSocialExport={handleSocial}
             />
             {session && savedUsage && (
               <p className={cn(
@@ -578,6 +949,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         images={finishedImages}
         onRemove={handleRemoveImage}
         onClearAll={handleClearImages}
+        onDownload={handleDownloadFinished}
       />
     </div>
   )
