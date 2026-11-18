@@ -165,6 +165,7 @@ export function useEditorState(initialData?: EditorInitialData) {
   })
   const [grayscale, setGrayscale] = useState(init.grayscale === true)
   const [keepInfo, setKeepInfo] = useState(init.keepInfo === true)
+  const [autoContrast, setAutoContrast] = useState(init.autoContrast === true)
   const [signaturePreviewUrl, setSignaturePreviewUrl] = useState<string | null>(null)
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
   const [logoName, setLogoName] = useState<string | null>(null)
@@ -458,6 +459,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     setGradientAngle(DEFAULT_EDITOR_STATE.gradientAngle)
     setGrayscale(false)
     setKeepInfo(false)
+    setAutoContrast(false)
     setLayers([createLayer({}, "Text")])
     releaseLogo()
     clearSignature()
@@ -507,6 +509,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     setGradientAngle(settings.gradientAngle)
     setGrayscale(settings.grayscale)
     setKeepInfo(settings.keepInfo)
+    setAutoContrast(settings.autoContrast)
     if (settings.layers && settings.layers.length > 0) {
       skipSync.current += 1
       setLayers(settings.layers)
@@ -760,6 +763,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     gradientAngle,
     grayscale,
     keepInfo,
+    autoContrast,
     logoPreviewUrl,
     logoName,
     signaturePreviewUrl,
@@ -813,6 +817,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     setGradientAngle,
     setGrayscale,
     setKeepInfo,
+    setAutoContrast,
     setPlacement: (value: Placement) => {
       setPlacement(value)
       setFreeX(null)

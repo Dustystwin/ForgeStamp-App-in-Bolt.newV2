@@ -67,6 +67,7 @@ export const PRICING_PLANS = [
       "Emoji marks",
       "Eyedropper color pick",
       "Black and white photo filter",
+      "Auto contrast so a mark stays readable",
       "PNG export at the original photo size",
       "Live watermark preview",
       "Brand kit preview (saving a kit is on Spark)",

@@ -14,6 +14,7 @@ import type { CropAspect, DateStampFormat } from "@/lib/editor-types"
 import { composeWatermarkText, paintFill, scaledTextPaint, textPaintPadding, type TextPaint } from "@/lib/text-style"
 import { stickerUrl } from "@/lib/stickers"
 import { copyJpegExif } from "@/lib/keep-photo-info"
+import { inkForLuminance, plateForLuminance, sampleMeanLuminance } from "@/lib/auto-contrast"
 import {
   getPatternPoints,
   measureTextStamp,
@@ -216,6 +217,8 @@ export interface ImageStampOptions {
   imageHeight: number
   freeX?: number | null
   freeY?: number | null
+  autoContrast?: boolean
+  backdrop?: CanvasImageSource | null
 }
 
 // Single-placement center. The mark's own size and rotation decide how far
@@ -277,6 +280,7 @@ export function drawImageWatermark(
     stampSize, opacity, rotation, placement, coverageMode, pattern, density,
     curveOrientation, imageWidth, imageHeight, freeX, freeY,
   } = opts
+  const backdrop = opts.backdrop ?? null
   const { w: srcW, h: srcH } = sourceSize(source)
   if (srcW < 1 || srcH < 1) return
 
@@ -292,6 +296,12 @@ export function drawImageWatermark(
     ctx.save()
     ctx.translate(x, y)
     ctx.rotate((angle * Math.PI) / 180)
+    if (opts.autoContrast && backdrop) {
+      const lum = sampleMeanLuminance(backdrop, imageWidth, imageHeight, x, y, dw, dh)
+      const pad = Math.max(4, Math.min(dw, dh) * 0.08)
+      ctx.fillStyle = plateForLuminance(lum)
+      ctx.fillRect(-dw / 2 - pad, -dh / 2 - pad, dw + pad * 2, dh + pad * 2)
+    }
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = "high"
     ctx.drawImage(source, -dw / 2, -dh / 2, dw, dh)
@@ -365,6 +375,8 @@ export interface CanvasWatermarkOptions {
   gradientAngle?: number
   grayscale?: boolean
   keepInfo?: boolean
+  autoContrast?: boolean
+  backdrop?: CanvasImageSource | null
   marksOnly?: boolean
   extraMarks?: CanvasWatermarkOptions[]
   frameAspect?: CropAspect
@@ -447,6 +459,8 @@ export async function drawWatermarkOnCanvas(
         imageHeight,
         freeX: opts.freeX,
         freeY: opts.freeY,
+        autoContrast: opts.autoContrast,
+        backdrop: opts.backdrop ?? canvas,
       })
     }
     return
@@ -498,6 +512,26 @@ export async function drawWatermarkOnCanvas(
     gradientColors: [opts.gradientA ?? "", opts.gradientB ?? "", opts.gradientC ?? ""],
     gradientAngle: opts.gradientAngle,
   })
+  const backdrop = opts.backdrop ?? canvas
+  const adapt = (x: number, y: number, w: number, h: number) => {
+    if (!opts.autoContrast) return { fill: color, stampPaint: paint }
+    const ink = inkForLuminance(sampleMeanLuminance(backdrop, imageWidth, imageHeight, x, y, w, h))
+    const base: TextPaint = paint ?? {
+      outlineWidth: 0,
+      outlineColor: ink.outline ?? "#FFFFFF",
+      shadowColor: "transparent",
+      shadowBlur: 0,
+      shadowOffsetX: 0,
+      shadowOffsetY: 0,
+    }
+    const stampPaint: TextPaint = {
+      ...base,
+      gradient: undefined,
+      outlineWidth: ink.outline ? Math.max(base.outlineWidth, clampedFontSize * 0.08) : base.outlineWidth,
+      outlineColor: ink.outline ?? base.outlineColor,
+    }
+    return { fill: ink.color, stampPaint }
+  }
   const measured = measureTextStamp(
     ctx,
     text || "\u00A0",
@@ -523,7 +557,9 @@ export async function drawWatermarkOnCanvas(
       totalRotation,
     )
     for (const pt of points) {
-      drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward, paint)
+      const chosen = adapt(pt.x, pt.y, measured.width, measured.height)
+      ctx.fillStyle = chosen.fill
+      drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward, chosen.stampPaint)
     }
   } else {
     const { x, y } = opts.freeX != null && opts.freeY != null
@@ -537,6 +573,8 @@ export async function drawWatermarkOnCanvas(
         totalRotation,
       )
 
+    const chosen = adapt(x, y, measured.width, measured.height)
+    ctx.fillStyle = chosen.fill
     ctx.save()
     ctx.translate(x, y)
     ctx.rotate((totalRotation * Math.PI) / 180)
@@ -545,10 +583,10 @@ export async function drawWatermarkOnCanvas(
       const ordered = stackUpward ? [...chars].reverse() : chars
       const startY = -((ordered.length - 1) / 2) * stackedLineHeight
       for (let i = 0; i < ordered.length; i++) {
-        paintFill(ctx, ordered[i], 0, startY + i * stackedLineHeight, paint)
+        paintFill(ctx, ordered[i], 0, startY + i * stackedLineHeight, chosen.stampPaint)
       }
     } else {
-      paintFill(ctx, text || "\u00A0", 0, 0, paint)
+      paintFill(ctx, text || "\u00A0", 0, 0, chosen.stampPaint)
     }
     ctx.restore()
   }

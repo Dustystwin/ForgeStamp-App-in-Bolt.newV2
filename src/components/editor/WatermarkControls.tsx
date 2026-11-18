@@ -99,6 +99,7 @@ interface WatermarkControlsProps {
   onClearCoverage: () => void
   onApplySettings: (settings: PresetSettings) => void
   onUseBrand: (kit: BrandKit) => void
+  onAutoContrastChange: (value: boolean) => void
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -163,6 +164,7 @@ export function WatermarkControls({
   onClearCoverage,
   onApplySettings,
   onUseBrand,
+  onAutoContrastChange,
 }: WatermarkControlsProps) {
   const { profile } = useAuth()
   const spark = canUseSparkTools(profile?.tier, Boolean(profile?.is_admin))
@@ -179,6 +181,22 @@ export function WatermarkControls({
   return (
     <div className="space-y-4">
       <BrandKitControl plan={plan} onUse={onUseBrand} />
+      <div data-panel="auto-contrast" className="space-y-1">
+        <button
+          type="button"
+          aria-pressed={state.autoContrast}
+          onClick={() => onAutoContrastChange(!state.autoContrast)}
+          className={cn(
+            "min-h-10 w-full rounded-lg border px-3 text-sm font-medium",
+            state.autoContrast ? "border-primary bg-primary/15 text-primary" : "border-border/60 bg-white text-foreground",
+          )}
+        >
+          {state.autoContrast ? "Auto contrast on" : "Auto contrast"}
+        </button>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Looks at the photo under each mark and picks black or white. A gray area also gets an outline, or a plate behind a logo or QR.
+        </p>
+      </div>
       <LayerPanel
         layers={layers}
         activeId={activeLayerId}

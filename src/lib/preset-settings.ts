@@ -79,6 +79,7 @@ export interface PresetSettings {
   gradientAngle: number
   grayscale: boolean
   keepInfo: boolean
+  autoContrast: boolean
   layers?: import("@/lib/mark-layer").MarkLayer[]
 }
 
@@ -157,6 +158,7 @@ export function settingsFromEditor(state: EditorState): PresetSettings {
     gradientAngle: state.gradientAngle,
     grayscale: state.grayscale,
     keepInfo: state.keepInfo,
+    autoContrast: state.autoContrast,
   }
 }
 
@@ -209,6 +211,7 @@ export function parsePresetSettings(raw: unknown): PresetSettings | null {
     gradientAngle: clampNumber(row.gradientAngle, 0, 360, defaults.gradientAngle),
     grayscale: row.grayscale === true,
     keepInfo: row.keepInfo === true,
+    autoContrast: row.autoContrast === true,
     layers: Array.isArray(row.layers) ? row.layers as PresetSettings["layers"] : undefined,
   }
 }

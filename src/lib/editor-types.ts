@@ -96,6 +96,7 @@ export interface EditorState {
   gradientAngle: number
   grayscale: boolean
   keepInfo: boolean
+  autoContrast: boolean
   // Session-only drawing. Not stored with saved images or presets.
   signaturePreviewUrl: string | null
   error: string | null
@@ -234,6 +235,7 @@ export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl"
   gradientAngle: 90,
   grayscale: false,
   keepInfo: false,
+  autoContrast: false,
 }
 
 export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"]

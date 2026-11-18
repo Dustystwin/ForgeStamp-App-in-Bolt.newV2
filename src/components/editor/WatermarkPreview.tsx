@@ -91,6 +91,7 @@ export function WatermarkPreview({
     gradientC,
     gradientAngle,
     grayscale,
+    autoContrast,
   } = state
 
   const label = composeWatermarkText(watermarkText, dateStamp)
@@ -232,6 +233,16 @@ export function WatermarkPreview({
       const visible = layers.filter((layer) => !layer.hidden)
       const marks = visible.length > 0 ? visible : []
       void (async () => {
+        let photo: HTMLImageElement | null = null
+        if (autoContrast) {
+          photo = new Image()
+          photo.src = framedUrl ?? imagePreviewUrl
+          try {
+            await photo.decode()
+          } catch {
+            photo = null
+          }
+        }
         for (const layer of marks) {
           const snap = layer.id === activeLayerId ? null : layer.snap
           await drawWatermarkOnCanvas(canvas, canvas, {
@@ -270,6 +281,8 @@ export function WatermarkPreview({
             gradientAngle: snap?.gradientAngle ?? gradientAngle,
             logoUrl: logoPreviewUrl,
             signatureUrl: signaturePreviewUrl,
+            autoContrast,
+            backdrop: photo,
             imageWidth: containerWidth,
             imageHeight: containerHeight,
           })
@@ -348,6 +361,8 @@ export function WatermarkPreview({
     signaturePreviewUrl,
     coverageMode,
     imagePreviewUrl,
+    autoContrast,
+    framedUrl,
   ])
 
   const scaledFontSize = scaledStampFont(fontSize, containerWidth, containerHeight)

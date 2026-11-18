@@ -99,6 +99,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     setGradientAngle,
     setGrayscale,
     setKeepInfo,
+    setAutoContrast,
     layers,
     activeLayerId,
     canUndo,
@@ -344,6 +345,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       gradientAngle: state.gradientAngle,
       grayscale: state.grayscale,
       keepInfo: state.keepInfo,
+      autoContrast: state.autoContrast,
       frameAspect: state.cropAspect,
       quarterTurns: state.quarterTurns,
       longEdge: resolveLongEdge(plan, state.exportLongEdge),
@@ -386,6 +388,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
           gradientAngle: snap.gradientAngle,
           logoUrl: state.logoPreviewUrl,
           signatureUrl: state.signaturePreviewUrl,
+          autoContrast: state.autoContrast,
           imageWidth: 0,
           imageHeight: 0,
         }
@@ -726,6 +729,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             onLockLayer={toggleLayerLocked}
             onClearCoverage={handleClearCoverage}
             onApplySettings={applySettings}
+            onAutoContrastChange={setAutoContrast}
             onUseBrand={(kit) => {
               const handle = kit.handles.find((item) => item.trim())
               if (handle) setWatermarkText(handle)
