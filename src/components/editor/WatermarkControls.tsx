@@ -25,6 +25,7 @@ import { CurveOrientationControl } from "./controls/CurveOrientationControl"
 import { WatermarkModeControl } from "./controls/WatermarkModeControl"
 import { LogoControl } from "./controls/LogoControl"
 import { QrControl } from "./controls/QrControl"
+import { TrackQrControl } from "./controls/TrackQrControl"
 import { PresetControl } from "./controls/PresetControl"
 import { DateStampControl } from "./controls/DateStampControl"
 import { TextStyleControl } from "./controls/TextStyleControl"
@@ -374,6 +375,7 @@ export function WatermarkControls({
         <div className="space-y-3">
           <SectionLabel>QR code</SectionLabel>
           <QrControl value={state.qrUrl} color={state.qrColor} onChange={onQrUrlChange} />
+          <TrackQrControl onUseLink={onQrUrlChange} />
           <FontSizeControl
             id="stamp-size"
             label="Size"

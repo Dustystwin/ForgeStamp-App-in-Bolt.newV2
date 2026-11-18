@@ -137,6 +137,7 @@ export const PRICING_PLANS = [
       "Up to 10 layers on a photo",
       "Up to 200 saved watermark presets",
       "Saved images stay until you delete them (500 MB storage limit)",
+      "Photo tracking QR with a scan count",
     ],
     batch: {
       title: "Batch processing",
