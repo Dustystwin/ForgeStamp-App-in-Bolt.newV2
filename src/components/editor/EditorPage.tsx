@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { useEditorState } from "@/hooks/use-editor-state"
 import { WatermarkPreview } from "./WatermarkPreview"
 import { WatermarkControls } from "./WatermarkControls"
+import { WelcomeTour } from "./WelcomeTour"
 import { ImageUploader } from "./ImageUploader"
 import { FinishedImages, type FinishedImage } from "./FinishedImages"
 import { ScanResults } from "./ScanResults"
@@ -679,6 +680,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
 
   return (
     <div className="fs-studio flex min-h-svh flex-col">
+      <WelcomeTour />
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-black/5 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
