@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { ArrowLeft, RotateCcw, Download, Loader as Loader2, Infinity, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -10,7 +10,7 @@ import { FinishedImages, type FinishedImage } from "./FinishedImages"
 import { ScanResults } from "./ScanResults"
 import { exportWatermarked, type CanvasWatermarkOptions } from "@/lib/watermark-utils"
 import { inspectQrUrl } from "@/lib/qr-watermark"
-import { dataUrlToBytes, downloadBlob, downloadUrl, stampedFileName, zipFiles } from "@/lib/batch-export"
+import { downloadBlob, downloadUrl, stampedFileName, zipFiles } from "@/lib/batch-export"
 import {
   FREE_BATCH_LIMIT,
   FORGE_BATCH_LIMIT,
@@ -87,6 +87,8 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
   const { openAuthModal } = useNavigation()
 
   const [finishedImages, setFinishedImages] = useState<FinishedImage[]>([])
+  const outputBlobs = useRef(new Map<string, Blob>())
+  const previewUrls = useRef<string[]>([])
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -107,19 +109,29 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     }
   }, [session])
 
+  useEffect(() => {
+    const blobs = outputBlobs.current
+    const urls = previewUrls
+    return () => {
+      for (const url of urls.current) URL.revokeObjectURL(url)
+      urls.current = []
+      blobs.clear()
+    }
+  }, [])
+
   const handleClearCoverage = useCallback(() => {
     setCoverageClearedAt(Date.now())
   }, [])
 
   const saveToMyImages = useCallback(async (
     file: File,
-    dataUrl: string,
+    output: Blob,
     filename: string
   ) => {
     if (!session?.user) throw new Error("Sign in to save images.")
     const userId = session.user.id
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-    const prepared = await outputForStorage(dataUrl, filename)
+    const prepared = await outputForStorage(output, filename)
     let outputBlob = prepared.blob
     let contentType = prepared.contentType
     let storedFilename = prepared.filename
@@ -147,7 +159,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       // migration is applied, keep a smaller copy of the same picture instead.
       if (outErr && shouldRetryOutputCompact(contentType, outputBlob.size, outErr.message)) {
         await supabase.storage.from("watermark-images").remove([outputPath])
-        const compact = await compactWatermark(dataUrl)
+        const compact = await compactWatermark(output)
         outputBlob = compact.blob
         contentType = compact.contentType
         storedFilename = replaceFileExtension(filename, compact.extension)
@@ -271,41 +283,55 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
         `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
 
-      const exported: { id: string; dataUrl: string; filename: string; file: File }[] = []
-      for (let i = 0; i < queue.length; i++) {
-        setExportProgress(queue.length > 1 ? `Exporting ${i + 1} of ${queue.length}...` : "Exporting...")
-        const file = queue[i].file
-        const dataUrl = await exportWatermarked(file, options, exportFormat)
-        exported.push({
-          id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 5)}`,
-          dataUrl,
-          filename: stampedFileName(file, i, queue.length, stamp, formatOption(exportFormat).extension),
-          file,
-        })
+      const made: { id: string; filename: string; file: File; previewUrl: string; blob: Blob }[] = []
+      try {
+        for (let i = 0; i < queue.length; i++) {
+          setExportProgress(queue.length > 1 ? `Exporting ${i + 1} of ${queue.length}...` : "Exporting...")
+          const file = queue[i].file
+          const exported = await exportWatermarked(file, options, exportFormat)
+          const id = `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 5)}`
+          const previewUrl = URL.createObjectURL(exported.preview)
+          outputBlobs.current.set(id, exported.blob)
+          made.push({
+            id,
+            previewUrl,
+            filename: stampedFileName(file, i, queue.length, stamp, formatOption(exportFormat).extension),
+            file,
+            blob: exported.blob,
+          })
+        }
+      } catch (error) {
+        for (const item of made) {
+          URL.revokeObjectURL(item.previewUrl)
+          outputBlobs.current.delete(item.id)
+        }
+        throw error
       }
 
-      if (exported.length === 1) {
-        downloadUrl(exported[0].dataUrl, exported[0].filename)
+      if (made.length === 1) {
+        downloadBlob(made[0].blob, made[0].filename)
       } else {
-        downloadBlob(
-          zipFiles(exported.map((item) => ({ name: item.filename, bytes: dataUrlToBytes(item.dataUrl) }))),
-          `forgestamp-batch-${stamp}.zip`
-        )
+        const entries: { name: string; bytes: Uint8Array }[] = []
+        for (const item of made) {
+          entries.push({ name: item.filename, bytes: new Uint8Array(await item.blob.arrayBuffer()) })
+        }
+        const zip = zipFiles(entries)
+        entries.length = 0
+        downloadBlob(zip, `forgestamp-batch-${stamp}.zip`)
       }
 
-      setFinishedImages((prev) => [
-        ...exported.map(({ id, dataUrl, filename }) => ({ id, dataUrl, createdAt: now, filename })),
-        ...prev,
-      ])
+      const finished = made.map(({ id, previewUrl, filename }) => ({ id, previewUrl, createdAt: now, filename }))
+      previewUrls.current = [...finished.map((item) => item.previewUrl), ...previewUrls.current]
+      setFinishedImages((prev) => [...finished, ...prev])
 
       setIsExporting(false)
 
       if (session) {
         setIsSaving(true)
         const cap = historyCap(plan)
-        const room = savedUsage && cap != null ? Math.max(0, cap - savedUsage.count) : exported.length
-        const toSave = exported.slice(0, room)
-        const skipped = exported.slice(room)
+        const room = savedUsage && cap != null ? Math.max(0, cap - savedUsage.count) : made.length
+        const toSave = made.slice(0, room)
+        const skipped = made.slice(room)
         try {
           const failures: SaveFailure[] = skipped.map((item) => ({
             filename: item.filename,
@@ -314,16 +340,16 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
           let savedCount = 0
           let capHit = false
           for (let i = 0; i < toSave.length; i++) {
-            setExportProgress(`Downloaded. Saving to My Images ${savedCount + 1} of ${exported.length}...`)
+            setExportProgress(`Downloaded. Saving to My Images ${savedCount + 1} of ${made.length}...`)
             const item = toSave[i]
             if (capHit) {
               failures.push({ filename: item.filename, message: savedImageCapFailure(plan) })
               continue
             }
             try {
-              await saveToMyImages(item.file, item.dataUrl, item.filename)
+              await saveToMyImages(item.file, item.blob, item.filename)
               savedCount += 1
-              setExportProgress(`Downloaded. Saving to My Images ${savedCount} of ${exported.length}...`)
+              setExportProgress(`Downloaded. Saving to My Images ${savedCount} of ${made.length}...`)
             } catch (err) {
               const message = err instanceof Error ? err.message : "Failed to save image."
               failures.push({ filename: item.filename, message })
@@ -334,9 +360,9 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
           }
           const report = saveResultMessages(
             savedCount,
-            exported.length,
+            made.length,
             failures,
-            historySavePhrase(plan, savedCount || exported.length)
+            historySavePhrase(plan, savedCount || made.length)
           )
           if (report.success) toast.success(report.success)
           if (report.warning) toast.warning(report.warning, { duration: 8000 })
@@ -364,11 +390,27 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
   }, [state, photos, batchLimit, exportFormat, plan, session, savedUsage, saveToMyImages, openAuthModal])
 
   const handleRemoveImage = useCallback((id: string) => {
-    setFinishedImages((prev) => prev.filter((img) => img.id !== id))
+    setFinishedImages((prev) => {
+      const target = prev.find((img) => img.id === id)
+      if (target) URL.revokeObjectURL(target.previewUrl)
+      const next = prev.filter((img) => img.id !== id)
+      previewUrls.current = next.map((img) => img.previewUrl)
+      return next
+    })
+    outputBlobs.current.delete(id)
   }, [])
 
   const handleClearImages = useCallback(() => {
+    for (const url of previewUrls.current) URL.revokeObjectURL(url)
+    previewUrls.current = []
+    outputBlobs.current.clear()
     setFinishedImages([])
+  }, [])
+
+  const handleDownloadFinished = useCallback((image: FinishedImage) => {
+    const blob = outputBlobs.current.get(image.id)
+    if (blob) downloadBlob(blob, image.filename)
+    else downloadUrl(image.previewUrl, image.filename)
   }, [])
 
   // Full Reset: return the EDITOR to a fresh session (image + all settings),
@@ -578,6 +620,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         images={finishedImages}
         onRemove={handleRemoveImage}
         onClearAll={handleClearImages}
+        onDownload={handleDownloadFinished}
       />
     </div>
   )

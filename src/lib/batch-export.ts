@@ -27,7 +27,10 @@ export function downloadUrl(href: string, filename: string) {
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   downloadUrl(url, filename)
-  URL.revokeObjectURL(url)
+  // Give the browser time to start the download, then drop the object URL.
+  // A big ZIP needs longer than a single photo.
+  const wait = Math.min(120_000, 2_000 + Math.ceil(blob.size / (2 * 1024 * 1024)) * 1000)
+  window.setTimeout(() => URL.revokeObjectURL(url), wait)
 }
 
 export function stampedFileName(

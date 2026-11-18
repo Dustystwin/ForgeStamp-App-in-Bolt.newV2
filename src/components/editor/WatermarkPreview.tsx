@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useLayoutEffect, useMemo } from "react"
+import { releaseCanvas } from "@/lib/image-resources"
 import type { EditorState } from "@/lib/editor-types"
 import { ImageUploader } from "./ImageUploader"
 import {
@@ -91,6 +92,13 @@ export function WatermarkPreview({
       cancelled = true
     }
   }, [stampSrc])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    return () => {
+      releaseCanvas(canvas)
+    }
+  }, [])
 
   // Track container size via ResizeObserver. Guarded so we only update state
   // when the size actually changed (by more than a fraction of a pixel) —
@@ -302,13 +310,15 @@ export function WatermarkPreview({
     const canvas = document.createElement("canvas")
     const ctx = canvas.getContext("2d")
     if (!ctx) return { width: scaledFontSize * 4, height: scaledFontSize }
-    return measureTextStamp(
+    const box = measureTextStamp(
       ctx,
       watermarkText,
       scaledFontSize,
       fontFamily,
       isStackedDirection(textDirection),
     )
+    releaseCanvas(canvas)
+    return box
   }, [watermarkText, scaledFontSize, fontFamily, textDirection, fontEpoch])
   const textCenter = placedStampCenter(
     placement,

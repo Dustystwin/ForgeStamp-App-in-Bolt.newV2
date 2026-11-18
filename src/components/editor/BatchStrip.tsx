@@ -78,7 +78,7 @@ export function BatchStrip({
                   selected ? "border-primary ring-2 ring-primary/40" : "border-border/60"
                 )}
               >
-                <img src={photo.previewUrl} alt="" className="h-full w-full object-cover" />
+                <img src={photo.thumbUrl ?? photo.previewUrl} alt="" className="h-full w-full object-cover" />
               </button>
               <span className="pointer-events-none absolute bottom-0.5 left-0.5 rounded bg-background/85 px-1 text-[9px] font-medium">
                 {index + 1}

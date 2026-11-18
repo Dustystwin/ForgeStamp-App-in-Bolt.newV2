@@ -8,6 +8,7 @@ import {
   type WatermarkMode,
 } from "@/lib/editor-types"
 import { renderQrDataUrl } from "@/lib/qr-watermark"
+import { canvasToBlob, closeBitmap, releaseCanvas, scaledPreviewBlob } from "@/lib/image-resources"
 import {
   getPatternPoints,
   measureTextStamp,
@@ -248,6 +249,9 @@ function sourceSize(source: CanvasImageSource): { w: number; h: number } {
   if (source instanceof HTMLCanvasElement) {
     return { w: source.width, h: source.height }
   }
+  if (typeof ImageBitmap !== "undefined" && source instanceof ImageBitmap) {
+    return { w: source.width, h: source.height }
+  }
   return { w: 1, h: 1 }
 }
 
@@ -350,7 +354,7 @@ async function loadStampSource(opts: CanvasWatermarkOptions): Promise<HTMLImageE
 
 export async function drawWatermarkOnCanvas(
   canvas: HTMLCanvasElement,
-  image: HTMLImageElement,
+  image: CanvasImageSource,
   opts: CanvasWatermarkOptions
 ): Promise<void> {
   const { text, fontFamily, fontSize, color, opacity, rotation, placement,
@@ -476,57 +480,43 @@ const EXPORT_MIME: Record<ImageExportFormat, { mime: string; quality?: number }>
   webp: { mime: "image/webp", quality: 0.92 },
 }
 
+export interface ExportedImage {
+  blob: Blob
+  preview: Blob
+}
+
 export async function exportWatermarked(
   image: File,
   opts: CanvasWatermarkOptions,
   format: ImageExportFormat = "png"
-): Promise<string> {
+): Promise<ExportedImage> {
   const bitmap = await createImageBitmap(image)
   const canvas = document.createElement("canvas")
-  const offscreenImg = document.createElement("img")
   const { mime, quality } = EXPORT_MIME[format]
-
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(image)
-    const release = () => {
-      try {
-        bitmap.close()
-      } catch {
-        // The bitmap may already have been closed.
-      }
-      URL.revokeObjectURL(url)
+  try {
+    await drawWatermarkOnCanvas(canvas, bitmap, {
+      ...opts,
+      imageWidth: bitmap.width,
+      imageHeight: bitmap.height,
+      matte: format === "jpeg" ? "#ffffff" : opts.matte,
+    })
+    const blob = await canvasToBlob(canvas, mime, quality)
+    if (!blob || blob.size <= 0 || (blob.type && blob.type !== mime)) {
+      throw new Error("This browser could not export that format.")
     }
-    offscreenImg.onload = async () => {
-      try {
-        await drawWatermarkOnCanvas(canvas, offscreenImg, {
-          ...opts,
-          imageWidth: bitmap.width,
-          imageHeight: bitmap.height,
-          matte: format === "jpeg" ? "#ffffff" : opts.matte,
-        })
-        const dataUrl = canvas.toDataURL(mime, quality)
-        release()
-        if (!dataUrl.startsWith(`data:${mime}`)) {
-          reject(new Error("This browser could not export that format."))
-          return
-        }
-        resolve(dataUrl)
-      } catch (err) {
-        release()
-        reject(err)
-      }
-    }
-    offscreenImg.onerror = () => {
-      release()
-      reject(new Error("Failed to load image for export"))
-    }
-    offscreenImg.src = url
-  })
+    // Preview while the full canvas is still alive, so the gallery does not
+    // decode the finished photo a second time.
+    const preview = await scaledPreviewBlob(canvas, bitmap.width, bitmap.height, 640)
+    return { blob, preview }
+  } finally {
+    closeBitmap(bitmap)
+    releaseCanvas(canvas)
+  }
 }
 
 export async function exportToPng(
   image: File,
   opts: CanvasWatermarkOptions
-): Promise<string> {
+): Promise<ExportedImage> {
   return exportWatermarked(image, opts, "png")
 }

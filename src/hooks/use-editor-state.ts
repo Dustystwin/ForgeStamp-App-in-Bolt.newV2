@@ -20,12 +20,14 @@ import {
   type ExportFormat,
 } from "@/lib/editor-types"
 import { isExportFormat, type PresetSettings } from "@/lib/preset-settings"
+import { scheduleThumb, thumbnailBlob } from "@/lib/image-resources"
 import type { EditorInitialData } from "@/App"
 
 export interface EditorPhoto {
   id: string
   file: File
   previewUrl: string
+  thumbUrl: string | null
 }
 
 export interface AddPhotosResult {
@@ -49,6 +51,11 @@ function isPhotoFile(file: File): boolean {
 }
 
 const EMPTY_BATCH: PhotoBatch = { photos: [], activeId: null }
+
+function releasePhotoUrls(photo: EditorPhoto) {
+  URL.revokeObjectURL(photo.previewUrl)
+  if (photo.thumbUrl && photo.thumbUrl !== photo.previewUrl) URL.revokeObjectURL(photo.thumbUrl)
+}
 
 export function useEditorState(initialData?: EditorInitialData) {
   const init = initialData?.settings ?? {}
@@ -89,18 +96,49 @@ export function useEditorState(initialData?: EditorInitialData) {
 
   const logoUrlRef = useRef<string | null>(null)
   const logoLoadId = useRef(0)
+  const alive = useRef(true)
+  const thumbGen = useRef(new Map<string, number>())
 
   const commitBatch = useCallback((next: PhotoBatch) => {
     batchRef.current = next
     setBatch(next)
   }, [])
 
+  const startThumb = useCallback((id: string, file: File) => {
+    const gen = (thumbGen.current.get(id) ?? 0) + 1
+    thumbGen.current.set(id, gen)
+    scheduleThumb(() => thumbnailBlob(file, 160))
+      .then((blob) => {
+        const url = URL.createObjectURL(blob)
+        if (!alive.current || thumbGen.current.get(id) !== gen) {
+          URL.revokeObjectURL(url)
+          return
+        }
+        const prev = batchRef.current
+        const photo = prev.photos.find((item) => item.id === id)
+        if (!photo) {
+          URL.revokeObjectURL(url)
+          return
+        }
+        if (photo.thumbUrl && photo.thumbUrl !== photo.previewUrl) URL.revokeObjectURL(photo.thumbUrl)
+        commitBatch({
+          ...prev,
+          photos: prev.photos.map((item) => (item.id === id ? { ...item, thumbUrl: url } : item)),
+        })
+      })
+      .catch(() => {
+        // The strip falls back to the full preview if a small one cannot be made.
+      })
+  }, [commitBatch])
+
   useEffect(() => {
     const image = initialData?.image
     if (!image) return
     const url = URL.createObjectURL(image)
-    const photo: EditorPhoto = { id: photoId(), file: image, previewUrl: url }
+    const id = photoId()
+    const photo: EditorPhoto = { id, file: image, previewUrl: url, thumbUrl: null }
     commitBatch({ photos: [photo], activeId: photo.id })
+    startThumb(id, image)
     return () => {
       URL.revokeObjectURL(url)
     }
@@ -110,7 +148,11 @@ export function useEditorState(initialData?: EditorInitialData) {
 
   useEffect(() => {
     return () => {
-      for (const photo of batchRef.current.photos) URL.revokeObjectURL(photo.previewUrl)
+      alive.current = false
+      for (const photo of batchRef.current.photos) {
+        URL.revokeObjectURL(photo.previewUrl)
+        if (photo.thumbUrl && photo.thumbUrl !== photo.previewUrl) URL.revokeObjectURL(photo.thumbUrl)
+      }
       if (logoUrlRef.current) {
         URL.revokeObjectURL(logoUrlRef.current)
         logoUrlRef.current = null
@@ -211,15 +253,17 @@ export function useEditorState(initialData?: EditorInitialData) {
         id: photoId(),
         file,
         previewUrl: URL.createObjectURL(file),
+        thumbUrl: null,
       }))
       commitBatch({
         photos: [...prev.photos, ...created],
         activeId: prev.activeId ?? created[0].id,
       })
+      for (const photo of created) startThumb(photo.id, photo.file)
     }
     noteFileProblems(skippedType, skippedSize, take.length)
     return { added: take.length, skippedType, skippedSize, leftOut }
-  }, [commitBatch, noteFileProblems])
+  }, [commitBatch, noteFileProblems, startThumb])
 
   const setImage = useCallback((file: File) => {
     if (!isPhotoFile(file)) {
@@ -234,22 +278,25 @@ export function useEditorState(initialData?: EditorInitialData) {
     const prev = batchRef.current
     const url = URL.createObjectURL(file)
     if (!prev.activeId || prev.photos.length === 0) {
-      const photo: EditorPhoto = { id: photoId(), file, previewUrl: url }
+      const id = photoId()
+      const photo: EditorPhoto = { id, file, previewUrl: url, thumbUrl: null }
       commitBatch({ photos: [photo], activeId: photo.id })
+      startThumb(id, file)
       setError(null)
       return
     }
 
     const current = prev.photos.find((photo) => photo.id === prev.activeId)
-    if (current) URL.revokeObjectURL(current.previewUrl)
+    if (current) releasePhotoUrls(current)
     commitBatch({
       photos: prev.photos.map((photo) =>
-        photo.id === prev.activeId ? { ...photo, file, previewUrl: url } : photo
+        photo.id === prev.activeId ? { ...photo, file, previewUrl: url, thumbUrl: null } : photo
       ),
       activeId: prev.activeId,
     })
+    startThumb(prev.activeId, file)
     setError(null)
-  }, [commitBatch])
+  }, [commitBatch, startThumb])
 
   const selectPhoto = useCallback((id: string) => {
     const prev = batchRef.current
@@ -261,7 +308,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     const prev = batchRef.current
     const target = prev.photos.find((photo) => photo.id === id)
     if (!target) return
-    URL.revokeObjectURL(target.previewUrl)
+    releasePhotoUrls(target)
     const photos = prev.photos.filter((photo) => photo.id !== id)
     let activeId = prev.activeId
     if (activeId === id) {
@@ -272,7 +319,7 @@ export function useEditorState(initialData?: EditorInitialData) {
   }, [commitBatch])
 
   const reset = useCallback(() => {
-    for (const photo of batchRef.current.photos) URL.revokeObjectURL(photo.previewUrl)
+    for (const photo of batchRef.current.photos) releasePhotoUrls(photo)
     commitBatch(EMPTY_BATCH)
     setWatermarkText(DEFAULT_EDITOR_STATE.watermarkText)
     setFontFamily(DEFAULT_EDITOR_STATE.fontFamily)
