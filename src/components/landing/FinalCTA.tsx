@@ -12,7 +12,7 @@ export function FinalCTA() {
           Try it on your own image.
         </h2>
         <p className="mt-4 max-w-md text-base leading-relaxed fs-text-soft">
-          Open the editor, add a watermark, and download a PNG.
+          Open the editor, add a watermark, and download the photo. Free downloads a PNG.
         </p>
         <Button
           className="fs-btn-primary mt-8 h-11 min-h-11 px-5 text-base shadow-none"

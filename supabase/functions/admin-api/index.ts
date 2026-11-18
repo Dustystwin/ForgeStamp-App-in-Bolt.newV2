@@ -141,10 +141,11 @@ Deno.serve(async (req: Request) => {
     // POST /set-tier — change a user's tier
     if (req.method === "POST" && path === "/set-tier") {
       const { userId, tier } = await req.json()
-      if (!userId || !["free", "pro"].includes(tier)) return err("Invalid params")
+      const next = tier === "pro" ? "forge" : tier
+      if (!userId || !["free", "spark", "forge"].includes(next)) return err("Invalid params")
       const { error } = await adminClient
         .from("profiles")
-        .update({ tier })
+        .update({ tier: next })
         .eq("id", userId)
       if (error) return err(error.message)
       return json({ success: true })

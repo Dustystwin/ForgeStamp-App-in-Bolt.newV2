@@ -18,7 +18,7 @@ export function Pricing() {
           Plans
         </h2>
         <p className="mt-4 max-w-lg text-base leading-relaxed fs-text-soft">
-          Free is ready to use. Spark and Forge are not for sale yet. Those prices are a preview, and this page does not take payment.
+          Free is ready to use. Spark and Forge are not for sale, and this page does not take payment. If an account is already on Spark or Forge, the features on that card work.
         </p>
 
         <div className="mt-8">
@@ -128,7 +128,7 @@ export function Pricing() {
                     )}
                     role="status"
                   >
-                    Coming soon. Not for sale.
+                    Not for sale.
                   </p>
                 )}
               </div>

@@ -7,7 +7,7 @@ export const LEGAL_PAGES = {
     title: "Privacy Policy",
     paragraphs: [
       "This is a draft placeholder. It is not a finished privacy policy, and it is not legal advice.",
-      "ForgeStamp does not sell paid plans yet. If you create an account, the app stores the email you sign up with and any images you choose to save, so you can open them again later. Saved images are kept for 30 days.",
+      "ForgeStamp does not sell paid plans yet. If you create an account, the app stores the email you sign up with and any images you choose to save, so you can open them again later. A free account keeps up to 20 images for 30 days. Spark keeps up to 100 for 180 days. Forge keeps images until you delete them, within a 500 MB storage limit.",
       "A real privacy policy will replace this page before ForgeStamp takes any payment.",
     ],
   },
@@ -30,8 +30,8 @@ export const LEGAL_PAGES = {
     title: "Help",
     paragraphs: [
       "This is a draft placeholder. A full help center is not written yet.",
-      "What works today: add a text, logo, or QR watermark, place it, use a pattern, watch the live preview, and export a PNG. Free can export up to 3 photos at once as a ZIP. A Pro account can export up to 25, with the same watermark on each. An admin can test that 25-photo batch. You can try the editor without an account. A free account can save exports for 30 days. Photos you upload can be up to 15 MB.",
-      "What is not available yet: unlimited batches, a monthly batch allowance, JPG or WebP export, and saved presets. Spark and Forge cannot be purchased.",
+      "What works today: add a text, logo, or QR watermark, place it, use a pattern, and watch the live preview. Every plan exports at the photo's original size. Free exports PNG, up to 3 photos at once as a ZIP, and can save up to 20 images for 30 days. Spark adds premium fonts and colors, JPG and WebP, 10 saved presets, up to 25 photos at once, and up to 100 images kept for 180 days. Forge adds up to 200 presets, up to 50 photos at once, and images that stay until you delete them. You can try the editor without an account. Photos you upload can be up to 15 MB. Each account can store 500 MB.",
+      "Spark and Forge cannot be purchased here. There is no checkout. Watermarking runs in the browser, so there is no priority queue and no monthly batch allowance.",
     ],
   },
 } as const

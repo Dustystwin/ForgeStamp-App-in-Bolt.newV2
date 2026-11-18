@@ -36,7 +36,7 @@ export function Workflow() {
                 Upload
               </h3>
               <p className="mt-1 max-w-prose text-sm leading-relaxed fs-text-soft">
-                Add a JPG, PNG, or WebP. Free can take up to 3 at once.
+                Add a JPG, PNG, or WebP. Free can take up to 3 at once. Spark can take 25, and Forge can take 50.
               </p>
             </figure>
           </li>
@@ -111,7 +111,7 @@ export function Workflow() {
                 Download
               </h3>
               <p className="mt-1 max-w-prose text-sm leading-relaxed fs-text-soft">
-                Export a PNG, or a ZIP when you mark more than one photo.
+                Free downloads a PNG. Spark and Forge can also download JPG or WebP. More than one photo comes as a ZIP.
               </p>
             </figure>
           </li>

@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { OPACITY_MIN, OPACITY_MAX } from "@/lib/editor-types"
+import { useBlockNumberWheel } from "@/hooks/use-block-number-wheel"
 
 interface OpacityControlProps {
   value: number
@@ -10,6 +11,7 @@ interface OpacityControlProps {
 }
 
 export function OpacityControl({ value, onChange }: OpacityControlProps) {
+  const numberRef = useBlockNumberWheel()
   const clamp = useCallback((v: number) => {
     return Math.min(OPACITY_MAX, Math.max(OPACITY_MIN, Math.round(v)))
   }, [])
@@ -43,6 +45,7 @@ export function OpacityControl({ value, onChange }: OpacityControlProps) {
         />
         <div className="flex items-center gap-0.5">
           <Input
+            ref={numberRef}
             id="opacity"
             type="number"
             inputMode="numeric"

@@ -66,16 +66,39 @@ export async function compactWatermark(
   throw new Error(FILE_TOO_LARGE_MESSAGE)
 }
 
+function mimeFromDataUrl(dataUrl: string): string {
+  const match = /^data:([^;,]+)/.exec(dataUrl)
+  return match?.[1] ?? ""
+}
+
+function extensionForMime(mime: string): string {
+  if (mime === "image/jpeg") return "jpg"
+  if (mime === "image/webp") return "webp"
+  return "png"
+}
+
+function asStoredImageType(type: string): "image/png" | "image/jpeg" | "image/webp" | null {
+  if (type === "image/png" || type === "image/jpeg" || type === "image/webp") return type
+  return null
+}
+
 /**
- * Keep the finished PNG when it fits in the bucket. A PNG past that limit
- * is stored as a smaller copy of the same picture so the save can succeed.
+ * Keep the finished file when it fits in the bucket. PNG, JPG, and WebP are
+ * all allowed up to 50 MB. A file past that limit is stored as a smaller
+ * copy of the same picture so the save can succeed.
  */
 export async function outputForStorage(dataUrl: string, filename: string): Promise<StoredOutput> {
+  const hinted = asStoredImageType(mimeFromDataUrl(dataUrl))
   if (dataUrlDecodedBytes(dataUrl) <= OUTPUT_FILE_LIMIT_BYTES) {
     const fetched = await fetch(dataUrl).then((response) => response.blob())
-    if (fetched.size <= OUTPUT_FILE_LIMIT_BYTES) {
-      const blob = fetched.type === "image/png" ? fetched : new Blob([fetched], { type: "image/png" })
-      return { blob, contentType: "image/png", filename }
+    const type = asStoredImageType(fetched.type) ?? hinted
+    if (type && fetched.size > 0 && fetched.size <= OUTPUT_FILE_LIMIT_BYTES) {
+      const blob = fetched.type === type ? fetched : new Blob([fetched], { type })
+      return {
+        blob,
+        contentType: type,
+        filename: replaceFileExtension(filename, extensionForMime(type)),
+      }
     }
   }
 

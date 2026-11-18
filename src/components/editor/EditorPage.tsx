@@ -8,10 +8,20 @@ import { WatermarkControls } from "./WatermarkControls"
 import { ImageUploader } from "./ImageUploader"
 import { FinishedImages, type FinishedImage } from "./FinishedImages"
 import { ScanResults } from "./ScanResults"
-import { exportToPng, type CanvasWatermarkOptions } from "@/lib/watermark-utils"
+import { exportWatermarked, type CanvasWatermarkOptions } from "@/lib/watermark-utils"
 import { inspectQrUrl } from "@/lib/qr-watermark"
-import { dataUrlToBytes, downloadBlob, downloadUrl, stampedFileName, zipPngs } from "@/lib/batch-export"
-import { batchLimitForTier, FREE_BATCH_LIMIT, PRO_BATCH_LIMIT } from "@/lib/builder-mode"
+import { dataUrlToBytes, downloadBlob, downloadUrl, stampedFileName, zipFiles } from "@/lib/batch-export"
+import {
+  FREE_BATCH_LIMIT,
+  FORGE_BATCH_LIMIT,
+  SPARK_BATCH_LIMIT,
+  batchLimitForPlan,
+  effectivePlan,
+  formatOption,
+  historySavePhrase,
+  resolveExportFormat,
+} from "@/lib/plans"
+import { ExportFormatControl } from "./controls/ExportFormatControl"
 import { BatchStrip } from "./BatchStrip"
 import { useAuth } from "@/context/AuthContext"
 import { useNavigation } from "@/App"
@@ -56,6 +66,8 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     setStampSize,
     setQrUrl,
     setQrColor,
+    setExportFormat,
+    applySettings,
     setLogo,
     clearLogo,
     reset,
@@ -63,7 +75,9 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
   } = useEditorState(initialData)
 
   const { session, profile } = useAuth()
-  const batchLimit = batchLimitForTier(profile?.tier, Boolean(profile?.is_admin))
+  const plan = effectivePlan(profile?.tier, Boolean(profile?.is_admin))
+  const batchLimit = batchLimitForPlan(plan)
+  const exportFormat = resolveExportFormat(plan, state.exportFormat)
   const { openAuthModal } = useNavigation()
 
   const [finishedImages, setFinishedImages] = useState<FinishedImage[]>([])
@@ -108,7 +122,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         supabase.storage.from("watermark-images").upload(path, blob, { contentType: type })
 
       let outErr = (await uploadOutput(outputPath, outputBlob, contentType)).error
-      // A PNG between 15 MB and 50 MB needs the newer bucket limit. Until that
+      // A file between 15 MB and 50 MB needs the newer bucket limit. Until that
       // migration is applied, keep a smaller copy of the same picture instead.
       if (outErr && shouldRetryOutputCompact(contentType, outputBlob.size, outErr.message)) {
         await supabase.storage.from("watermark-images").remove([outputPath])
@@ -139,6 +153,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         stampSize: state.stampSize,
         qrUrl: state.qrUrl,
         qrColor: state.qrColor,
+        exportFormat,
       }
 
       const { error: dbErr } = await supabase.from("images").insert({
@@ -164,15 +179,17 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       }
       throw error
     }
-  }, [session, state])
+  }, [session, state, exportFormat])
 
   const handleAddPhotos = useCallback((files: File[]) => {
     const result = addPhotos(files, batchLimit)
     if (result.leftOut > 0) {
       toast(
         batchLimit <= FREE_BATCH_LIMIT
-          ? `Free exports up to ${FREE_BATCH_LIMIT} photos at a time. A ${PRO_BATCH_LIMIT}-photo batch will be available with paid plans.`
-          : `A batch stops at ${batchLimit} photos. Unlimited batches are not available yet.`
+          ? `Free exports up to ${FREE_BATCH_LIMIT} photos at a time. Spark can export ${SPARK_BATCH_LIMIT}, and Forge can export ${FORGE_BATCH_LIMIT}. Those plans are not for sale.`
+          : batchLimit < FORGE_BATCH_LIMIT
+            ? `Spark exports up to ${SPARK_BATCH_LIMIT} photos at a time. Forge can export ${FORGE_BATCH_LIMIT}.`
+            : `A batch stops at ${batchLimit} photos.`
       )
     }
   }, [addPhotos, batchLimit])
@@ -237,11 +254,11 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       for (let i = 0; i < queue.length; i++) {
         setExportProgress(queue.length > 1 ? `Exporting ${i + 1} of ${queue.length}...` : "Exporting...")
         const file = queue[i].file
-        const dataUrl = await exportToPng(file, options)
+        const dataUrl = await exportWatermarked(file, options, exportFormat)
         exported.push({
           id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 5)}`,
           dataUrl,
-          filename: stampedFileName(file, i, queue.length, stamp),
+          filename: stampedFileName(file, i, queue.length, stamp, formatOption(exportFormat).extension),
           file,
         })
       }
@@ -250,7 +267,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         downloadUrl(exported[0].dataUrl, exported[0].filename)
       } else {
         downloadBlob(
-          zipPngs(exported.map((item) => ({ name: item.filename, bytes: dataUrlToBytes(item.dataUrl) }))),
+          zipFiles(exported.map((item) => ({ name: item.filename, bytes: dataUrlToBytes(item.dataUrl) }))),
           `forgestamp-batch-${stamp}.zip`
         )
       }
@@ -276,14 +293,19 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
               })
             }
           }
-          const report = saveResultMessages(savedCount, exported.length, failures)
+          const report = saveResultMessages(
+            savedCount,
+            exported.length,
+            failures,
+            historySavePhrase(plan, exported.length)
+          )
           if (report.success) toast.success(report.success)
           if (report.error) toast.error(report.error)
         } finally {
           setIsSaving(false)
         }
       } else {
-        toast.info("Sign in to save to My Images (stored 30 days)", {
+        toast.info("Sign in to save to My Images (30 days, up to 20 images)", {
           action: {
             label: "Sign In",
             onClick: () => openAuthModal("sign-in"),
@@ -297,7 +319,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       setIsExporting(false)
       setExportProgress(null)
     }
-  }, [state, photos, batchLimit, session, saveToMyImages, openAuthModal])
+  }, [state, photos, batchLimit, exportFormat, plan, session, saveToMyImages, openAuthModal])
 
   const handleRemoveImage = useCallback((id: string) => {
     setFinishedImages((prev) => prev.filter((img) => img.id !== id))
@@ -386,11 +408,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             onImageSelect={setImage}
             onFiles={handleAddPhotos}
             multiple={batchLimit > 1}
-            uploadDetail={
-              batchLimit > FREE_BATCH_LIMIT
-                ? `or click to browse. PNG, JPG, or WebP up to 15MB each. Up to ${PRO_BATCH_LIMIT} photos.`
-                : `or click to browse. PNG, JPG, or WebP up to 15MB each. Up to ${FREE_BATCH_LIMIT} photos on the Free plan.`
-            }
+            uploadDetail={`or click to browse. PNG, JPG, or WebP up to 15MB each. Up to ${batchLimit} photos.`}
             coverageClearedAt={coverageClearedAt}
           />
           {photos.length > 0 && (
@@ -432,10 +450,15 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             onLogoSelect={setLogo}
             onLogoClear={clearLogo}
             onClearCoverage={handleClearCoverage}
+            onApplySettings={applySettings}
           />
 
-          {/* Export button */}
-          <div className="mt-5 pt-4 border-t border-border/40 flex flex-col gap-2">
+          <div className="mt-5 flex flex-col gap-3 border-t border-border/40 pt-4">
+            <ExportFormatControl
+              value={state.exportFormat}
+              plan={plan}
+              onChange={setExportFormat}
+            />
             <Button
               className="w-full gap-2 shadow-sm"
               onClick={handleExport}
@@ -453,8 +476,8 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
                 : isSaving
                   ? "Saving..."
                   : photos.length > 1
-                    ? `Export ${photos.length} photos`
-                    : "Export Image"}
+                    ? `Export ${photos.length} ${formatOption(exportFormat).label} photos`
+                    : `Export ${formatOption(exportFormat).label}`}
             </Button>
 
             {session && (
@@ -484,7 +507,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
                 >
                   Sign up free
                 </button>{" "}
-                to save images for 30 days
+                to save images for 30 days (up to 20)
               </p>
             )}
           </div>

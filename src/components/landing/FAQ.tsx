@@ -1,11 +1,11 @@
 const FAQS = [
   {
     q: "Do I need an account to try ForgeStamp?",
-    a: "No. You can upload an image and try the editor without signing up. Creating a free account lets you save exported images for 30 days and revisit them later.",
+    a: "No. You can upload an image and try the editor without signing up. A free account saves up to 20 exported images for 30 days. Spark keeps up to 100 for 180 days. Forge keeps images until you delete them, within the 500 MB storage limit.",
   },
   {
     q: "What happens to a photo I upload?",
-    a: "You can try without an account. The photo stays in your browser while you preview it and download a PNG, and ForgeStamp does not store that file. If you are signed in, exporting also saves the original and the watermarked image to My Images for 30 days. Photos you upload can be up to 15 MB. If the watermarked PNG would be too big to store, ForgeStamp keeps a smaller copy of the same picture. You can delete saved images sooner.",
+    a: "You can try without an account. The photo stays in your browser while you preview and download it, and ForgeStamp does not store that file. If you are signed in, exporting also saves the original and the watermarked image to My Images. Free keeps up to 20 images for 30 days. Spark keeps up to 100 for 180 days. Forge keeps them until you delete them. Photos you upload can be up to 15 MB, and each account can store 500 MB. If a watermarked file would be too big to store, ForgeStamp keeps a smaller copy of the same picture. You can delete saved images sooner.",
   },
   {
     q: "Does a watermark stop someone from copying my photo?",
@@ -13,11 +13,11 @@ const FAQS = [
   },
   {
     q: "What image formats does ForgeStamp export?",
-    a: "You can upload a JPG, PNG, or WebP. Today, ForgeStamp exports PNG only. JPG and WebP export are listed as coming soon on Spark. They are not available yet.",
+    a: "You can upload a JPG, PNG, or WebP. Every plan downloads at the photo's original size. Free exports PNG. Spark and Forge can also export JPG and WebP. The format you pick is used for a single download, a ZIP of several photos, and the copy saved to My Images.",
   },
   {
     q: "Can I change my plan later?",
-    a: "Not yet. Spark and Forge are not for sale. You can use the Free plan today. Switching plans will be possible after billing is added.",
+    a: "Not from this page. Spark and Forge are not for sale, and ForgeStamp does not charge a card. A new account is Free. If your account is already Spark or Forge, those features work. An admin can change a plan from the database.",
   },
   {
     q: "What's the difference between Single Placement and Full Coverage?",
@@ -29,7 +29,7 @@ const FAQS = [
   },
   {
     q: "Can I watermark more than one photo?",
-    a: "Free can export up to 3 photos together as a ZIP, using the same text, logo, or QR on each. A Pro account can export up to 25, and an admin can test that higher limit. Spark and Forge are not for sale, and unlimited batches are not available yet.",
+    a: "Yes. The same text, logo, or QR goes on each photo, and more than one downloads as a ZIP. Free can export 3 at a time, Spark 25, and Forge 50. There is no monthly batch allowance. Watermarking runs in your browser, so there is no separate priority queue.",
   },
 ] as const
 

@@ -67,9 +67,18 @@ export function passwordResetRedirectTo(): string {
 export interface Profile {
   id: string
   email: string
-  tier: "free" | "pro"
+  tier: "free" | "spark" | "forge" | "pro"
   is_admin: boolean
   created_at: string
+}
+
+export interface WatermarkPreset {
+  id: string
+  user_id: string
+  name: string
+  settings: Record<string, unknown>
+  created_at: string
+  updated_at: string
 }
 
 export interface StoredImage {

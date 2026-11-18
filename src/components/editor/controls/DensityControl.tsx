@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { DENSITY_MIN, DENSITY_MAX } from "@/lib/editor-types"
+import { useBlockNumberWheel } from "@/hooks/use-block-number-wheel"
 
 interface DensityControlProps {
   value: number
@@ -10,6 +11,7 @@ interface DensityControlProps {
 }
 
 export function DensityControl({ value, onChange }: DensityControlProps) {
+  const numberRef = useBlockNumberWheel()
   const clamp = useCallback((v: number) => {
     return Math.min(DENSITY_MAX, Math.max(DENSITY_MIN, Math.round(v)))
   }, [])
@@ -38,6 +40,7 @@ export function DensityControl({ value, onChange }: DensityControlProps) {
           aria-label="Spacing slider"
         />
         <Input
+          ref={numberRef}
           id="density"
           type="number"
           inputMode="numeric"

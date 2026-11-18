@@ -23,6 +23,8 @@ import { CurveOrientationControl } from "./controls/CurveOrientationControl"
 import { WatermarkModeControl } from "./controls/WatermarkModeControl"
 import { LogoControl } from "./controls/LogoControl"
 import { QrControl } from "./controls/QrControl"
+import { PresetControl } from "./controls/PresetControl"
+import type { PresetSettings } from "@/lib/preset-settings"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
@@ -48,6 +50,7 @@ interface WatermarkControlsProps {
   onLogoSelect: (file: File) => void
   onLogoClear: () => void
   onClearCoverage: () => void
+  onApplySettings: (settings: PresetSettings) => void
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -79,6 +82,7 @@ export function WatermarkControls({
   onLogoSelect,
   onLogoClear,
   onClearCoverage,
+  onApplySettings,
 }: WatermarkControlsProps) {
   const mode = state.watermarkMode
   // Curve direction changes radial stamp angles. Spiral and concentric only
@@ -92,6 +96,7 @@ export function WatermarkControls({
   return (
     <div className="space-y-4">
       <WatermarkModeControl value={mode} onChange={onModeChange} />
+      <PresetControl state={state} onApply={onApplySettings} />
 
       <Separator />
 

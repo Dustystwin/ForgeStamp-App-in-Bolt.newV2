@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { FONT_SIZE_MIN, FONT_SIZE_MAX } from "@/lib/editor-types"
+import { useBlockNumberWheel } from "@/hooks/use-block-number-wheel"
 
 interface FontSizeControlProps {
   value: number
@@ -21,6 +22,7 @@ export function FontSizeControl({
   max = FONT_SIZE_MAX,
   id = "font-size",
 }: FontSizeControlProps) {
+  const numberRef = useBlockNumberWheel()
   const clamp = useCallback((v: number) => {
     return Math.min(max, Math.max(min, Math.round(v)))
   }, [min, max])
@@ -53,6 +55,7 @@ export function FontSizeControl({
           aria-label={`${label} slider`}
         />
         <Input
+          ref={numberRef}
           id={id}
           type="number"
           inputMode="numeric"

@@ -17,7 +17,9 @@ import {
   STAMP_SIZE_MAX,
   STAMP_SIZE_MIN,
   isWatermarkMode,
+  type ExportFormat,
 } from "@/lib/editor-types"
+import { isExportFormat, type PresetSettings } from "@/lib/preset-settings"
 import type { EditorInitialData } from "@/App"
 
 export interface EditorPhoto {
@@ -77,6 +79,9 @@ export function useEditorState(initialData?: EditorInitialData) {
   const [qrUrl, setQrUrl] = useState(typeof init.qrUrl === "string" ? init.qrUrl : DEFAULT_EDITOR_STATE.qrUrl)
   const [qrColor, setQrColor] = useState(
     typeof init.qrColor === "string" ? init.qrColor : DEFAULT_EDITOR_STATE.qrColor
+  )
+  const [exportFormat, setExportFormat] = useState<ExportFormat>(
+    isExportFormat(init.exportFormat) ? init.exportFormat : DEFAULT_EDITOR_STATE.exportFormat
   )
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
   const [logoName, setLogoName] = useState<string | null>(null)
@@ -285,11 +290,33 @@ export function useEditorState(initialData?: EditorInitialData) {
     setStampSize(DEFAULT_EDITOR_STATE.stampSize)
     setQrUrl(DEFAULT_EDITOR_STATE.qrUrl)
     setQrColor(DEFAULT_EDITOR_STATE.qrColor)
+    setExportFormat(DEFAULT_EDITOR_STATE.exportFormat)
     releaseLogo()
     setError(null)
   }, [commitBatch, releaseLogo])
 
   const clearError = useCallback(() => setError(null), [])
+
+  const applySettings = useCallback((settings: PresetSettings) => {
+    setWatermarkMode(settings.watermarkMode)
+    setWatermarkText(settings.watermarkText)
+    setFontFamily(settings.fontFamily)
+    setFontSize(settings.fontSize)
+    setColor(settings.color)
+    setOpacity(settings.opacity)
+    setRotation(settings.rotation)
+    setPlacement(settings.placement)
+    setTextDirection(settings.textDirection)
+    setCoverageMode(settings.coverageMode)
+    setPattern(settings.pattern)
+    setDensity(settings.density)
+    setCurveOrientation(settings.curveOrientation)
+    setStampSize(settings.stampSize)
+    setQrUrl(settings.qrUrl)
+    setQrColor(settings.qrColor)
+    setExportFormat(settings.exportFormat)
+    setError(null)
+  }, [])
 
   const activePhoto = batch.photos.find((photo) => photo.id === batch.activeId) ?? null
 
@@ -312,6 +339,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     stampSize,
     qrUrl,
     qrColor,
+    exportFormat,
     logoPreviewUrl,
     logoName,
     error,
@@ -341,6 +369,8 @@ export function useEditorState(initialData?: EditorInitialData) {
     setStampSize,
     setQrUrl,
     setQrColor,
+    setExportFormat,
+    applySettings,
     setLogo,
     clearLogo: releaseLogo,
     reset,

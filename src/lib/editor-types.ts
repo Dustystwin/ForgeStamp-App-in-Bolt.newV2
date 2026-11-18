@@ -11,6 +11,8 @@ export type CoverageMode = "single" | "full"
 
 export type WatermarkMode = "text" | "logo" | "qr"
 
+export type ExportFormat = "png" | "jpeg" | "webp"
+
 export function isWatermarkMode(value: unknown): value is WatermarkMode {
   return value === "text" || value === "logo" || value === "qr"
 }
@@ -57,6 +59,7 @@ export interface EditorState {
   // Session-only. The logo file is not stored with saved images.
   logoPreviewUrl: string | null
   logoName: string | null
+  exportFormat: ExportFormat
   error: string | null
 }
 
@@ -169,6 +172,7 @@ export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl"
   stampSize: 112,
   qrUrl: "",
   qrColor: "#000000",
+  exportFormat: "png",
 }
 
 export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"]
