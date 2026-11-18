@@ -28,6 +28,7 @@ import {
   layerLimitForPlan,
   savedCountLabel,
   saveFitWarning,
+  STORAGE_FULL_NOTE,
 } from "@/lib/plans"
 import { ExportFormatControl } from "./controls/ExportFormatControl"
 import { BatchStrip } from "./BatchStrip"
@@ -674,9 +675,12 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
 
   const isProcessing = isExporting || isSaving
   const exportCount = Math.min(photos.length, batchLimit)
+  const savedCap = historyCap(plan)
+  const overSaved = Boolean(savedUsage && savedCap != null && savedUsage.count > savedCap)
   const fitWarning = session && savedUsage
     ? saveFitWarning(plan, savedUsage.count, exportCount)
     : null
+  const storageFull = overSaved || fitWarning === STORAGE_FULL_NOTE
 
   return (
     <div className="fs-studio flex min-h-svh flex-col">
@@ -876,7 +880,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
               onKeepInfoChange={setKeepInfo}
               onSocialExport={handleSocial}
             />
-            {session && savedUsage && (
+            {session && savedUsage && !overSaved && (
               <p className={cn(
                 "text-center text-[11px] font-medium",
                 fitWarning ? "text-amber-800 dark:text-amber-200" : "text-foreground/80",
@@ -884,7 +888,12 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
                 {savedCountLabel(savedUsage.count, plan)}
               </p>
             )}
-            {fitWarning && (
+            {storageFull && (
+              <p className="rounded-md bg-amber-500/10 px-2.5 py-1.5 text-center text-[11px] leading-snug text-amber-900 dark:text-amber-100">
+                {STORAGE_FULL_NOTE}
+              </p>
+            )}
+            {fitWarning && !storageFull && (
               <p className="rounded-md bg-amber-500/10 px-2.5 py-1.5 text-center text-[11px] leading-snug text-amber-900 dark:text-amber-100">
                 {fitWarning}
               </p>

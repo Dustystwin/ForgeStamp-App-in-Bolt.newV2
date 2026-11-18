@@ -119,6 +119,10 @@ export function historyCap(plan: PlanId): number | null {
   return FREE_HISTORY_COUNT
 }
 
+/** Shown when the account is already past the saved-image cap. */
+export const STORAGE_FULL_NOTE =
+  "Your storage is full. This will still download, but it won't be saved. Delete some in My Images to make room."
+
 /** "18 of 20 saved", or "12 saved" when the plan has no count cap. */
 export function savedCountLabel(count: number, plan: PlanId): string {
   const cap = historyCap(plan)
@@ -135,9 +139,7 @@ export function saveFitWarning(plan: PlanId, saved: number, exporting: number): 
   if (cap == null || exporting <= 0) return null
   const room = Math.max(0, cap - saved)
   if (exporting <= room) return null
-  if (room <= 0) {
-    return `This will still download. Nothing more can be saved (${saved} of ${cap}). Delete some in My Images to make room.`
-  }
+  if (room <= 0) return STORAGE_FULL_NOTE
   const noun = room === 1 ? "image" : "images"
   return `This will still download. Only ${room} more ${noun} can be saved (${saved} of ${cap}).`
 }
