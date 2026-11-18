@@ -726,6 +726,21 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             onLockLayer={toggleLayerLocked}
             onClearCoverage={handleClearCoverage}
             onApplySettings={applySettings}
+            onUseBrand={(kit) => {
+              const handle = kit.handles.find((item) => item.trim())
+              if (handle) setWatermarkText(handle)
+              if (kit.fonts[0]) setFontFamily(kit.fonts[0])
+              if (kit.colors[0]) setColor(kit.colors[0])
+              if (kit.colors[1]) setOutlineColor(kit.colors[1])
+              if (kit.website) setQrUrl(kit.website.startsWith("http") ? kit.website : `https://${kit.website}`)
+              if (kit.logoDataUrl) {
+                void fetch(kit.logoDataUrl)
+                  .then((response) => response.blob())
+                  .then((blob) => setLogo(new File([blob], "brand-logo.png", { type: blob.type || "image/png" })))
+                  .catch(() => toast.error("The brand logo could not be loaded."))
+              }
+              toast.success(handle ? "Brand applied to this mark." : "Brand colors applied. Add a handle to fill the words.")
+            }}
           />
 
           <div className="mt-5 flex flex-col gap-3 border-t border-border/40 pt-4">

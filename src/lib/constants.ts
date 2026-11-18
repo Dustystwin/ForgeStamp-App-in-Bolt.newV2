@@ -69,6 +69,7 @@ export const PRICING_PLANS = [
       "Black and white photo filter",
       "PNG export at the original photo size",
       "Live watermark preview",
+      "Brand kit preview (saving a kit is on Spark)",
       "Saved images kept 30 days (up to 20)",
     ],
     batch: {
@@ -102,6 +103,7 @@ export const PRICING_PLANS = [
       "Sticker pack",
       "Gradient text",
       "Up to 5 layers on a photo",
+      "1 brand kit (logo, fonts, colors, handle)",
       "10 saved watermark presets",
       "Saved images kept 180 days (up to 100)",
     ],
@@ -125,6 +127,7 @@ export const PRICING_PLANS = [
     annualSavings: "Save 33%" as string | null,
     featuresIntro: "Everything in Spark, plus:" as string | null,
     features: [
+      "Up to 5 brand kits",
       "Up to 10 layers on a photo",
       "Up to 200 saved watermark presets",
       "Saved images stay until you delete them (500 MB storage limit)",

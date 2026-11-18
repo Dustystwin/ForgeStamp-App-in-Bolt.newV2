@@ -31,11 +31,13 @@ import { TextStyleControl } from "./controls/TextStyleControl"
 import { FrameControl } from "./controls/FrameControl"
 import { SignatureControl } from "./controls/SignatureControl"
 import { LayerPanel } from "./controls/LayerPanel"
+import { BrandKitControl } from "./controls/BrandKitControl"
+import type { BrandKit } from "@/lib/brand-kit"
 import { EyedropperButton } from "./controls/EyedropperButton"
 import { EMOJI_CHOICES, STICKERS } from "@/lib/stickers"
 import type { MarkLayer } from "@/lib/mark-layer"
 import { useAuth } from "@/context/AuthContext"
-import { canUseSparkTools } from "@/lib/plans"
+import { canUseSparkTools, effectivePlan } from "@/lib/plans"
 import { toast } from "sonner"
 import type { PresetSettings } from "@/lib/preset-settings"
 import { Separator } from "@/components/ui/separator"
@@ -96,6 +98,7 @@ interface WatermarkControlsProps {
   onLockLayer: (id: string) => void
   onClearCoverage: () => void
   onApplySettings: (settings: PresetSettings) => void
+  onUseBrand: (kit: BrandKit) => void
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -159,9 +162,11 @@ export function WatermarkControls({
   onLockLayer,
   onClearCoverage,
   onApplySettings,
+  onUseBrand,
 }: WatermarkControlsProps) {
   const { profile } = useAuth()
   const spark = canUseSparkTools(profile?.tier, Boolean(profile?.is_admin))
+  const plan = effectivePlan(profile?.tier, Boolean(profile?.is_admin))
   const mode = state.watermarkMode
   // Curve direction changes radial stamp angles. Spiral and concentric only
   // bend text, so those toggles stay hidden for a logo or QR.
@@ -173,6 +178,7 @@ export function WatermarkControls({
 
   return (
     <div className="space-y-4">
+      <BrandKitControl plan={plan} onUse={onUseBrand} />
       <LayerPanel
         layers={layers}
         activeId={activeLayerId}
