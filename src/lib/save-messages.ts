@@ -56,14 +56,48 @@ export function savedDownloadName(filename: string, outputPath: string): string 
   return `${base}.${suffix}`
 }
 
+/** Matches the database message so a skipped save reads the same as a rejected one. */
+export function savedImageCapFailure(plan: "free" | "spark" | "forge"): string {
+  if (plan === "spark") {
+    return "Spark accounts can keep 100 saved images for 180 days. Delete one in My Images to save another."
+  }
+  return "Free accounts can keep 20 saved images for 30 days. Delete one in My Images to save another."
+}
+
+export function isSavedImageCapMessage(message: string): boolean {
+  const lower = message.toLowerCase()
+  return lower.includes("saved images") && lower.includes("can keep")
+}
+
 export function saveResultMessages(
   savedCount: number,
   total: number,
   failures: SaveFailure[],
   retention = "Expires in 30 days.",
-): { success?: string; error?: string } {
+): { success?: string; warning?: string; error?: string } {
+  const capFailures = failures.filter((failure) => isSavedImageCapMessage(failure.message))
+  const other = failures.filter((failure) => !isSavedImageCapMessage(failure.message))
+
+  if (capFailures.length > 0 && other.length === 0) {
+    const spark = capFailures.some((failure) => failure.message.toLowerCase().includes("spark"))
+    const planLine = spark
+      ? "A Spark account can keep 100 saved images."
+      : "A Free account can keep 20 saved images."
+    if (savedCount === 0) {
+      const lead = total === 1
+        ? "This image was not saved."
+        : `None of these ${total} images were saved.`
+      return {
+        warning: `Downloaded. ${lead} ${planLine} Delete some in My Images to make room.`,
+      }
+    }
+    return {
+      warning: `Downloaded. Saved ${savedCount} of ${total}. ${planLine} The rest were not saved.`,
+    }
+  }
+
   let success: string | undefined
-  if (savedCount > 0) {
+  if (savedCount > 0 && failures.length === 0) {
     if (savedCount === total && total === 1) {
       success = `Saved to My Images. ${retention}`
     } else if (savedCount === total) {
@@ -71,18 +105,19 @@ export function saveResultMessages(
     } else {
       success = `Saved ${savedCount} of ${total} images to My Images. ${retention}`
     }
+  } else if (savedCount > 0) {
+    success = `Downloaded. Saved ${savedCount} of ${total} images to My Images. ${retention}`
   }
 
-  if (failures.length === 0) return { success }
+  if (other.length === 0) return { success }
 
-  const shown = failures.slice(0, 3)
-  const extra = failures.length > shown.length ? ` And ${failures.length - shown.length} more.` : ""
-  const error =
-    failures.length === 1
-      ? `Could not save ${failures[0].filename}. ${failures[0].message}`
-      : `Could not save ${failures.length} images to My Images. ${shown
-          .map((failure) => `${failure.filename}: ${failure.message}`)
-          .join(" ")}${extra}`
+  const shown = other.slice(0, 3)
+  const extra = other.length > shown.length ? ` And ${other.length - shown.length} more.` : ""
+  const error = other.length === 1
+    ? `Downloaded. Could not save ${other[0].filename}. ${other[0].message}`
+    : `Downloaded. Could not save ${other.length} images to My Images. ${shown
+        .map((failure) => `${failure.filename}: ${failure.message}`)
+        .join(" ")}${extra}`
 
   return { success, error }
 }

@@ -37,6 +37,33 @@ export function calmStorageError(message: string): string {
   return message
 }
 
+export function storageUsedLabel(bytes: number): string {
+  const mb = Math.max(0, bytes) / (1024 * 1024)
+  const capMb = Math.round(USER_STORAGE_LIMIT_BYTES / (1024 * 1024))
+  const shown = mb >= 10 ? String(Math.round(mb)) : mb >= 0.05 ? mb.toFixed(1) : "0"
+  return `${shown} MB of ${capMb} MB used`
+}
+
+export interface SavedImageUsage {
+  count: number
+  bytes: number
+}
+
+/** Images that have not expired, plus the bytes every saved file still uses. */
+export async function fetchSavedImageUsage(): Promise<SavedImageUsage | null> {
+  const { data, error } = await supabase.from("images").select("total_size, expires_at")
+  if (error || !data) return null
+  const now = Date.now()
+  let count = 0
+  let bytes = 0
+  for (const row of data) {
+    bytes += Number(row.total_size) || 0
+    const expires = row.expires_at ? new Date(row.expires_at).getTime() : 0
+    if (expires > now) count += 1
+  }
+  return { count, bytes }
+}
+
 /** Browser hint only. The database rejects an upload that would pass this and still exceed 500 MB. */
 export async function savedImagesExceedLimit(incomingBytes: number): Promise<boolean> {
   const { data, error } = await supabase.from("images").select("total_size")

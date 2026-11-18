@@ -8,18 +8,26 @@ import {
   type WatermarkMode,
 } from "@/lib/editor-types"
 import { renderQrDataUrl } from "@/lib/qr-watermark"
+import {
+  getPatternPoints,
+  measureTextStamp,
+  placedStampCenter,
+  scaledStampFont,
+  type GridPoint,
+} from "@/lib/pattern-layout"
 
-// Returns the built-in base text angle for a given full-coverage pattern.
-// This ensures each pattern looks like its intended layout at rotation=0,
-// without modifying Text Direction behavior (which applies only to single mode
-// and stacks additively on top of this in full coverage mode).
+export {
+  getPatternPoints,
+  measureTextStamp,
+  placedStampCenter,
+  scaledStampFont,
+  type GridPoint,
+} from "@/lib/pattern-layout"
+
+// Pattern angles live on each placed point. Callers still add this to the
+// user's rotation, so it stays 0 and the stamp is not tilted a second time.
 export function getPatternTextAngle(pattern: Pattern): number {
-  switch (pattern) {
-    case "diagonal":         return -25
-    case "reverse-diagonal": return 25
-    case "diamond":          return 0
-    default:                 return 0
-  }
+  return pattern ? 0 : 0
 }
 
 // Returns the CSS position style for a placement in a container with given padding
@@ -112,33 +120,6 @@ export function getPlacementPositionStyle(placement: Placement, padPct = 8): Rea
   }
 }
 
-export interface GridPoint {
-  x: number
-  y: number
-  // Per-point angle offset in degrees, added on top of the global totalRotation
-  // during canvas rendering.  0 for most patterns; ±N for crisscross.
-  angle: number
-  // Optional per-point text scale (0..1). Honeycomb uses this to shrink the
-  // text so it fits along one hexagon wall.
-  fontScale?: number
-  // Marks points whose `angle` is a cosmetic tilt (following a curve's local
-  // slope, or orienting text along an edge) rather than something essential
-  // to the pattern's identity (like Honeycomb's hexagon walls). Stacked
-  // vertical text is tall, so rotating it by one of these cosmetic tilts
-  // sweeps a much wider footprint than its column spacing accounts for,
-  // crashing into neighboring stamps — so for stacked text this angle is
-  // dropped, keeping each stacked column upright. Used by Wave, Zigzag, and
-  // Border's side edges.
-  readingOrientationOnly?: boolean
-  // When present, the stamp's text is rendered CURVED along a circle of this
-  // radius centered at (cx, cy) — used by Concentric and Spiral so words
-  // naturally follow the shape instead of sitting straight in space.
-  arc?: { cx: number; cy: number; r: number }
-}
-
-// Draws one watermark stamp. Straight stamps rotate around their center;
-// stamps carrying arc info render each character along the circle so the
-// text physically bends with the shape (rubber-stamp style, tops outward).
 export function drawStamp(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -213,335 +194,6 @@ export function drawStamp(
   ctx.restore()
 }
 
-// Generates grid points for full-coverage patterns.
-// pt.angle is applied additively to the global text rotation during canvas rendering.
-// textWidth/textHeight (measured from the rendered text) put a floor under the step
-// sizes so the density slider packs marks tightly at its minimum without ever letting
-// them pile into an unreadable overlapping mass.
-export function getPatternPoints(
-  width: number,
-  height: number,
-  pattern: Pattern,
-  spacing: number,
-  textWidth = 0,
-  textHeight = 0,
-  orientation: CurveOrientation = "readable",
-  // True only when the caller is about to render STACKED vertical text.
-  // Wave/Zigzag use this to cap their vertical wobble so tall stacked columns
-  // from neighboring rows can't swing into each other — a real collision risk
-  // that doesn't exist for ordinary single-line text, so Horizontal mode
-  // (stackedMode=false) is completely unaffected by this parameter.
-  stackedMode = false
-): GridPoint[] {
-  const points: GridPoint[] = []
-
-  // Cap spacing relative to the image so even the slider's maximum still keeps
-  // a sane number of rows/cells — the middle of the photo can never go empty.
-  spacing = Math.max(1, Math.min(spacing, Math.min(width, height) / 2))
-
-  // Rows can never sit closer than the text is tall (plus breathing room),
-  // and same-row items can never sit closer than the text is wide.
-  const minRowStep = Math.max(spacing, textHeight * 1.4)
-
-  const centerX = width / 2
-  const centerY = height / 2
-  const maxRadius = Math.sqrt(width * width + height * height) / 2
-
-  // Keeps rotated text right-side-up (used by circular patterns) so nothing
-  // renders upside down on the left/bottom halves of rings, rays, and spirals.
-  const upright = (a: number): number => {
-    const m = ((a % 360) + 360) % 360
-    return m > 90 && m < 270 ? a - 180 : a
-  }
-
-  // Evenly spaced positions at a fixed step, centered within [lo, hi].
-  const centeredRun = (lo: number, hi: number, step: number): number[] => {
-    const n = Math.max(1, Math.floor((hi - lo) / step) + 1)
-    const start = (lo + hi - (n - 1) * step) / 2
-    return Array.from({ length: n }, (_, k) => start + k * step)
-  }
-
-  // Adds a grid of points whose rows/columns run at `tiltDeg` degrees.
-  // Optional custom steps let patterns like Lattice use tight along-band
-  // spacing with wide band separation.
-  function addTiltedGrid(tiltDeg: number, angle = 0, xStepOverride?: number, yStepOverride?: number) {
-    const xStep = xStepOverride ?? Math.max(spacing, textWidth + Math.max(spacing * 0.25, textHeight * 1.2))
-    // Staggered tilted rows need extra perpendicular room or adjacent rows'
-    // stamps visually chain into cluttered bands.
-    const yStep = yStepOverride ?? Math.max(spacing, textHeight * 1.85)
-    const tilt = (tiltDeg * Math.PI) / 180
-    const cos = Math.cos(tilt)
-    const sin = Math.sin(tilt)
-    const cx = width / 2
-    const cy = height / 2
-    const diag = Math.sqrt(width * width + height * height)
-    const colPad = Math.ceil(diag / xStep) + 2
-    const rowPad = Math.ceil(diag / yStep) + 2
-    for (let r = -rowPad; r <= rowPad; r++) {
-      for (let c = -colPad; c <= colPad; c++) {
-        // Alternate rows shift by half a step so stamps never align into
-        // columns — eliminating the empty "channels" between diagonal rows.
-        const gx = (c + (r & 1 ? 0.5 : 0)) * xStep
-        const gy = r * yStep
-        const x = cx + gx * cos - gy * sin
-        const y = cy + gx * sin + gy * cos
-        if (x >= -xStep && x <= width + xStep && y >= -yStep && y <= height + yStep) {
-          points.push({ x, y, angle })
-        }
-      }
-    }
-  }
-
-  if (pattern === "grid") {
-    // xStep must exceed the actual rendered text width or same-row items touch/overlap
-    // and the grid collapses into solid stripes. Use whichever is larger: the
-    // density-derived step, or the measured text width plus a proportional gap.
-    const xStep = Math.max(spacing * 1.8, textWidth + spacing * 0.35)
-    const yStep = minRowStep
-    for (let row = 0; ; row++) {
-      const y = yStep / 2 + row * yStep
-      if (y > height + yStep) break
-      for (let col = 0; ; col++) {
-        const x = xStep / 2 + col * xStep
-        if (x > width + xStep) break
-        points.push({ x, y, angle: 0 })
-      }
-    }
-  } else if (pattern === "diagonal") {
-    addTiltedGrid(30)
-  } else if (pattern === "reverse-diagonal") {
-    addTiltedGrid(-30)
-  } else if (pattern === "crisscross") {
-    // Two crossing tilted grids with matching per-point text angles.
-    // Each arm's text angle matches the grid's own tilt so the strips look intentional.
-    addTiltedGrid(30,  -25)
-    addTiltedGrid(-30,  25)
-  } else if (pattern === "diamond") {
-    // Two strips crossing at 90° (±45°) — creates square/diamond-shaped openings in the negative space.
-    // Per-point angles (±45) align text with each strip direction.
-    addTiltedGrid(45,  45)
-    addTiltedGrid(-45, -45)
-  } else if (pattern === "checkerboard") {
-    // Filled items in a row sit 2 × xStep apart, with an "empty cell" between them.
-    // The cell (xStep) must be at least as wide as the rendered text, otherwise the
-    // text bleeds into the empty cells and the alternation disappears entirely.
-    const xStep = Math.max(spacing * 1.3, textWidth + spacing * 0.3)
-    const yStep = minRowStep
-    for (let row = 0; ; row++) {
-      const y = yStep / 2 + row * yStep
-      if (y > height + yStep) break
-      for (let col = 0; ; col++) {
-        const x = xStep / 2 + col * xStep
-        if (x > width + xStep) break
-        if ((row + col) % 2 === 0) {
-          points.push({ x, y, angle: 0 })
-        }
-      }
-    }
-    } else if (pattern === "scattered") {
-    // Deterministic pseudo-random scatter.  Each cell center is offset by up to
-    // ±40 % of the spacing in both axes, giving clear visual variety without
-    // clustering all items into one corner.
-    // Cells are at least text-sized; jitter is bounded to the free space inside
-    // each cell, so placement stays random but neighbors can never overlap.
-    const cellW = Math.max(spacing, textWidth * 1.05)
-    const cellH = Math.max(spacing, textHeight * 1.9)
-    const freeX = Math.max(0, (cellW - textWidth) / 2)
-    const freeY = Math.max(0, cellH / 2 - textHeight * 0.85)
-    const cols = Math.ceil(width  / cellW) + 1
-    const rows = Math.ceil(height / cellH) + 1
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const seed = r * 1000 + c
-        const jx = ((seed * 9301 + 49297) % 233280) / 233280
-        const jy = ((seed * 6571 + 29311) % 233280) / 233280
-        const x = (c + 0.5) * cellW + (jx - 0.5) * 2 * freeX
-        const y = (r + 0.5) * cellH + (jy - 0.5) * 2 * freeY
-        points.push({ x, y, angle: 0 })
-      }
-    }
-  } else if (pattern === "wave") {
-    // Rows follow a gentle sine curve; each item tilts to match the local slope.
-    const xStep = Math.max(spacing, textWidth + spacing * 0.3)
-    const yStep = minRowStep
-    // Normally the wave swells generously (35% of row spacing). But with tall
-    // STACKED text, an oscillation that large can swing a column from one row
-    // into the next row's space — so when stacked, cap it to whatever leaves
-    // guaranteed clearance for the full stacked height. Horizontal text never
-    // hits this cap (textHeight is small relative to yStep there).
-    const amp = stackedMode
-      ? Math.max(4, Math.min(yStep * 0.35, (yStep - textHeight) / 2))
-      : yStep * 0.35
-    const freq = (2 * Math.PI * 2.2) / width
-    for (let row = 0; ; row++) {
-      const y0 = yStep / 2 + row * yStep
-      if (y0 > height + yStep) break
-      const stagger = row % 2 === 1 ? xStep / 2 : 0
-      for (let col = -1; ; col++) {
-        const x = xStep / 2 + col * xStep + stagger
-        if (x > width + xStep) break
-        const ph = x * freq
-        const y = y0 + amp * Math.sin(ph)
-        const angle = (Math.atan(amp * freq * Math.cos(ph)) * 180) / Math.PI
-        points.push({ x, y, angle, readingOrientationOnly: true })
-      }
-    }
-  } else if (pattern === "zigzag") {
-    // Items alternate above/below the row line with opposing tilts,
-    // tracing a sharp up-down zigzag across each row.
-    const xStep = Math.max(spacing, textWidth + spacing * 0.25)
-    const yStep = minRowStep
-    // Same reasoning as Wave: the up/down offset normally scales directly
-    // with text height, but for tall STACKED text that puts adjacent rows'
-    // columns too close together. Cap it when stacked so clearance is
-    // guaranteed; Horizontal text (small textHeight) never hits this cap.
-    const amp = stackedMode
-      ? Math.max(4, Math.min(textHeight * 0.7, (yStep - textHeight) / 2))
-      : textHeight * 0.7
-    const segAngle = (Math.atan((2 * amp) / xStep) * 180) / Math.PI
-    for (let row = 0; ; row++) {
-      const y0 = yStep / 2 + row * yStep
-      if (y0 > height + yStep) break
-      for (let col = 0; ; col++) {
-        const x = xStep / 2 + col * xStep
-        if (x > width + xStep) break
-        const up = col % 2 === 0
-        points.push({ x, y: y0 + (up ? -amp : amp), angle: up ? segAngle : -segAngle, readingOrientationOnly: true })
-      }
-    }
-  } else if (pattern === "brick") {
-    // Tight rows offset by half a step, like a brick wall with thin mortar gaps.
-    const xStep = Math.max(spacing * 0.8, textWidth + spacing * 0.2)
-    const yStep = Math.max(spacing * 0.75, textHeight * 1.7)
-    for (let row = 0; ; row++) {
-      const y = yStep / 2 + row * yStep
-      if (y > height + yStep) break
-      const start = row % 2 === 0 ? xStep / 2 : xStep
-      for (let col = 0; ; col++) {
-        const x = start + col * xStep - xStep
-        if (x > width + xStep) break
-        if (x >= -xStep) points.push({ x, y, angle: 0 })
-      }
-    }
-  } else if (pattern === "honeycomb") {
-    // TRUE honeycomb: text forms the six walls of tiling hexagon cells.
-    // Each edge carries one copy of the text, auto-scaled to fit the wall, so
-    // the Spacing slider controls the cell size. Shared walls are deduplicated.
-    const R = Math.max(spacing * 1.4, textHeight * 2.6, textWidth * 0.45)
-    const fontScale = textWidth > 0 ? Math.min(1, (R * 0.82) / textWidth) : 1
-    const stepX = 1.5 * R
-    const stepY = Math.sqrt(3) * R
-    const seen = new Set<string>()
-    for (let col = -2; col * stepX <= width + 2 * R; col++) {
-      const x0 = col * stepX
-      for (let row = -2; row * stepY + (((col % 2) + 2) % 2) * (stepY / 2) <= height + 2 * R; row++) {
-        const y0 = row * stepY + (((col % 2) + 2) % 2) * (stepY / 2)
-        // flat-top hexagon vertices around this cell center
-        const vs: [number, number][] = []
-        for (let k = 0; k < 6; k++) {
-          const a = (Math.PI / 3) * k
-          vs.push([x0 + R * Math.cos(a), y0 + R * Math.sin(a)])
-        }
-        for (let k = 0; k < 6; k++) {
-          const a = vs[k]
-          const b = vs[(k + 1) % 6]
-          const mx = (a[0] + b[0]) / 2
-          const my = (a[1] + b[1]) / 2
-          if (mx < -R || mx > width + R || my < -R || my > height + R) continue
-          const key = `${Math.round(mx)}:${Math.round(my)}`
-          if (seen.has(key)) continue
-          seen.add(key)
-          let ang = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI
-          if (ang > 90) ang -= 180
-          if (ang <= -90) ang += 180
-          points.push({ x: mx, y: my, angle: ang, fontScale })
-        }
-      }
-    }
-    } else if (pattern === "lattice") {
-    // Two crossing sets of tightly-packed diagonal bands at ±45°, widely separated,
-    // weaving continuous strips (distinct from Crisscross's uniform grid).
-    const along = Math.max(spacing * 0.5, textWidth + spacing * 0.15)
-    const band = Math.max(spacing * 2.2, textHeight * 4)
-    addTiltedGrid(45, 45, along, band)
-    addTiltedGrid(-45, -45, along, band)
-  } else if (pattern === "radial") {
-    // Rays radiate outward from an open center; text runs along each ray.
-    const clear = Math.max(textHeight * 1.2, spacing * 0.25)
-    const r0 = clear + textWidth / 2
-    const rStep = Math.max(spacing, textWidth + spacing * 0.2)
-    // Cap ray count by geometry: adjacent rays at the inner radius must have
-    // room for the text height, or the hub becomes an unreadable bunch.
-    const geometricMax = Math.max(4, Math.floor((2 * Math.PI * r0) / (textHeight * 1.7)))
-    const rays = Math.min(geometricMax, Math.max(8, Math.min(32, Math.round(1600 / spacing))))
-    for (let i = 0; i < rays; i++) {
-      const theta = (i * 2 * Math.PI) / rays
-      for (let r = r0; r <= maxRadius + rStep; r += rStep) {
-        const x = centerX + r * Math.cos(theta)
-        const y = centerY + r * Math.sin(theta)
-        if (x >= -textWidth / 2 && x <= width + textWidth / 2 && y >= -textHeight && y <= height + textHeight) {
-          const raw = (theta * 180) / Math.PI
-          points.push({ x, y, angle: orientation === "readable" ? upright(raw) : raw })
-        }
-      }
-    }
-  } else if (pattern === "spiral") {
-    // Text follows an Archimedean spiral outward from the center.
-    const ringStep = Math.max(spacing * 0.75, textHeight * 2)
-    const b = ringStep / (2 * Math.PI)
-    const arcStep = Math.max(spacing * 0.7, textWidth * 0.8 + spacing * 0.15)
-    // Start where the curve is wide enough for the text to bend along it
-    // (radius >= textWidth/2.5 keeps the arc under the curved-render limit).
-    let phi = Math.max(ringStep * 0.55, textWidth / 2.5) / b
-    for (;;) {
-      const r = b * phi
-      if (r > maxRadius + ringStep) break
-      const x = centerX + r * Math.cos(phi)
-      const y = centerY + r * Math.sin(phi)
-      if (x >= -textWidth / 2 && x <= width + textWidth / 2 && y >= -textHeight && y <= height + textHeight) {
-        points.push({ x, y, angle: 0, arc: { cx: centerX, cy: centerY, r } })
-      }
-      phi += arcStep / Math.max(r, 1)
-    }
-  } else if (pattern === "concentric") {
-    // Repeated rings around the center; text follows each ring's curve.
-    const ringStep = Math.max(spacing, textHeight * 2.1)
-    let ring = 0
-    // First ring must be wide enough for the text to curve along it.
-    const firstRing = Math.max(ringStep * 0.9, textWidth / 2.5)
-    for (let r = firstRing; r <= maxRadius + ringStep; r += ringStep, ring++) {
-      const n = Math.max(3, Math.floor((2 * Math.PI * r) / (textWidth + spacing * 0.2)))
-      const offset = ring % 2 === 1 ? Math.PI / n : 0
-      for (let k = 0; k < n; k++) {
-        const theta = (k * 2 * Math.PI) / n + offset
-        const x = centerX + r * Math.cos(theta)
-        const y = centerY + r * Math.sin(theta)
-        if (x >= -textWidth / 2 && x <= width + textWidth / 2 && y >= -textHeight && y <= height + textHeight) {
-          points.push({ x, y, angle: 0, arc: { cx: centerX, cy: centerY, r } })
-        }
-      }
-    }
-  } else if (pattern === "border") {
-    // Repeats along all four image edges: horizontal runs top/bottom,
-    // vertical runs on the left/right sides. centeredRun always places at
-    // least one stamp per side (even in a tight space it centers a single
-    // one), so the border always has all four edges represented rather than
-    // silently dropping the sides on wide/landscape images with long text.
-    const m = textHeight * 1.2
-    const step = textWidth + spacing * 0.35
-    for (const x of centeredRun(textWidth / 2, width - textWidth / 2, step)) {
-      points.push({ x, y: m, angle: 0 })
-      points.push({ x, y: height - m, angle: 0 })
-    }
-    for (const y of centeredRun(textWidth / 2 + m, height - m - textWidth / 2, step)) {
-      points.push({ x: m, y, angle: -90, readingOrientationOnly: true })
-      points.push({ x: width - m, y, angle: 90, readingOrientationOnly: true })
-    }
-  }
-
-  return points
-}
-
 export interface ImageStampOptions {
   stampSize: number
   opacity: number
@@ -555,28 +207,17 @@ export interface ImageStampOptions {
   imageHeight: number
 }
 
-// Shared with export. Pad is 8% of the photo width on both axes, matching
-// the text export anchors, so a logo or QR lands on the same point in the
-// preview and in the downloaded PNG.
+// Single-placement center. The mark's own size and rotation decide how far
+// the center sits from the edge, so the whole stamp stays on the photo.
 export function getStampAnchor(
   placement: Placement,
   width: number,
-  height: number
+  height: number,
+  markWidth = 0,
+  markHeight = 0,
+  rotationDeg = 0,
 ): { x: number; y: number } {
-  const safeW = Math.max(width, 1)
-  const safeH = Math.max(height, 1)
-  const pad = safeW * 0.08
-  switch (placement) {
-    case "top-left": return { x: pad, y: pad }
-    case "top-center": return { x: safeW / 2, y: pad }
-    case "top-right": return { x: safeW - pad, y: pad }
-    case "middle-left": return { x: pad, y: safeH / 2 }
-    case "center": return { x: safeW / 2, y: safeH / 2 }
-    case "middle-right": return { x: safeW - pad, y: safeH / 2 }
-    case "bottom-left": return { x: pad, y: safeH - pad }
-    case "bottom-center": return { x: safeW / 2, y: safeH - pad }
-    case "bottom-right": return { x: safeW - pad, y: safeH - pad }
-  }
+  return placedStampCenter(placement, width, height, markWidth, markHeight, rotationDeg)
 }
 
 export function stampPixelSize(width: number, height: number, stampSize: number): number {
@@ -655,13 +296,14 @@ export function drawImageWatermark(
       box,
       box,
       curveOrientation,
-      false
+      false,
+      totalRotation,
     )
     for (const pt of points) {
       paint(pt.x, pt.y, totalRotation + pt.angle, pt.fontScale ?? 1)
     }
   } else {
-    const anchor = getStampAnchor(placement, imageWidth, imageHeight)
+    const anchor = placedStampCenter(placement, imageWidth, imageHeight, box, box, totalRotation)
     paint(anchor.x, anchor.y, totalRotation, 1)
   }
 
@@ -748,8 +390,7 @@ export async function drawWatermarkOnCanvas(
   // Scale by the geometric mean of the dimensions rather than width alone, so
   // ultra-wide or ultra-tall images get proportionate text instead of oversized rows.
   const sizeScale = Math.sqrt(imageWidth * imageHeight) / 800
-  const scaledFontSize = Math.round(fontSize * sizeScale)
-  const clampedFontSize = Math.max(12, scaledFontSize)
+  const clampedFontSize = scaledStampFont(fontSize, imageWidth, imageHeight)
   // Explicitly request the selected font — document.fonts.ready alone does not
   // trigger loading of a web font that hasn't been used in the DOM yet, which
   // would make the export silently fall back to a generic font.
@@ -774,60 +415,43 @@ export async function drawWatermarkOnCanvas(
   const stackUpward = isStackedUpward(textDirection)
   const stackedLineHeight = stacked ? clampedFontSize * 1.02 : undefined
   const totalRotation = rotation + getDirectionRotationOffset(textDirection) + patternAngle
+  // Shape patterns size a whole ring or ray from one line of text. A stacked
+  // column would blow that shape up. Every other pattern, including a single
+  // stamp, needs the real stacked footprint so the letters stay on the photo.
+  const isShapePattern = coverageMode === "full" && usesShapeGeometry(pattern)
+  const measured = measureTextStamp(
+    ctx,
+    text || "\u00A0",
+    clampedFontSize,
+    fontFamily,
+    stacked && !isShapePattern,
+  )
 
   if (coverageMode === "full") {
     const normalizedSpacing = density * sizeScale
-    // Measure the actual rendered text width (font is already set on ctx above)
-    // so grid/checkerboard can guarantee non-overlapping columns.
-    const rawText = text || "\u00A0"
-    // Two different needs for text dimensions, and conflating them caused two
-    // opposite bugs:
-    //  - Shape patterns (radial/spiral/concentric/honeycomb/border) use text
-    //    height to size the WHOLE SHAPE (a radius, a margin). Feeding them the
-    //    tall stacked height balloons the shape off-canvas — these must always
-    //    get the normal single-line height.
-    //  - Grid-style patterns (diagonal, crisscross, checkerboard, etc.) use
-    //    text height only to space consecutive ROWS apart. These genuinely
-    //    need to know a stacked stamp is tall, or rows overlap into an
-    //    unbroken merged column of letters. But using the FULL uncapped
-    //    height (word length × font size) demands so much room that only one
-    //    row fits at all. The fix: use the real stacked height, capped to a
-    //    reasonable share of the photo, so overlap is avoided but multiple
-    //    rows always still fit.
-    const isShapePattern = usesShapeGeometry(pattern)
-    const chars = Array.from(rawText)
-    const measuredWidth = ctx.measureText(rawText).width
-    // Grid-style patterns MUST use the real, uncapped stacked height for row
-    // spacing — the actual rendered text is always this tall, so any smaller
-    // "capped" number fed into the spacing math would be lying about the
-    // real footprint and guarantee overlap. If a very long watermark on a
-    // modest-sized photo only fits 1-2 rows this way, that's the honest,
-    // physically correct layout for that combination, not a bug.
-    const fullStackedHeight = chars.length * clampedFontSize * 1.02
-    const textWidth = !isShapePattern && stacked
-      ? Math.max(...chars.map((c) => ctx.measureText(c).width), 1)
-      : measuredWidth
-    const effTextHeight = !isShapePattern && stacked ? fullStackedHeight : clampedFontSize
-    const points = getPatternPoints(imageWidth, imageHeight, pattern, normalizedSpacing, textWidth, effTextHeight, curveOrientation, !isShapePattern && stacked)
+    const points = getPatternPoints(
+      imageWidth,
+      imageHeight,
+      pattern,
+      normalizedSpacing,
+      measured.width,
+      measured.height,
+      curveOrientation,
+      stacked && !isShapePattern,
+      totalRotation,
+    )
     for (const pt of points) {
       drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward)
     }
   } else {
-    const pad = imageWidth * 0.08
-    let x: number
-    let y: number
-
-    switch (placement) {
-      case "top-left":      x = pad;              y = pad; break
-      case "top-center":    x = imageWidth / 2;   y = pad; break
-      case "top-right":     x = imageWidth - pad;  y = pad; break
-      case "middle-left":   x = pad;              y = imageHeight / 2; break
-      case "center":        x = imageWidth / 2;   y = imageHeight / 2; break
-      case "middle-right":  x = imageWidth - pad;  y = imageHeight / 2; break
-      case "bottom-left":   x = pad;              y = imageHeight - pad; break
-      case "bottom-center": x = imageWidth / 2;   y = imageHeight - pad; break
-      case "bottom-right":  x = imageWidth - pad;  y = imageHeight - pad; break
-    }
+    const { x, y } = placedStampCenter(
+      placement,
+      imageWidth,
+      imageHeight,
+      measured.width,
+      measured.height,
+      totalRotation,
+    )
 
     ctx.save()
     ctx.translate(x, y)

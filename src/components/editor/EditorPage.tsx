@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { ArrowLeft, RotateCcw, Download, Loader as Loader2, Infinity, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -18,8 +18,11 @@ import {
   batchLimitForPlan,
   effectivePlan,
   formatOption,
+  historyCap,
   historySavePhrase,
   resolveExportFormat,
+  savedCountLabel,
+  saveFitWarning,
 } from "@/lib/plans"
 import { ExportFormatControl } from "./controls/ExportFormatControl"
 import { BatchStrip } from "./BatchStrip"
@@ -29,11 +32,14 @@ import { supabase } from "@/lib/supabase"
 import {
   STORAGE_LIMIT_MESSAGE,
   calmStorageError,
+  fetchSavedImageUsage,
   savedImagesExceedLimit,
   storageObjectPath,
+  type SavedImageUsage,
 } from "@/lib/storage-quota"
-import { replaceFileExtension, saveResultMessages, shouldRetryOutputCompact, type SaveFailure } from "@/lib/save-messages"
+import { replaceFileExtension, savedImageCapFailure, saveResultMessages, shouldRetryOutputCompact, type SaveFailure } from "@/lib/save-messages"
 import { compactWatermark, outputForStorage } from "@/lib/stored-output"
+import { cn } from "@/lib/utils"
 import type { EditorInitialData } from "@/App"
 
 interface EditorPageProps {
@@ -85,6 +91,21 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
   const [exportProgress, setExportProgress] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [coverageClearedAt, setCoverageClearedAt] = useState(0)
+  const [savedUsage, setSavedUsage] = useState<SavedImageUsage | null>(null)
+
+  useEffect(() => {
+    if (!session) {
+      setSavedUsage(null)
+      return
+    }
+    let cancelled = false
+    fetchSavedImageUsage().then((usage) => {
+      if (!cancelled && usage) setSavedUsage(usage)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [session])
 
   const handleClearCoverage = useCallback(() => {
     setCoverageClearedAt(Date.now())
@@ -277,30 +298,51 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         ...prev,
       ])
 
+      setIsExporting(false)
+
       if (session) {
         setIsSaving(true)
+        const cap = historyCap(plan)
+        const room = savedUsage && cap != null ? Math.max(0, cap - savedUsage.count) : exported.length
+        const toSave = exported.slice(0, room)
+        const skipped = exported.slice(room)
         try {
-          const failures: SaveFailure[] = []
+          const failures: SaveFailure[] = skipped.map((item) => ({
+            filename: item.filename,
+            message: savedImageCapFailure(plan),
+          }))
           let savedCount = 0
-          for (const item of exported) {
+          let capHit = false
+          for (let i = 0; i < toSave.length; i++) {
+            setExportProgress(`Downloaded. Saving to My Images ${savedCount + 1} of ${exported.length}...`)
+            const item = toSave[i]
+            if (capHit) {
+              failures.push({ filename: item.filename, message: savedImageCapFailure(plan) })
+              continue
+            }
             try {
               await saveToMyImages(item.file, item.dataUrl, item.filename)
               savedCount += 1
+              setExportProgress(`Downloaded. Saving to My Images ${savedCount} of ${exported.length}...`)
             } catch (err) {
-              failures.push({
-                filename: item.filename,
-                message: err instanceof Error ? err.message : "Failed to save image.",
-              })
+              const message = err instanceof Error ? err.message : "Failed to save image."
+              failures.push({ filename: item.filename, message })
+              if (message.toLowerCase().includes("can keep") && message.toLowerCase().includes("saved images")) {
+                capHit = true
+              }
             }
           }
           const report = saveResultMessages(
             savedCount,
             exported.length,
             failures,
-            historySavePhrase(plan, exported.length)
+            historySavePhrase(plan, savedCount || exported.length)
           )
           if (report.success) toast.success(report.success)
+          if (report.warning) toast.warning(report.warning, { duration: 8000 })
           if (report.error) toast.error(report.error)
+          const nextUsage = await fetchSavedImageUsage()
+          if (nextUsage) setSavedUsage(nextUsage)
         } finally {
           setIsSaving(false)
         }
@@ -319,7 +361,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       setIsExporting(false)
       setExportProgress(null)
     }
-  }, [state, photos, batchLimit, exportFormat, plan, session, saveToMyImages, openAuthModal])
+  }, [state, photos, batchLimit, exportFormat, plan, session, savedUsage, saveToMyImages, openAuthModal])
 
   const handleRemoveImage = useCallback((id: string) => {
     setFinishedImages((prev) => prev.filter((img) => img.id !== id))
@@ -340,6 +382,10 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
   }, [reset])
 
   const isProcessing = isExporting || isSaving
+  const exportCount = Math.min(photos.length, batchLimit)
+  const fitWarning = session && savedUsage
+    ? saveFitWarning(plan, savedUsage.count, exportCount)
+    : null
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
@@ -459,8 +505,21 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
               plan={plan}
               onChange={setExportFormat}
             />
+            {session && savedUsage && (
+              <p className={cn(
+                "text-center text-[11px] font-medium",
+                fitWarning ? "text-amber-800 dark:text-amber-200" : "text-foreground/80",
+              )}>
+                {savedCountLabel(savedUsage.count, plan)}
+              </p>
+            )}
+            {fitWarning && (
+              <p className="rounded-md bg-amber-500/10 px-2.5 py-1.5 text-center text-[11px] leading-snug text-amber-900 dark:text-amber-100">
+                {fitWarning}
+              </p>
+            )}
             <Button
-              className="w-full gap-2 shadow-sm"
+              className="h-auto min-h-9 w-full gap-2 whitespace-normal py-2 text-center leading-snug shadow-sm"
               onClick={handleExport}
               disabled={isProcessing}
             >
@@ -474,7 +533,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
               {isExporting
                 ? (exportProgress ?? "Exporting...")
                 : isSaving
-                  ? "Saving..."
+                  ? (exportProgress ?? "Downloaded. Saving to My Images...")
                   : photos.length > 1
                     ? `Export ${photos.length} ${formatOption(exportFormat).label} photos`
                     : `Export ${formatOption(exportFormat).label}`}

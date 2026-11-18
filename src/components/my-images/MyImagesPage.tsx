@@ -13,11 +13,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 import { supabase, type StoredImage } from "@/lib/supabase"
+import { effectivePlan, historyCap, historySummary, planName, savedCountLabel } from "@/lib/plans"
+import { storageUsedLabel, USER_STORAGE_LIMIT_BYTES } from "@/lib/storage-quota"
 import { useAuth } from "@/context/AuthContext"
 import { useNavigation } from "@/App"
 import { cn } from "@/lib/utils"
 import { savedDownloadName } from "@/lib/save-messages"
-import { effectivePlan, historySummary, planName } from "@/lib/plans"
 import type { EditorInitialData } from "@/App"
 
 function daysUntil(dateStr: string): number {
@@ -261,6 +262,11 @@ export function MyImagesPage() {
 
   const plan = effectivePlan(profile?.tier, Boolean(profile?.is_admin))
   const planLabel = profile?.is_admin ? "Admin" : planName(plan)
+  const activeCount = images.filter((img) => new Date(img.expires_at).getTime() > Date.now()).length
+  const usedBytes = images.reduce((sum, img) => sum + (Number(img.total_size) || 0), 0)
+  const countCap = historyCap(plan)
+  const libraryFull = countCap != null && activeCount >= countCap
+  const usedPct = Math.min(100, (usedBytes / USER_STORAGE_LIMIT_BYTES) * 100)
 
   return (
     <div className="min-h-svh bg-background">
@@ -299,6 +305,30 @@ export function MyImagesPage() {
             </p>
           </div>
         </div>
+
+        {!loading && (
+          <div className="mb-6 max-w-md">
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <p className={cn("font-semibold", libraryFull ? "text-amber-800 dark:text-amber-200" : "text-foreground")}>
+                {savedCountLabel(activeCount, plan)}
+              </p>
+              <p className="text-muted-foreground">{storageUsedLabel(usedBytes)}</p>
+            </div>
+            <div
+              className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
+              role="meter"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(usedPct)}
+              aria-label={storageUsedLabel(usedBytes)}
+            >
+              <div
+                className={cn("h-full rounded-full", usedPct >= 90 ? "bg-amber-600" : "bg-primary")}
+                style={{ width: `${usedPct}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
