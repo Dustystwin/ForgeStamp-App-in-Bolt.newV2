@@ -69,6 +69,7 @@ export const PRICING_PLANS = [
       "Black and white photo filter",
       "Auto contrast so a mark stays readable",
       "Handle stamp",
+      "Watermark strength meter and before/after compare",
       "PNG export at the original photo size",
       "Live watermark preview",
       "Brand kit preview (saving a kit is on Spark)",

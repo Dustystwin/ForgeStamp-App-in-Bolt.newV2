@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useLayoutEffect, useMemo } from "react"
 import { canvasToBlob, releaseCanvas } from "@/lib/image-resources"
 import { frameFile } from "@/lib/frame-image"
 import { composeWatermarkText, scaledTextPaint, textPaintPadding } from "@/lib/text-style"
+import { watermarkStrength } from "@/lib/watermark-strength"
 import { useAuth } from "@/context/AuthContext"
 import { canUseSparkTools } from "@/lib/plans"
 import type { EditorState } from "@/lib/editor-types"
@@ -107,6 +108,7 @@ export function WatermarkPreview({
   const [containerHeight, setContainerHeight] = useState(400)
   const [stampSource, setStampSource] = useState<{ src: string; image: HTMLImageElement } | null>(null)
   const [framedUrl, setFramedUrl] = useState<string | null>(null)
+  const [compare, setCompare] = useState(100)
   // Tracks the last clearAt value we have acted on
   const lastClearedAtRef = useRef(0)
 
@@ -479,7 +481,7 @@ export function WatermarkPreview({
   return (
     <div
       className={cn(
-        "flex w-full items-center justify-center rounded-xl border border-border/40 overflow-hidden",
+        "flex w-full flex-col items-stretch justify-center rounded-xl border border-border/40 overflow-hidden",
         !imagePreviewUrl &&
           "min-h-[260px] md:min-h-[360px] bg-gradient-to-br from-orange-50/70 via-amber-50/40 to-background"
       )}
@@ -520,6 +522,7 @@ export function WatermarkPreview({
         <div
           aria-hidden="true"
           className="pointer-events-none select-none absolute inset-0 overflow-hidden"
+          style={imagePreviewUrl ? { clipPath: `inset(0 ${100 - compare}% 0 0)` } : undefined}
         >
           {/*
             Canvas stays in the DOM at all times so canvasRef is always valid.
@@ -678,6 +681,37 @@ export function WatermarkPreview({
           </div>
         )}
       </div>
+      <StrengthBar state={state} compare={compare} onCompare={setCompare} />
+    </div>
+  )
+}
+
+function StrengthBar({
+  state,
+  compare,
+  onCompare,
+}: {
+  state: EditorState
+  compare: number
+  onCompare: (value: number) => void
+}) {
+  const result = watermarkStrength(state)
+  return (
+    <div data-panel="strength" className="space-y-2 border-t border-black/5 bg-white px-3 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">{result.label}</p>
+        <p className="text-[11px] text-muted-foreground">Before / after</p>
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">{result.note}</p>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={compare}
+        aria-label="Compare before and after"
+        className="w-full accent-orange-500"
+        onChange={(event) => onCompare(Number(event.target.value))}
+      />
     </div>
   )
 }
