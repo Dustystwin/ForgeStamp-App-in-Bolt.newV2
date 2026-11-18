@@ -23,12 +23,14 @@ export function paintPatternThumb(
   ctx.textBaseline = "middle"
   ctx.globalAlpha = 1
 
-  let fontPx = Math.max(8, Math.round(Math.min(width, height) * 0.16))
+  // Whole pixels only, and large enough that the letters stay formed
+  // when the canvas is shown at its real size.
+  let fontPx = Math.max(11, Math.round(Math.min(width, height) * 0.2))
   ctx.font = `bold ${fontPx}px Inter, sans-serif`
   let box = measureTextStamp(ctx, SAMPLE, fontPx, "Inter", false)
-  const target = width * 0.34
-  if (box.width > 1) {
-    fontPx = Math.max(7, Math.min(fontPx, Math.round(fontPx * (target / box.width))))
+  const target = width * 0.42
+  if (box.width > target && box.width > 1) {
+    fontPx = Math.max(10, Math.round(fontPx * (target / box.width)))
     ctx.font = `bold ${fontPx}px Inter, sans-serif`
     box = measureTextStamp(ctx, SAMPLE, fontPx, "Inter", false)
   }

@@ -488,34 +488,24 @@ export function getPatternPoints(
       }
     }
   } else if (pattern === "spiral") {
-    // One Archimedean arm: r = b * θ, from near the center out to the corners.
-    // Turns are a word-height apart so the winding stays visible, and each
-    // word sits along the arm. This list is returned as-is. The shared
-    // overlap pass would pull stamps off the arm and leave a broken ring.
-    const turnGap = Math.max(markH * 1.7, markH + gap, 12)
-    const b = turnGap / (2 * Math.PI)
-    const along = Math.max(markW + Math.max(6, gap * 0.45), spacing * 0.5)
-    const firstRadius = Math.max(markH * 0.55, (along * 1.15) / (2 * Math.PI))
-    let theta = Math.max(0.35, firstRadius / Math.max(b, 0.001))
-    const limit = maxRadius + turnGap * 0.2
-    const arm: GridPoint[] = []
-    for (let guard = 0; guard < 8000; guard++) {
-      const r = b * theta
-      if (r > limit) break
-      const dx = b * Math.cos(theta) - r * Math.sin(theta)
-      const dy = b * Math.sin(theta) + r * Math.cos(theta)
+    const ringGap = Math.max(spacing * 0.8, markH + gap)
+    const b = ringGap / (2 * Math.PI)
+    const along = Math.max(markW + gap, spacing * 0.45)
+    let phi = Math.max(markH * 1.6, markW * 0.45) / Math.max(b, 0.001)
+    for (let guard = 0; guard < 4000; guard++) {
+      const r = b * phi
+      if (r > maxRadius + ringGap) break
+      const dx = b * Math.cos(phi) - r * Math.sin(phi)
+      const dy = b * Math.sin(phi) + r * Math.cos(phi)
       let angle = (Math.atan2(dy, dx) * 180) / Math.PI
       if (orientation === "readable") angle = upright(angle)
-      const x = centerX + r * Math.cos(theta)
-      const y = centerY + r * Math.sin(theta)
-      const hw = markW / 2
-      const hh = markH / 2
-      if (x >= -hw && y >= -hh && x <= width + hw && y <= height + hh) {
-        arm.push({ x, y, angle })
-      }
-      theta += along / Math.max(Math.hypot(dx, dy), 1)
+      push({
+        x: centerX + r * Math.cos(phi),
+        y: centerY + r * Math.sin(phi),
+        angle,
+      })
+      phi += along / Math.max(Math.hypot(dx, dy), 1)
     }
-    return arm
   } else if (pattern === "concentric") {
     // Same centered circles as the original rings, with a little extra room
     // along each ring and between rings. Rings that are too small for a

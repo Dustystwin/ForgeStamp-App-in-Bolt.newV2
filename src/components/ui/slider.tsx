@@ -134,7 +134,7 @@ function Slider({
           data-slot="slider-thumb"
           key={index}
           className={cn(
-            "relative block size-6 shrink-0 rounded-full border-2 border-primary bg-white shadow-[0_2px_6px_rgba(90,40,10,0.28)]",
+            "relative block h-[26px] w-[13px] shrink-0 rounded-[5px] border-2 border-primary bg-white shadow-[0_2px_6px_rgba(90,40,10,0.28)]",
             "ring-primary/40 transition-[box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden",
             "before:absolute before:top-1/2 before:left-1/2 before:size-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']",
             "md:before:size-8",
