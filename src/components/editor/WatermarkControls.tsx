@@ -8,6 +8,7 @@ import type {
   WatermarkMode,
   DateStampFormat,
   CropAspect,
+  FrameMode,
 } from "@/lib/editor-types"
 import { STAMP_SIZE_MAX, STAMP_SIZE_MIN } from "@/lib/editor-types"
 import { TextControl } from "./controls/TextControl"
@@ -78,7 +79,10 @@ interface WatermarkControlsProps {
   onShadowOffsetYChange: (value: number) => void
   onDateStampChange: (value: DateStampFormat) => void
   onCropAspectChange: (value: CropAspect) => void
+  onFrameModeChange: (value: FrameMode) => void
   onQuarterTurnsChange: (value: number) => void
+  onFlipHorizontalChange: (value: boolean) => void
+  onFlipVerticalChange: (value: boolean) => void
   onEmojiChange: (value: string) => void
   onStickerChange: (value: string) => void
   onGradientOnChange: (value: boolean) => void
@@ -144,7 +148,10 @@ export function WatermarkControls({
   onShadowOffsetYChange,
   onDateStampChange,
   onCropAspectChange,
+  onFrameModeChange,
   onQuarterTurnsChange,
+  onFlipHorizontalChange,
+  onFlipVerticalChange,
   onEmojiChange,
   onStickerChange,
   onGradientOnChange,
@@ -216,10 +223,16 @@ export function WatermarkControls({
       <WatermarkModeControl value={mode} signatureUnlocked={spark} stickerUnlocked={spark} onChange={onModeChange} />
       <FrameControl
         aspect={state.cropAspect}
+        mode={state.frameMode}
         quarterTurns={state.quarterTurns}
+        flipHorizontal={state.flipHorizontal}
+        flipVertical={state.flipVertical}
         grayscale={state.grayscale}
         onAspectChange={onCropAspectChange}
+        onModeChange={onFrameModeChange}
         onQuarterTurnsChange={onQuarterTurnsChange}
+        onFlipHorizontalChange={onFlipHorizontalChange}
+        onFlipVerticalChange={onFlipVerticalChange}
         onGrayscaleChange={onGrayscaleChange}
       />
       <PresetControl state={state} onApply={onApplySettings} />

@@ -23,12 +23,14 @@ import {
   STAMP_SIZE_MAX,
   STAMP_SIZE_MIN,
   TEXT_DIRECTION_OPTIONS,
-  isCropAspect,
   isDateStampFormat,
+  isFrameMode,
   isWatermarkMode,
+  readCropAspect,
   type CoverageMode,
   type CropAspect,
   type CurveOrientation,
+  type FrameMode,
   type DateStampFormat,
   type EditorState,
   type ExportFormat,
@@ -68,7 +70,10 @@ export interface PresetSettings {
   shadowOffsetY: number
   dateStamp: DateStampFormat
   cropAspect: CropAspect
+  frameMode: FrameMode
   quarterTurns: number
+  flipHorizontal: boolean
+  flipVertical: boolean
   emoji: string
   stickerId: string
   freeX: number | null
@@ -148,7 +153,10 @@ export function settingsFromEditor(state: EditorState): PresetSettings {
     shadowOffsetY: state.shadowOffsetY,
     dateStamp: state.dateStamp,
     cropAspect: state.cropAspect,
+    frameMode: state.frameMode,
     quarterTurns: state.quarterTurns,
+    flipHorizontal: state.flipHorizontal,
+    flipVertical: state.flipVertical,
     emoji: state.emoji,
     stickerId: state.stickerId,
     freeX: state.freeX,
@@ -201,8 +209,11 @@ export function parsePresetSettings(raw: unknown): PresetSettings | null {
     shadowOffsetX: clampNumber(row.shadowOffsetX, SHADOW_OFFSET_MIN, SHADOW_OFFSET_MAX, defaults.shadowOffsetX),
     shadowOffsetY: clampNumber(row.shadowOffsetY, SHADOW_OFFSET_MIN, SHADOW_OFFSET_MAX, defaults.shadowOffsetY),
     dateStamp: isDateStampFormat(row.dateStamp) ? row.dateStamp : "off",
-    cropAspect: isCropAspect(row.cropAspect) ? row.cropAspect : "original",
+    cropAspect: readCropAspect(row.cropAspect),
+    frameMode: isFrameMode(row.frameMode) ? row.frameMode : "fit",
     quarterTurns: clampNumber(row.quarterTurns, 0, 3, 0),
+    flipHorizontal: row.flipHorizontal === true,
+    flipVertical: row.flipVertical === true,
     emoji: typeof row.emoji === "string" && row.emoji ? row.emoji.slice(0, 8) : defaults.emoji,
     stickerId: typeof row.stickerId === "string" && row.stickerId ? row.stickerId.slice(0, 40) : defaults.stickerId,
     freeX: typeof row.freeX === "number" && Number.isFinite(row.freeX) ? row.freeX : null,
