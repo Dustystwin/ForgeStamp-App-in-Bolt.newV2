@@ -562,9 +562,9 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     : null
 
   return (
-    <div className="flex min-h-svh flex-col bg-background">
+    <div className="fs-studio flex min-h-svh flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-black/5 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-3">
             <Button
@@ -626,7 +626,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       {/* Main layout */}
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4 md:grid md:grid-cols-[1fr_300px] md:items-start md:gap-5 md:p-6 lg:grid-cols-[1fr_320px]">
         <section
-          className="flex-1 min-w-0 md:sticky md:top-16"
+          className="min-w-0 flex-1 rounded-2xl bg-white/95 p-2 shadow-[0_16px_40px_-24px_rgba(90,40,10,0.55)] md:sticky md:top-16 md:p-3"
           aria-label="Image preview"
         >
           <WatermarkPreview
@@ -670,7 +670,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
         </section>
 
         <aside
-          className="md:max-h-[calc(100svh-80px)] md:overflow-y-auto md:rounded-xl md:border md:border-border/40 md:bg-card md:p-4 md:shadow-sm"
+          className="rounded-2xl border border-black/5 bg-white/95 p-3 shadow-[0_16px_40px_-24px_rgba(90,40,10,0.45)] md:max-h-[calc(100svh-80px)] md:overflow-y-auto md:p-4"
           aria-label="Watermark controls"
         >
           <WatermarkControls

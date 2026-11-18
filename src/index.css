@@ -286,6 +286,21 @@ html.dark .fs-landing {
 .fs-btn-primary:hover { background: color-mix(in oklch, var(--fs-orange), black 8%); }
 .fs-btn-primary:active { transform: scale(0.98); }
 
+/* Editor and library: a soft sunrise wash with a faint dot grid.
+   The photo itself sits on a white card so the picture stays easy to read. */
+.fs-studio {
+  --fs-orange: oklch(0.702 0.183 52);
+  --fs-cream: oklch(0.985 0.012 80);
+  --fs-ink: oklch(0.24 0.02 50);
+  color: var(--fs-ink);
+  background-color: oklch(0.97 0.02 75);
+  background-image:
+    radial-gradient(ellipse 55% 42% at 100% -8%, color-mix(in oklch, oklch(0.78 0.14 55) 55%, transparent), transparent 70%),
+    radial-gradient(ellipse 48% 40% at -10% 110%, color-mix(in oklch, oklch(0.78 0.1 165) 40%, transparent), transparent 72%),
+    radial-gradient(circle, color-mix(in oklch, oklch(0.7 0.12 55) 38%, transparent) 0.55px, transparent 0.7px);
+  background-size: auto, auto, 16px 16px;
+}
+
 .fs-hero-wash {
   background:
     radial-gradient(ellipse 46% 38% at 96% 6%, color-mix(in oklch, var(--fs-emerald) 20%, transparent), transparent 68%),

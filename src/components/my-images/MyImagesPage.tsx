@@ -283,9 +283,9 @@ export function MyImagesPage() {
   const usedPct = Math.min(100, (usedBytes / USER_STORAGE_LIMIT_BYTES) * 100)
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="fs-studio min-h-svh">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-black/5 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
           <Button
             variant="ghost"
