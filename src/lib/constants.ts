@@ -106,6 +106,7 @@ export const PRICING_PLANS = [
       "Gradient text",
       "Up to 5 layers on a photo",
       "Platform icon next to a handle",
+      "Social size ZIP (Instagram, Story, Pinterest, Etsy, Facebook)",
       "1 brand kit (logo, fonts, colors, handle)",
       "10 saved watermark presets",
       "Saved images kept 180 days (up to 100)",

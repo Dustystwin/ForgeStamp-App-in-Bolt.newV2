@@ -15,6 +15,7 @@ interface ExportFormatControlProps {
   keepInfo: boolean
   onQualityChange: (value: number) => void
   onKeepInfoChange: (value: boolean) => void
+  onSocialExport?: () => void
 }
 
 export function ExportFormatControl({
@@ -27,6 +28,7 @@ export function ExportFormatControl({
   keepInfo,
   onQualityChange,
   onKeepInfoChange,
+  onSocialExport,
 }: ExportFormatControlProps) {
   const allowed = allowedFormats(plan)
   const shown = resolveExportFormat(plan, value)
@@ -128,6 +130,26 @@ export function ExportFormatControl({
       </button>
       <p className="text-[10px] leading-snug text-muted-foreground">
         Downloads are drawn fresh, so camera info is removed. On a JPG, Keep copies the original EXIF block when the file has one. PNG and WebP cannot keep it.
+      </p>
+      <button
+        type="button"
+        data-panel="social"
+        onClick={() => {
+          if (!paid) {
+            toast("Social sizes are included with Spark and Forge. Those plans are not for sale.")
+            return
+          }
+          onSocialExport?.()
+        }}
+        className={cn(
+          "min-h-10 w-full rounded-md border px-2 py-1.5 text-left text-[11px] font-medium",
+          paid ? "border-border/60 bg-white text-foreground" : "border-border/60 bg-muted/40 text-muted-foreground",
+        )}
+      >
+        Social sizes (ZIP)
+      </button>
+      <p className="text-[10px] leading-snug text-muted-foreground">
+        One click saves Instagram post 1080×1350, square 1080, Story 1080×1920, Pinterest 1000×1500, Etsy 2000×1600, and Facebook 1200×630. Each is a center crop of the photo you are looking at. Spark and Forge.
       </p>
       <p className="text-[10px] leading-snug text-muted-foreground">
         {plan === "free"

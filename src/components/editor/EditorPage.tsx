@@ -11,6 +11,7 @@ import { ScanResults } from "./ScanResults"
 import { exportWatermarked, type CanvasWatermarkOptions } from "@/lib/watermark-utils"
 import { inspectQrUrl } from "@/lib/qr-watermark"
 import { downloadBlob, downloadUrl, stampedFileName, zipFiles } from "@/lib/batch-export"
+import { exportSocialZip } from "@/lib/social-export"
 import {
   FREE_BATCH_LIMIT,
   FORGE_BATCH_LIMIT,
@@ -515,6 +516,115 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     }
   }, [state, photos, batchLimit, exportFormat, plan, session, savedUsage, saveToMyImages, openAuthModal])
 
+  const handleSocial = useCallback(async () => {
+    if (plan === "free") {
+      toast("Social sizes are included with Spark and Forge. Those plans are not for sale.")
+      return
+    }
+    if (!state.image) {
+      toast.error("Upload a photo first.")
+      return
+    }
+    setIsExporting(true)
+    setExportProgress("Preparing six sizes...")
+    try {
+      const base: CanvasWatermarkOptions = {
+        mode: state.watermarkMode,
+        text: state.watermarkText,
+        fontFamily: state.fontFamily,
+        fontSize: state.fontSize,
+        color: state.watermarkMode === "qr" ? state.qrColor : state.color,
+        opacity: state.opacity,
+        rotation: state.rotation,
+        placement: state.placement,
+        textDirection: state.textDirection,
+        coverageMode: state.coverageMode,
+        pattern: state.pattern,
+        density: state.density,
+        curveOrientation: state.curveOrientation,
+        stampSize: state.stampSize,
+        logoUrl: state.logoPreviewUrl,
+        qrUrl: state.qrUrl,
+        signatureUrl: state.signaturePreviewUrl,
+        outlineWidth: state.outlineWidth,
+        outlineColor: state.outlineColor,
+        shadowEnabled: state.shadowEnabled,
+        shadowColor: state.shadowColor,
+        shadowBlur: state.shadowBlur,
+        shadowOffsetX: state.shadowOffsetX,
+        shadowOffsetY: state.shadowOffsetY,
+        dateStamp: state.dateStamp,
+        emoji: state.emoji,
+        stickerId: state.stickerId,
+        freeX: state.freeX,
+        freeY: state.freeY,
+        gradientOn: state.gradientOn,
+        gradientA: state.gradientA,
+        gradientB: state.gradientB,
+        gradientC: state.gradientC,
+        gradientAngle: state.gradientAngle,
+        grayscale: state.grayscale,
+        autoContrast: state.autoContrast,
+        handlePlatform: state.handlePlatform,
+        quarterTurns: state.quarterTurns,
+        extraMarks: layers.filter((layer) => !layer.hidden).map((layer) => {
+          const snap = layer.id === activeLayerId ? state : layer.snap
+          return {
+            mode: snap.watermarkMode,
+            text: snap.watermarkText,
+            emoji: snap.emoji,
+            stickerId: snap.stickerId,
+            fontFamily: snap.fontFamily,
+            fontSize: snap.fontSize,
+            color: snap.watermarkMode === "qr" ? snap.qrColor : snap.color,
+            opacity: snap.opacity,
+            rotation: snap.rotation,
+            placement: snap.placement,
+            freeX: snap.freeX,
+            freeY: snap.freeY,
+            textDirection: snap.textDirection,
+            coverageMode: snap.coverageMode,
+            pattern: snap.pattern,
+            density: snap.density,
+            curveOrientation: snap.curveOrientation,
+            stampSize: snap.stampSize,
+            qrUrl: snap.qrUrl,
+            outlineWidth: snap.outlineWidth,
+            outlineColor: snap.outlineColor,
+            shadowEnabled: snap.shadowEnabled,
+            shadowColor: snap.shadowColor,
+            shadowBlur: snap.shadowBlur,
+            shadowOffsetX: snap.shadowOffsetX,
+            shadowOffsetY: snap.shadowOffsetY,
+            dateStamp: snap.dateStamp,
+            gradientOn: snap.gradientOn,
+            gradientA: snap.gradientA,
+            gradientB: snap.gradientB,
+            gradientC: snap.gradientC,
+            gradientAngle: snap.gradientAngle,
+            logoUrl: state.logoPreviewUrl,
+            signatureUrl: state.signaturePreviewUrl,
+            autoContrast: state.autoContrast,
+            handlePlatform: snap.handlePlatform,
+            grayscale: state.grayscale,
+            imageWidth: 0,
+            imageHeight: 0,
+          }
+        }),
+        imageWidth: 0,
+        imageHeight: 0,
+      }
+      const blob = await exportSocialZip(state.image, base)
+      downloadBlob(blob, "forgestamp-social-sizes.zip")
+      toast.success("Six sizes are in the ZIP.")
+    } catch {
+      toast.error("Those sizes could not be made. Please try again.")
+    } finally {
+      setIsExporting(false)
+      setExportProgress(null)
+    }
+  }, [state, plan, layers, activeLayerId])
+
   const handleRemoveImage = useCallback((id: string) => {
     setFinishedImages((prev) => {
       const target = prev.find((img) => img.id === id)
@@ -762,6 +872,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
               onQualityChange={setExportQuality}
               keepInfo={state.keepInfo}
               onKeepInfoChange={setKeepInfo}
+              onSocialExport={handleSocial}
             />
             {session && savedUsage && (
               <p className={cn(
