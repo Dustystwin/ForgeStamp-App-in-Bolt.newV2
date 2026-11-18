@@ -32,6 +32,7 @@ import { FrameControl } from "./controls/FrameControl"
 import { SignatureControl } from "./controls/SignatureControl"
 import { LayerPanel } from "./controls/LayerPanel"
 import { BrandKitControl } from "./controls/BrandKitControl"
+import { HandleControl } from "./controls/HandleControl"
 import type { BrandKit } from "@/lib/brand-kit"
 import { EyedropperButton } from "./controls/EyedropperButton"
 import { EMOJI_CHOICES, STICKERS } from "@/lib/stickers"
@@ -100,6 +101,7 @@ interface WatermarkControlsProps {
   onApplySettings: (settings: PresetSettings) => void
   onUseBrand: (kit: BrandKit) => void
   onAutoContrastChange: (value: boolean) => void
+  onHandlePlatformChange: (value: EditorState["handlePlatform"]) => void
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -165,6 +167,7 @@ export function WatermarkControls({
   onApplySettings,
   onUseBrand,
   onAutoContrastChange,
+  onHandlePlatformChange,
 }: WatermarkControlsProps) {
   const { profile } = useAuth()
   const spark = canUseSparkTools(profile?.tier, Boolean(profile?.is_admin))
@@ -226,6 +229,13 @@ export function WatermarkControls({
         <div className="space-y-3">
           <SectionLabel>Text</SectionLabel>
           <TextControl value={state.watermarkText} onChange={onTextChange} />
+          <HandleControl
+            text={state.watermarkText}
+            platform={state.handlePlatform}
+            iconsUnlocked={spark}
+            onTextChange={onTextChange}
+            onPlatformChange={onHandlePlatformChange}
+          />
           <DateStampControl value={state.dateStamp} onChange={onDateStampChange} />
           <FontControl value={state.fontFamily} onChange={onFontChange} />
           <FontSizeControl value={state.fontSize} onChange={onFontSizeChange} />

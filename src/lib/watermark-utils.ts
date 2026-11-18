@@ -15,6 +15,7 @@ import { composeWatermarkText, paintFill, scaledTextPaint, textPaintPadding, typ
 import { stickerUrl } from "@/lib/stickers"
 import { copyJpegExif } from "@/lib/keep-photo-info"
 import { inkForLuminance, plateForLuminance, sampleMeanLuminance } from "@/lib/auto-contrast"
+import { renderHandleStamp, type HandlePlatform } from "@/lib/platform-glyphs"
 import {
   getPatternPoints,
   measureTextStamp,
@@ -219,6 +220,8 @@ export interface ImageStampOptions {
   freeY?: number | null
   autoContrast?: boolean
   backdrop?: CanvasImageSource | null
+  fixedWidth?: number
+  fixedHeight?: number
 }
 
 // Single-placement center. The mark's own size and rotation decide how far
@@ -285,14 +288,16 @@ export function drawImageWatermark(
   if (srcW < 1 || srcH < 1) return
 
   const sizeScale = Math.sqrt(Math.max(imageWidth, 1) * Math.max(imageHeight, 1)) / 800
-  const box = stampPixelSize(imageWidth, imageHeight, stampSize)
+  const box = opts.fixedWidth && opts.fixedHeight
+    ? Math.max(opts.fixedWidth, opts.fixedHeight)
+    : stampPixelSize(imageWidth, imageHeight, stampSize)
   const patternAngle = coverageMode === "full" ? getPatternTextAngle(pattern) : 0
   const totalRotation = rotation + patternAngle
 
   const paint = (x: number, y: number, angle: number, fontScale = 1) => {
     const fit = (box / Math.max(srcW, srcH)) * fontScale
-    const dw = srcW * fit
-    const dh = srcH * fit
+    const dw = opts.fixedWidth ? opts.fixedWidth * fontScale : srcW * fit
+    const dh = opts.fixedHeight ? opts.fixedHeight * fontScale : srcH * fit
     ctx.save()
     ctx.translate(x, y)
     ctx.rotate((angle * Math.PI) / 180)
@@ -377,6 +382,7 @@ export interface CanvasWatermarkOptions {
   keepInfo?: boolean
   autoContrast?: boolean
   backdrop?: CanvasImageSource | null
+  handlePlatform?: HandlePlatform
   marksOnly?: boolean
   extraMarks?: CanvasWatermarkOptions[]
   frameAspect?: CropAspect
@@ -441,6 +447,52 @@ export async function drawWatermarkOnCanvas(
     if (opts.grayscale) ctx.filter = "grayscale(1)"
     ctx.drawImage(image, 0, 0, imageWidth, imageHeight)
     ctx.filter = "none"
+  }
+
+  if ((mode === "text" || mode === "emoji") && opts.handlePlatform && opts.handlePlatform !== "none") {
+    const fontPx = scaledStampFont(fontSize, imageWidth, imageHeight)
+    const label = mode === "emoji" ? (opts.emoji || "📷") : composeWatermarkText(opts.text, opts.dateStamp ?? "off")
+    const stamp = renderHandleStamp(
+      label,
+      fontPx,
+      fontFamily,
+      color,
+      opts.handlePlatform,
+      scaledTextPaint({
+        fontSize,
+        scaledFont: fontPx,
+        outlineWidth: opts.outlineWidth ?? 0,
+        outlineColor: opts.outlineColor ?? "#FFFFFF",
+        shadowEnabled: Boolean(opts.shadowEnabled),
+        shadowColor: opts.shadowColor ?? "#111111",
+        shadowBlur: opts.shadowBlur ?? 0,
+        shadowOffsetX: opts.shadowOffsetX ?? 0,
+        shadowOffsetY: opts.shadowOffsetY ?? 0,
+        gradientOn: opts.gradientOn,
+        gradientColors: [opts.gradientA ?? "", opts.gradientB ?? "", opts.gradientC ?? ""],
+        gradientAngle: opts.gradientAngle,
+      }),
+    )
+    drawImageWatermark(ctx, stamp, {
+      stampSize: opts.stampSize ?? DEFAULT_EDITOR_STATE.stampSize,
+      opacity,
+      rotation,
+      placement,
+      coverageMode,
+      pattern,
+      density,
+      curveOrientation,
+      imageWidth,
+      imageHeight,
+      freeX: opts.freeX,
+      freeY: opts.freeY,
+      autoContrast: opts.autoContrast,
+      backdrop: opts.backdrop ?? canvas,
+      fixedWidth: stamp.width,
+      fixedHeight: stamp.height,
+    })
+    releaseCanvas(stamp)
+    return
   }
 
   if (mode === "logo" || mode === "qr" || mode === "signature" || mode === "sticker") {

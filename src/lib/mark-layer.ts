@@ -34,6 +34,7 @@ export interface MarkSnap {
   gradientB: string
   gradientC: string
   gradientAngle: number
+  handlePlatform: EditorState["handlePlatform"]
 }
 
 export interface MarkLayer {
@@ -79,6 +80,7 @@ export function blankSnap(partial: Partial<MarkSnap> = {}): MarkSnap {
     gradientB: "#FFFFFF",
     gradientC: "",
     gradientAngle: 90,
+    handlePlatform: "none",
     ...partial,
   }
 }

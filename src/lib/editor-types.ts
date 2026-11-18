@@ -11,6 +11,8 @@ export type CoverageMode = "single" | "full"
 
 export type WatermarkMode = "text" | "logo" | "qr" | "signature" | "emoji" | "sticker"
 
+export type HandlePlatform = "none" | "instagram" | "tiktok" | "facebook" | "pinterest" | "youtube" | "etsy" | "website"
+
 export type ExportFormat = "png" | "jpeg" | "webp"
 
 export type DateStampFormat = "off" | "medium" | "numeric" | "year"
@@ -97,6 +99,7 @@ export interface EditorState {
   grayscale: boolean
   keepInfo: boolean
   autoContrast: boolean
+  handlePlatform: HandlePlatform
   // Session-only drawing. Not stored with saved images or presets.
   signaturePreviewUrl: string | null
   error: string | null
@@ -236,6 +239,7 @@ export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl"
   grayscale: false,
   keepInfo: false,
   autoContrast: false,
+  handlePlatform: "none",
 }
 
 export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"]

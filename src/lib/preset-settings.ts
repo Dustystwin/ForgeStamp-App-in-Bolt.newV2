@@ -36,6 +36,7 @@ import {
   type Placement,
   type TextDirection,
 } from "@/lib/editor-types"
+import { isHandlePlatform } from "@/lib/platform-glyphs"
 
 /** Saved with a preset. The logo file and signature drawing stay on this device. */
 export interface PresetSettings {
@@ -80,6 +81,7 @@ export interface PresetSettings {
   grayscale: boolean
   keepInfo: boolean
   autoContrast: boolean
+  handlePlatform: EditorState["handlePlatform"]
   layers?: import("@/lib/mark-layer").MarkLayer[]
 }
 
@@ -159,6 +161,7 @@ export function settingsFromEditor(state: EditorState): PresetSettings {
     grayscale: state.grayscale,
     keepInfo: state.keepInfo,
     autoContrast: state.autoContrast,
+    handlePlatform: state.handlePlatform,
   }
 }
 
@@ -212,6 +215,7 @@ export function parsePresetSettings(raw: unknown): PresetSettings | null {
     grayscale: row.grayscale === true,
     keepInfo: row.keepInfo === true,
     autoContrast: row.autoContrast === true,
+    handlePlatform: isHandlePlatform(row.handlePlatform) ? row.handlePlatform : "none",
     layers: Array.isArray(row.layers) ? row.layers as PresetSettings["layers"] : undefined,
   }
 }

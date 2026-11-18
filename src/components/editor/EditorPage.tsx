@@ -100,6 +100,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     setGrayscale,
     setKeepInfo,
     setAutoContrast,
+    setHandlePlatform,
     layers,
     activeLayerId,
     canUndo,
@@ -346,6 +347,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       grayscale: state.grayscale,
       keepInfo: state.keepInfo,
       autoContrast: state.autoContrast,
+      handlePlatform: plan === "free" ? "none" : state.handlePlatform,
       frameAspect: state.cropAspect,
       quarterTurns: state.quarterTurns,
       longEdge: resolveLongEdge(plan, state.exportLongEdge),
@@ -389,6 +391,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
           logoUrl: state.logoPreviewUrl,
           signatureUrl: state.signaturePreviewUrl,
           autoContrast: state.autoContrast,
+          handlePlatform: plan === "free" ? "none" : ("handlePlatform" in snap ? snap.handlePlatform : "none"),
           imageWidth: 0,
           imageHeight: 0,
         }
@@ -730,6 +733,7 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             onClearCoverage={handleClearCoverage}
             onApplySettings={applySettings}
             onAutoContrastChange={setAutoContrast}
+            onHandlePlatformChange={setHandlePlatform}
             onUseBrand={(kit) => {
               const handle = kit.handles.find((item) => item.trim())
               if (handle) setWatermarkText(handle)

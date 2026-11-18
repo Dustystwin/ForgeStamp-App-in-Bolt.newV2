@@ -2,6 +2,8 @@ import { useRef, useState, useEffect, useLayoutEffect, useMemo } from "react"
 import { canvasToBlob, releaseCanvas } from "@/lib/image-resources"
 import { frameFile } from "@/lib/frame-image"
 import { composeWatermarkText, scaledTextPaint, textPaintPadding } from "@/lib/text-style"
+import { useAuth } from "@/context/AuthContext"
+import { canUseSparkTools } from "@/lib/plans"
 import type { EditorState } from "@/lib/editor-types"
 import type { MarkLayer } from "@/lib/mark-layer"
 import { ImageUploader } from "./ImageUploader"
@@ -51,6 +53,8 @@ export function WatermarkPreview({
   onRotate?: (degrees: number) => void
   onResize?: (scale: number) => void
 }) {
+  const { profile } = useAuth()
+  const iconsUnlocked = canUseSparkTools(profile?.tier, Boolean(profile?.is_admin))
   const {
     imagePreviewUrl,
     watermarkMode,
@@ -92,6 +96,7 @@ export function WatermarkPreview({
     gradientAngle,
     grayscale,
     autoContrast,
+    handlePlatform,
   } = state
 
   const label = composeWatermarkText(watermarkText, dateStamp)
@@ -282,6 +287,7 @@ export function WatermarkPreview({
             logoUrl: logoPreviewUrl,
             signatureUrl: signaturePreviewUrl,
             autoContrast,
+            handlePlatform: iconsUnlocked ? (snap?.handlePlatform ?? handlePlatform) : "none",
             backdrop: photo,
             imageWidth: containerWidth,
             imageHeight: containerHeight,
@@ -363,6 +369,8 @@ export function WatermarkPreview({
     imagePreviewUrl,
     autoContrast,
     framedUrl,
+    handlePlatform,
+    iconsUnlocked,
   ])
 
   const scaledFontSize = scaledStampFont(fontSize, containerWidth, containerHeight)

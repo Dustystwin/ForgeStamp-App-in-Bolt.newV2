@@ -166,6 +166,7 @@ export function useEditorState(initialData?: EditorInitialData) {
   const [grayscale, setGrayscale] = useState(init.grayscale === true)
   const [keepInfo, setKeepInfo] = useState(init.keepInfo === true)
   const [autoContrast, setAutoContrast] = useState(init.autoContrast === true)
+  const [handlePlatform, setHandlePlatform] = useState(init.handlePlatform ?? "none")
   const [signaturePreviewUrl, setSignaturePreviewUrl] = useState<string | null>(null)
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
   const [logoName, setLogoName] = useState<string | null>(null)
@@ -460,6 +461,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     setGrayscale(false)
     setKeepInfo(false)
     setAutoContrast(false)
+    setHandlePlatform("none")
     setLayers([createLayer({}, "Text")])
     releaseLogo()
     clearSignature()
@@ -510,6 +512,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     setGrayscale(settings.grayscale)
     setKeepInfo(settings.keepInfo)
     setAutoContrast(settings.autoContrast)
+    setHandlePlatform(settings.handlePlatform)
     if (settings.layers && settings.layers.length > 0) {
       skipSync.current += 1
       setLayers(settings.layers)
@@ -523,11 +526,13 @@ export function useEditorState(initialData?: EditorInitialData) {
     placement, freeX, freeY, textDirection, coverageMode, pattern, density, curveOrientation,
     stampSize, qrUrl, qrColor, outlineWidth, outlineColor, shadowEnabled, shadowColor, shadowBlur,
     shadowOffsetX, shadowOffsetY, dateStamp, gradientOn, gradientA, gradientB, gradientC, gradientAngle,
+    handlePlatform,
   }), [
     watermarkMode, watermarkText, emoji, stickerId, fontFamily, fontSize, color, opacity, rotation,
     placement, freeX, freeY, textDirection, coverageMode, pattern, density, curveOrientation,
     stampSize, qrUrl, qrColor, outlineWidth, outlineColor, shadowEnabled, shadowColor, shadowBlur,
     shadowOffsetX, shadowOffsetY, dateStamp, gradientOn, gradientA, gradientB, gradientC, gradientAngle,
+    handlePlatform,
   ])
 
   const [layers, setLayers] = useState<MarkLayer[]>(() => [createLayer({}, "Text")])
@@ -598,6 +603,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     setGradientB(snap.gradientB)
     setGradientC(snap.gradientC)
     setGradientAngle(snap.gradientAngle)
+    setHandlePlatform(snap.handlePlatform ?? "none")
   }, [])
 
   const lastRecorded = useRef("")
@@ -764,6 +770,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     grayscale,
     keepInfo,
     autoContrast,
+    handlePlatform,
     logoPreviewUrl,
     logoName,
     signaturePreviewUrl,
@@ -818,6 +825,7 @@ export function useEditorState(initialData?: EditorInitialData) {
     setGrayscale,
     setKeepInfo,
     setAutoContrast,
+    setHandlePlatform,
     setPlacement: (value: Placement) => {
       setPlacement(value)
       setFreeX(null)
