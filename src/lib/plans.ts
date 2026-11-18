@@ -105,6 +105,13 @@ export function canUseSparkTools(tier: string | null | undefined, isAdmin = fals
   return effectivePlan(tier, isAdmin) !== "free"
 }
 
+/** How many marks can sit on one photo. */
+export function layerLimitForPlan(plan: PlanId): number {
+  if (plan === "forge") return 10
+  if (plan === "spark") return 5
+  return 2
+}
+
 /** How many saved images this plan can keep. Forge has no count cap. */
 export function historyCap(plan: PlanId): number | null {
   if (plan === "forge") return null

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import { ArrowLeft, RotateCcw, Download, Loader as Loader2, Infinity, Save } from "lucide-react"
+import { ArrowLeft, RotateCcw, Download, Loader as Loader2, Infinity, Save, Undo2, Redo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { useEditorState } from "@/hooks/use-editor-state"
@@ -23,6 +23,7 @@ import {
   resolveExportFormat,
   resolveExportQuality,
   resolveLongEdge,
+  layerLimitForPlan,
   savedCountLabel,
   saveFitWarning,
 } from "@/lib/plans"
@@ -87,6 +88,30 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     setDateStamp,
     setCropAspect,
     setQuarterTurns,
+    setEmoji,
+    setStickerId,
+    setFreeX,
+    setFreeY,
+    setGradientOn,
+    setGradientA,
+    setGradientB,
+    setGradientC,
+    setGradientAngle,
+    setGrayscale,
+    setKeepInfo,
+    layers,
+    activeLayerId,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    selectLayer,
+    addLayer,
+    duplicateLayer,
+    deleteLayer,
+    moveLayer,
+    toggleLayerHidden,
+    toggleLayerLocked,
     applySettings,
     setLogo,
     clearLogo,
@@ -98,6 +123,8 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
 
   const { session, profile } = useAuth()
   const plan = effectivePlan(profile?.tier, Boolean(profile?.is_admin))
+  const layerLimit = layerLimitForPlan(plan)
+  const [sampling, setSampling] = useState<"color" | "outline" | "shadow" | null>(null)
   const batchLimit = batchLimitForPlan(plan)
   const exportFormat = resolveExportFormat(plan, state.exportFormat)
   const { openAuthModal } = useNavigation()
@@ -306,11 +333,63 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
       shadowOffsetX: state.shadowOffsetX,
       shadowOffsetY: state.shadowOffsetY,
       dateStamp: state.dateStamp,
+      emoji: state.emoji,
+      stickerId: state.stickerId,
+      freeX: state.freeX,
+      freeY: state.freeY,
+      gradientOn: plan !== "free" && state.gradientOn,
+      gradientA: state.gradientA,
+      gradientB: state.gradientB,
+      gradientC: state.gradientC,
+      gradientAngle: state.gradientAngle,
+      grayscale: state.grayscale,
+      keepInfo: state.keepInfo,
       frameAspect: state.cropAspect,
       quarterTurns: state.quarterTurns,
       longEdge: resolveLongEdge(plan, state.exportLongEdge),
       exportQuality: resolveExportQuality(plan, state.exportQuality) / 100,
       color: state.watermarkMode === "qr" ? state.qrColor : state.color,
+      extraMarks: layers.filter((layer) => !layer.hidden).map((layer) => {
+        const snap = layer.id === activeLayerId ? state : layer.snap
+        return {
+          mode: snap.watermarkMode,
+          text: snap.watermarkText,
+          emoji: "emoji" in snap ? snap.emoji : state.emoji,
+          stickerId: "stickerId" in snap ? snap.stickerId : state.stickerId,
+          fontFamily: snap.fontFamily,
+          fontSize: snap.fontSize,
+          color: snap.watermarkMode === "qr" ? snap.qrColor : snap.color,
+          opacity: snap.opacity,
+          rotation: snap.rotation,
+          placement: snap.placement,
+          freeX: snap.freeX,
+          freeY: snap.freeY,
+          textDirection: snap.textDirection,
+          coverageMode: snap.coverageMode,
+          pattern: snap.pattern,
+          density: snap.density,
+          curveOrientation: snap.curveOrientation,
+          stampSize: snap.stampSize,
+          qrUrl: snap.qrUrl,
+          outlineWidth: snap.outlineWidth,
+          outlineColor: snap.outlineColor,
+          shadowEnabled: plan !== "free" && snap.shadowEnabled,
+          shadowColor: snap.shadowColor,
+          shadowBlur: snap.shadowBlur,
+          shadowOffsetX: snap.shadowOffsetX,
+          shadowOffsetY: snap.shadowOffsetY,
+          dateStamp: snap.dateStamp,
+          gradientOn: plan !== "free" && snap.gradientOn,
+          gradientA: snap.gradientA,
+          gradientB: snap.gradientB,
+          gradientC: snap.gradientC,
+          gradientAngle: snap.gradientAngle,
+          logoUrl: state.logoPreviewUrl,
+          signatureUrl: state.signaturePreviewUrl,
+          imageWidth: 0,
+          imageHeight: 0,
+        }
+      }),
       imageWidth: 0,
       imageHeight: 0,
     }
@@ -464,6 +543,18 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
     toast.dismiss()
   }, [reset])
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const meta = event.metaKey || event.ctrlKey
+      if (!meta || event.key.toLowerCase() !== "z") return
+      event.preventDefault()
+      if (event.shiftKey) redo()
+      else undo()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [undo, redo])
+
   const isProcessing = isExporting || isSaving
   const exportCount = Math.min(photos.length, batchLimit)
   const fitWarning = session && savedUsage
@@ -496,6 +587,12 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             {state.image && (
               <ImageUploader onImageSelect={setImage} hasImage={true} />
             )}
+            <Button variant="outline" size="sm" onClick={undo} disabled={!canUndo} aria-label="Undo" className="px-2">
+              <Undo2 className="size-3.5" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={redo} disabled={!canRedo} aria-label="Redo" className="px-2">
+              <Redo2 className="size-3.5" />
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -539,6 +636,24 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             multiple={batchLimit > 1}
             uploadDetail={`or click to browse. PNG, JPG, or WebP up to 15MB each. Up to ${batchLimit} photos.`}
             coverageClearedAt={coverageClearedAt}
+            layers={layers}
+            activeLayerId={activeLayerId}
+            sampling={sampling}
+            onSample={(hex) => {
+              if (sampling === "outline") setOutlineColor(hex)
+              else if (sampling === "shadow") setShadowColor(hex)
+              else setColor(hex)
+              setSampling(null)
+            }}
+            onFreeMove={(x, y) => {
+              setFreeX(x)
+              setFreeY(y)
+            }}
+            onRotate={setRotation}
+            onResize={(size) => {
+              if (state.watermarkMode === "text" || state.watermarkMode === "emoji") setFontSize(size)
+              else setStampSize(size)
+            }}
           />
           {photos.length > 0 && (
             <BatchStrip
@@ -590,6 +705,25 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
             onDateStampChange={setDateStamp}
             onCropAspectChange={setCropAspect}
             onQuarterTurnsChange={setQuarterTurns}
+            onEmojiChange={setEmoji}
+            onStickerChange={setStickerId}
+            onGradientOnChange={setGradientOn}
+            onGradientAChange={setGradientA}
+            onGradientBChange={setGradientB}
+            onGradientCChange={setGradientC}
+            onGradientAngleChange={setGradientAngle}
+            onGrayscaleChange={setGrayscale}
+            onSampleRequest={setSampling}
+            layers={layers}
+            activeLayerId={activeLayerId}
+            layerLimit={layerLimit}
+            onSelectLayer={selectLayer}
+            onAddLayer={addLayer}
+            onDuplicateLayer={duplicateLayer}
+            onDeleteLayer={deleteLayer}
+            onMoveLayer={moveLayer}
+            onHideLayer={toggleLayerHidden}
+            onLockLayer={toggleLayerLocked}
             onClearCoverage={handleClearCoverage}
             onApplySettings={applySettings}
           />
@@ -603,6 +737,8 @@ export function EditorPage({ onNavigateHome, initialData }: EditorPageProps) {
               onChange={setExportFormat}
               onLongEdgeChange={setExportLongEdge}
               onQualityChange={setExportQuality}
+              keepInfo={state.keepInfo}
+              onKeepInfoChange={setKeepInfo}
             />
             {session && savedUsage && (
               <p className={cn(

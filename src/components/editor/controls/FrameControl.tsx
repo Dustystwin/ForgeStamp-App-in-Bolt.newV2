@@ -6,8 +6,10 @@ import { cn } from "@/lib/utils"
 interface FrameControlProps {
   aspect: CropAspect
   quarterTurns: number
+  grayscale: boolean
   onAspectChange: (value: CropAspect) => void
   onQuarterTurnsChange: (value: number) => void
+  onGrayscaleChange: (value: boolean) => void
 }
 
 const ASPECTS: { value: CropAspect; label: string }[] = [
@@ -20,7 +22,9 @@ const ASPECTS: { value: CropAspect; label: string }[] = [
   { value: "16:9", label: "16:9" },
 ]
 
-export function FrameControl({ aspect, quarterTurns, onAspectChange, onQuarterTurnsChange }: FrameControlProps) {
+export function FrameControl({
+  aspect, quarterTurns, grayscale, onAspectChange, onQuarterTurnsChange, onGrayscaleChange,
+}: FrameControlProps) {
   return (
     <div className="space-y-1.5">
       <Label className="text-xs font-medium">Crop and rotate</Label>
@@ -52,6 +56,17 @@ export function FrameControl({ aspect, quarterTurns, onAspectChange, onQuarterTu
       >
         <RotateCw className="size-3.5" />
         Rotate 90°{quarterTurns ? ` · ${quarterTurns * 90}°` : ""}
+      </button>
+      <button
+        type="button"
+        aria-pressed={grayscale}
+        onClick={() => onGrayscaleChange(!grayscale)}
+        className={cn(
+          "min-h-9 w-full rounded-md border px-2 py-1.5 text-[11px] font-medium",
+          grayscale ? "border-primary bg-primary/15 text-primary" : "border-border/60 bg-muted/40 text-foreground"
+        )}
+      >
+        {grayscale ? "Black and white on" : "Black and white"}
       </button>
       <p className="text-[10px] leading-snug text-muted-foreground">
         Crops from the center before the watermark. A batch uses the same crop on every photo.

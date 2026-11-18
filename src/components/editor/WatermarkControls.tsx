@@ -30,10 +30,16 @@ import { DateStampControl } from "./controls/DateStampControl"
 import { TextStyleControl } from "./controls/TextStyleControl"
 import { FrameControl } from "./controls/FrameControl"
 import { SignatureControl } from "./controls/SignatureControl"
+import { LayerPanel } from "./controls/LayerPanel"
+import { EyedropperButton } from "./controls/EyedropperButton"
+import { EMOJI_CHOICES, STICKERS } from "@/lib/stickers"
+import type { MarkLayer } from "@/lib/mark-layer"
 import { useAuth } from "@/context/AuthContext"
 import { canUseSparkTools } from "@/lib/plans"
+import { toast } from "sonner"
 import type { PresetSettings } from "@/lib/preset-settings"
 import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 
@@ -69,6 +75,25 @@ interface WatermarkControlsProps {
   onDateStampChange: (value: DateStampFormat) => void
   onCropAspectChange: (value: CropAspect) => void
   onQuarterTurnsChange: (value: number) => void
+  onEmojiChange: (value: string) => void
+  onStickerChange: (value: string) => void
+  onGradientOnChange: (value: boolean) => void
+  onGradientAChange: (value: string) => void
+  onGradientBChange: (value: string) => void
+  onGradientCChange: (value: string) => void
+  onGradientAngleChange: (value: number) => void
+  onGrayscaleChange: (value: boolean) => void
+  onSampleRequest: (target: "color" | "outline" | "shadow") => void
+  layers: MarkLayer[]
+  activeLayerId: string
+  layerLimit: number
+  onSelectLayer: (id: string) => void
+  onAddLayer: (limit: number) => boolean
+  onDuplicateLayer: (limit: number) => boolean
+  onDeleteLayer: (id: string) => void
+  onMoveLayer: (id: string, direction: -1 | 1) => void
+  onHideLayer: (id: string) => void
+  onLockLayer: (id: string) => void
   onClearCoverage: () => void
   onApplySettings: (settings: PresetSettings) => void
 }
@@ -113,6 +138,25 @@ export function WatermarkControls({
   onDateStampChange,
   onCropAspectChange,
   onQuarterTurnsChange,
+  onEmojiChange,
+  onStickerChange,
+  onGradientOnChange,
+  onGradientAChange,
+  onGradientBChange,
+  onGradientCChange,
+  onGradientAngleChange,
+  onGrayscaleChange,
+  onSampleRequest,
+  layers,
+  activeLayerId,
+  layerLimit,
+  onSelectLayer,
+  onAddLayer,
+  onDuplicateLayer,
+  onDeleteLayer,
+  onMoveLayer,
+  onHideLayer,
+  onLockLayer,
   onClearCoverage,
   onApplySettings,
 }: WatermarkControlsProps) {
@@ -123,18 +167,32 @@ export function WatermarkControls({
   // bend text, so those toggles stay hidden for a logo or QR.
   const showCurve =
     state.coverageMode === "full" &&
-    (mode === "text"
+    (mode === "text" || mode === "emoji"
       ? ["radial", "spiral", "concentric"].includes(state.pattern)
       : state.pattern === "radial")
 
   return (
     <div className="space-y-4">
-      <WatermarkModeControl value={mode} signatureUnlocked={spark} onChange={onModeChange} />
+      <LayerPanel
+        layers={layers}
+        activeId={activeLayerId}
+        limit={layerLimit}
+        onSelect={onSelectLayer}
+        onAdd={onAddLayer}
+        onDuplicate={onDuplicateLayer}
+        onDelete={onDeleteLayer}
+        onMove={onMoveLayer}
+        onHide={onHideLayer}
+        onLock={onLockLayer}
+      />
+      <WatermarkModeControl value={mode} signatureUnlocked={spark} stickerUnlocked={spark} onChange={onModeChange} />
       <FrameControl
         aspect={state.cropAspect}
         quarterTurns={state.quarterTurns}
+        grayscale={state.grayscale}
         onAspectChange={onCropAspectChange}
         onQuarterTurnsChange={onQuarterTurnsChange}
+        onGrayscaleChange={onGrayscaleChange}
       />
       <PresetControl state={state} onApply={onApplySettings} />
 
@@ -164,6 +222,81 @@ export function WatermarkControls({
             onShadowBlurChange={onShadowBlurChange}
             onShadowOffsetXChange={onShadowOffsetXChange}
             onShadowOffsetYChange={onShadowOffsetYChange}
+          />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium">Gradient fill</p>
+              <button
+                type="button"
+                className={cn("min-h-8 rounded-md border px-2 text-[10px] font-medium", state.gradientOn && spark ? "border-primary text-primary" : "border-border/60", !spark && "opacity-60")}
+                onClick={() => {
+                  if (!spark) {
+                    toast("Gradient text is included with Spark and Forge. Those plans are not for sale.")
+                    return
+                  }
+                  onGradientOnChange(!state.gradientOn)
+                }}
+              >
+                {spark ? (state.gradientOn ? "On" : "Off") : "Spark"}
+              </button>
+            </div>
+            {spark && state.gradientOn && (
+              <div className="flex flex-wrap items-center gap-2">
+                <input aria-label="Gradient start" type="color" value={state.gradientA} onChange={(e) => onGradientAChange(e.target.value)} className="h-8 w-10" />
+                <input aria-label="Gradient middle" type="color" value={state.gradientB} onChange={(e) => onGradientBChange(e.target.value)} className="h-8 w-10" />
+                <input aria-label="Gradient end" type="color" value={state.gradientC || "#111111"} onChange={(e) => onGradientCChange(e.target.value)} className="h-8 w-10" />
+                <label className="text-[10px] text-muted-foreground">Angle {state.gradientAngle}</label>
+                <input aria-label="Gradient angle" type="range" min={0} max={360} value={state.gradientAngle} onChange={(e) => onGradientAngleChange(Number(e.target.value))} className="w-full" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {mode === "emoji" && (
+        <div className="space-y-2">
+          <SectionLabel>Emoji</SectionLabel>
+          <div className="grid grid-cols-8 gap-1">
+            {EMOJI_CHOICES.map((item) => (
+              <button
+                key={item}
+                type="button"
+                aria-pressed={state.emoji === item}
+                className={cn("min-h-9 rounded-md border text-lg", state.emoji === item ? "border-primary bg-primary/10" : "border-border/50")}
+                onClick={() => onEmojiChange(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          <FontSizeControl value={state.fontSize} onChange={onFontSizeChange} />
+        </div>
+      )}
+
+      {mode === "sticker" && (
+        <div className="space-y-2">
+          <SectionLabel>Stickers</SectionLabel>
+          <div className="grid grid-cols-4 gap-1.5">
+            {STICKERS.map((sticker) => (
+              <button
+                key={sticker.id}
+                type="button"
+                aria-pressed={state.stickerId === sticker.id}
+                className={cn("rounded-md border p-1 text-[10px]", state.stickerId === sticker.id ? "border-primary" : "border-border/50")}
+                onClick={() => onStickerChange(sticker.id)}
+              >
+                <img src={`data:image/svg+xml;utf8,${encodeURIComponent(sticker.svg)}`} alt="" className="mx-auto h-10 w-10" />
+                {sticker.label}
+              </button>
+            ))}
+          </div>
+          <FontSizeControl
+            id="sticker-size"
+            label="Size"
+            min={STAMP_SIZE_MIN}
+            max={STAMP_SIZE_MAX}
+            value={state.stampSize}
+            onChange={onStampSizeChange}
           />
         </div>
       )}
@@ -222,7 +355,12 @@ export function WatermarkControls({
 
       <div className="space-y-3">
         <SectionLabel>Style</SectionLabel>
-        {mode === "text" && <ColorControl value={state.color} onChange={onColorChange} />}
+        {mode === "text" && (
+          <div className="flex items-end gap-2">
+            <div className="flex-1"><ColorControl value={state.color} onChange={onColorChange} /></div>
+            <EyedropperButton onPick={onColorChange} onFallback={() => onSampleRequest("color")} />
+          </div>
+        )}
         {mode === "qr" && <ColorControl value={state.qrColor} onChange={onQrColorChange} />}
         <OpacityControl value={state.opacity} onChange={onOpacityChange} />
       </div>
@@ -241,14 +379,32 @@ export function WatermarkControls({
         <CoverageModeControl value={state.coverageMode} onChange={onCoverageModeChange} />
         {state.coverageMode === "full" && (
           <>
-            <PatternControl value={state.pattern} onChange={onPatternChange} />
+            <PatternControl
+              value={state.pattern}
+              coverage={state.coverageMode}
+              onSingle={() => onCoverageModeChange("single")}
+              onChange={(pattern) => {
+                onCoverageModeChange("full")
+                onPatternChange(pattern)
+              }}
+            />
             {showCurve && (
               <CurveOrientationControl
                 value={state.curveOrientation}
                 onChange={onCurveOrientationChange}
               />
             )}
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Spacing, size, rotation, and opacity apply to every pattern and every kind of mark.
+            </p>
             <DensityControl value={state.density} onChange={onDensityChange} />
+            {mode === "text" || mode === "emoji" ? (
+              <FontSizeControl value={state.fontSize} onChange={onFontSizeChange} />
+            ) : (
+              <FontSizeControl id="pattern-stamp-size" label="Size" min={STAMP_SIZE_MIN} max={STAMP_SIZE_MAX} value={state.stampSize} onChange={onStampSizeChange} />
+            )}
+            <RotationControl value={state.rotation} onChange={onRotationChange} />
+            <OpacityControl value={state.opacity} onChange={onOpacityChange} />
             <Button
               variant="outline"
               size="sm"

@@ -12,6 +12,8 @@ import { canvasToBlob, closeBitmap, releaseCanvas, scaledPreviewBlob } from "@/l
 import { frameBitmap, needsFrame } from "@/lib/frame-image"
 import type { CropAspect, DateStampFormat } from "@/lib/editor-types"
 import { composeWatermarkText, paintFill, scaledTextPaint, textPaintPadding, type TextPaint } from "@/lib/text-style"
+import { stickerUrl } from "@/lib/stickers"
+import { copyJpegExif } from "@/lib/keep-photo-info"
 import {
   getPatternPoints,
   measureTextStamp,
@@ -212,6 +214,8 @@ export interface ImageStampOptions {
   curveOrientation: CurveOrientation
   imageWidth: number
   imageHeight: number
+  freeX?: number | null
+  freeY?: number | null
 }
 
 // Single-placement center. The mark's own size and rotation decide how far
@@ -271,7 +275,7 @@ export function drawImageWatermark(
 ): void {
   const {
     stampSize, opacity, rotation, placement, coverageMode, pattern, density,
-    curveOrientation, imageWidth, imageHeight,
+    curveOrientation, imageWidth, imageHeight, freeX, freeY,
   } = opts
   const { w: srcW, h: srcH } = sourceSize(source)
   if (srcW < 1 || srcH < 1) return
@@ -313,7 +317,9 @@ export function drawImageWatermark(
       paint(pt.x, pt.y, totalRotation + pt.angle, pt.fontScale ?? 1)
     }
   } else {
-    const anchor = placedStampCenter(placement, imageWidth, imageHeight, box, box, totalRotation)
+    const anchor = freeX != null && freeY != null
+      ? { x: freeX * imageWidth, y: freeY * imageHeight }
+      : placedStampCenter(placement, imageWidth, imageHeight, box, box, totalRotation)
     paint(anchor.x, anchor.y, totalRotation, 1)
   }
 
@@ -348,6 +354,19 @@ export interface CanvasWatermarkOptions {
   shadowOffsetX?: number
   shadowOffsetY?: number
   dateStamp?: DateStampFormat
+  emoji?: string
+  stickerId?: string
+  freeX?: number | null
+  freeY?: number | null
+  gradientOn?: boolean
+  gradientA?: string
+  gradientB?: string
+  gradientC?: string
+  gradientAngle?: number
+  grayscale?: boolean
+  keepInfo?: boolean
+  marksOnly?: boolean
+  extraMarks?: CanvasWatermarkOptions[]
   frameAspect?: CropAspect
   quarterTurns?: number
   longEdge?: number | null
@@ -367,6 +386,11 @@ async function loadStampSource(opts: CanvasWatermarkOptions): Promise<HTMLImageE
     if (!opts.signatureUrl) return null
     return loadHtmlImage(opts.signatureUrl)
   }
+  if (opts.mode === "sticker") {
+    const url = stickerUrl(opts.stickerId || "heart")
+    if (!url) return null
+    return loadHtmlImage(url)
+  }
   if (opts.mode === "qr") {
     const dataUrl = renderQrDataUrl(opts.qrUrl ?? "", opts.color)
     if (!dataUrl) return null
@@ -382,21 +406,32 @@ export async function drawWatermarkOnCanvas(
 ): Promise<void> {
   const { fontFamily, fontSize, color, opacity, rotation, placement,
     textDirection, coverageMode, pattern, density, imageWidth, imageHeight } = opts
-  const text = composeWatermarkText(opts.text, opts.dateStamp ?? "off")
-  const curveOrientation = opts.curveOrientation ?? "readable"
   const mode = opts.mode ?? "text"
+  const text = mode === "emoji"
+    ? (opts.emoji || "📷")
+    : composeWatermarkText(opts.text, opts.dateStamp ?? "off")
+  const curveOrientation = opts.curveOrientation ?? "readable"
+  const drawFont = mode === "emoji"
+    ? "Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif"
+    : fontFamily
 
-  canvas.width = imageWidth
-  canvas.height = imageHeight
+  if (!opts.marksOnly) {
+    canvas.width = imageWidth
+    canvas.height = imageHeight
+  }
 
   const ctx = canvas.getContext("2d")!
-  if (opts.matte) {
-    ctx.fillStyle = opts.matte
-    ctx.fillRect(0, 0, imageWidth, imageHeight)
+  if (!opts.marksOnly) {
+    if (opts.matte) {
+      ctx.fillStyle = opts.matte
+      ctx.fillRect(0, 0, imageWidth, imageHeight)
+    }
+    if (opts.grayscale) ctx.filter = "grayscale(1)"
+    ctx.drawImage(image, 0, 0, imageWidth, imageHeight)
+    ctx.filter = "none"
   }
-  ctx.drawImage(image, 0, 0, imageWidth, imageHeight)
 
-  if (mode === "logo" || mode === "qr" || mode === "signature") {
+  if (mode === "logo" || mode === "qr" || mode === "signature" || mode === "sticker") {
     const source = await loadStampSource(opts)
     if (source) {
       drawImageWatermark(ctx, source, {
@@ -410,6 +445,8 @@ export async function drawWatermarkOnCanvas(
         curveOrientation,
         imageWidth,
         imageHeight,
+        freeX: opts.freeX,
+        freeY: opts.freeY,
       })
     }
     return
@@ -423,13 +460,13 @@ export async function drawWatermarkOnCanvas(
   // trigger loading of a web font that hasn't been used in the DOM yet, which
   // would make the export silently fall back to a generic font.
   try {
-    await document.fonts.load(`bold ${clampedFontSize}px "${fontFamily}"`, text || "M")
+    await document.fonts.load(`bold ${clampedFontSize}px "${drawFont}"`, text || "M")
   } catch {
     // Local/system fonts (e.g. Arial) are not in the FontFaceSet — that's fine.
   }
   await document.fonts.ready
 
-  ctx.font = `bold ${clampedFontSize}px "${fontFamily}", sans-serif`
+  ctx.font = `bold ${clampedFontSize}px ${drawFont}, sans-serif`
   ctx.fillStyle = color
   ctx.globalAlpha = opacity / 100
   ctx.textAlign = "center"
@@ -457,12 +494,15 @@ export async function drawWatermarkOnCanvas(
     shadowBlur: opts.shadowBlur ?? 0,
     shadowOffsetX: opts.shadowOffsetX ?? 0,
     shadowOffsetY: opts.shadowOffsetY ?? 0,
+    gradientOn: opts.gradientOn,
+    gradientColors: [opts.gradientA ?? "", opts.gradientB ?? "", opts.gradientC ?? ""],
+    gradientAngle: opts.gradientAngle,
   })
   const measured = measureTextStamp(
     ctx,
     text || "\u00A0",
     clampedFontSize,
-    fontFamily,
+    drawFont,
     stacked && !isShapePattern,
   )
   const pad = textPaintPadding(paint)
@@ -486,14 +526,16 @@ export async function drawWatermarkOnCanvas(
       drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward, paint)
     }
   } else {
-    const { x, y } = placedStampCenter(
-      placement,
-      imageWidth,
-      imageHeight,
-      measured.width,
-      measured.height,
-      totalRotation,
-    )
+    const { x, y } = opts.freeX != null && opts.freeY != null
+      ? { x: opts.freeX * imageWidth, y: opts.freeY * imageHeight }
+      : placedStampCenter(
+        placement,
+        imageWidth,
+        imageHeight,
+        measured.width,
+        measured.height,
+        totalRotation,
+      )
 
     ctx.save()
     ctx.translate(x, y)
@@ -552,14 +594,21 @@ export async function exportWatermarked(
       height = framed.height
       closeBitmap(bitmap)
     }
-    await drawWatermarkOnCanvas(canvas, source, {
-      ...opts,
-      imageWidth: width,
-      imageHeight: height,
-      matte: format === "jpeg" ? "#ffffff" : opts.matte,
-    })
-    const blob = await canvasToBlob(canvas, mime, quality)
-    if (!blob || blob.size <= 0 || (blob.type && blob.type !== mime)) {
+    const marks = opts.extraMarks && opts.extraMarks.length > 0 ? opts.extraMarks : [opts]
+    for (let i = 0; i < marks.length; i++) {
+      await drawWatermarkOnCanvas(canvas, source, {
+        ...marks[i],
+        imageWidth: width,
+        imageHeight: height,
+        marksOnly: i > 0,
+        grayscale: i === 0 ? marks[i].grayscale : false,
+        matte: i === 0 && format === "jpeg" ? "#ffffff" : i === 0 ? opts.matte : undefined,
+        keepInfo: opts.keepInfo,
+      })
+    }
+    const drawn = await canvasToBlob(canvas, mime, quality)
+    const blob = drawn && opts.keepInfo && format === "jpeg" ? await copyJpegExif(image, drawn) : drawn
+    if (!blob || blob.size <= 0 || (blob.type && blob.type !== mime && blob.type !== "image/jpeg")) {
       throw new Error("This browser could not export that format.")
     }
     // Preview while the full canvas is still alive, so the gallery does not

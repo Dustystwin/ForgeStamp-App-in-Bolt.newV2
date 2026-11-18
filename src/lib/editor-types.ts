@@ -9,7 +9,7 @@ export type CurveOrientation = "readable" | "natural"
 
 export type CoverageMode = "single" | "full"
 
-export type WatermarkMode = "text" | "logo" | "qr" | "signature"
+export type WatermarkMode = "text" | "logo" | "qr" | "signature" | "emoji" | "sticker"
 
 export type ExportFormat = "png" | "jpeg" | "webp"
 
@@ -18,7 +18,7 @@ export type DateStampFormat = "off" | "medium" | "numeric" | "year"
 export type CropAspect = "original" | "1:1" | "4:5" | "3:4" | "2:3" | "9:16" | "16:9"
 
 export function isWatermarkMode(value: unknown): value is WatermarkMode {
-  return value === "text" || value === "logo" || value === "qr" || value === "signature"
+  return value === "text" || value === "logo" || value === "qr" || value === "signature" || value === "emoji" || value === "sticker"
 }
 
 export function isDateStampFormat(value: unknown): value is DateStampFormat {
@@ -85,6 +85,17 @@ export interface EditorState {
   dateStamp: DateStampFormat
   cropAspect: CropAspect
   quarterTurns: number
+  emoji: string
+  stickerId: string
+  freeX: number | null
+  freeY: number | null
+  gradientOn: boolean
+  gradientA: string
+  gradientB: string
+  gradientC: string
+  gradientAngle: number
+  grayscale: boolean
+  keepInfo: boolean
   // Session-only drawing. Not stored with saved images or presets.
   signaturePreviewUrl: string | null
   error: string | null
@@ -212,6 +223,17 @@ export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl"
   dateStamp: "off",
   cropAspect: "original",
   quarterTurns: 0,
+  emoji: "📷",
+  stickerId: "heart",
+  freeX: null,
+  freeY: null,
+  gradientOn: false,
+  gradientA: "#FF8A00",
+  gradientB: "#FFFFFF",
+  gradientC: "",
+  gradientAngle: 90,
+  grayscale: false,
+  keepInfo: false,
 }
 
 export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"]

@@ -12,7 +12,9 @@ interface ExportFormatControlProps {
   quality: number
   onChange: (value: ExportFormat) => void
   onLongEdgeChange: (value: number) => void
+  keepInfo: boolean
   onQualityChange: (value: number) => void
+  onKeepInfoChange: (value: boolean) => void
 }
 
 export function ExportFormatControl({
@@ -22,7 +24,9 @@ export function ExportFormatControl({
   quality,
   onChange,
   onLongEdgeChange,
+  keepInfo,
   onQualityChange,
+  onKeepInfoChange,
 }: ExportFormatControlProps) {
   const allowed = allowedFormats(plan)
   const shown = resolveExportFormat(plan, value)
@@ -111,6 +115,20 @@ export function ExportFormatControl({
           />
         </div>
       )}
+      <button
+        type="button"
+        aria-pressed={keepInfo}
+        onClick={() => onKeepInfoChange(!keepInfo)}
+        className={cn(
+          "min-h-9 w-full rounded-md border px-2 py-1.5 text-left text-[10px] font-medium",
+          keepInfo ? "border-primary bg-primary/10 text-primary" : "border-border/60 bg-muted/40 text-foreground"
+        )}
+      >
+        {keepInfo ? "Try to keep camera info" : "Remove camera info"}
+      </button>
+      <p className="text-[10px] leading-snug text-muted-foreground">
+        Downloads are drawn fresh, so camera info is removed. On a JPG, Keep copies the original EXIF block when the file has one. PNG and WebP cannot keep it.
+      </p>
       <p className="text-[10px] leading-snug text-muted-foreground">
         {plan === "free"
           ? "Free downloads a PNG at the photo's original size. Outline, date, and crop are included."

@@ -1,4 +1,4 @@
-import { ImageIcon, PenLine, QrCode, Type } from "lucide-react"
+import { ImageIcon, PenLine, QrCode, Smile, Sticker, Type } from "lucide-react"
 import { toast } from "sonner"
 import type { WatermarkMode } from "@/lib/editor-types"
 import { cn } from "@/lib/utils"
@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 interface WatermarkModeControlProps {
   value: WatermarkMode
   signatureUnlocked: boolean
+  stickerUnlocked: boolean
   onChange: (value: WatermarkMode) => void
 }
 
@@ -14,18 +15,20 @@ const OPTIONS: { value: WatermarkMode; label: string; hint: string; icon: typeof
   { value: "logo", label: "Logo", hint: "Your own image, stamped on the photo.", icon: ImageIcon },
   { value: "qr", label: "QR", hint: "A scannable code that opens a link.", icon: QrCode },
   { value: "signature", label: "Sign", hint: "A signature you draw, stamped like a logo.", icon: PenLine },
+  { value: "emoji", label: "Emoji", hint: "A native emoji, stamped like words.", icon: Smile },
+  { value: "sticker", label: "Sticker", hint: "A simple ForgeStamp sticker.", icon: Sticker },
 ]
 
-export function WatermarkModeControl({ value, signatureUnlocked, onChange }: WatermarkModeControlProps) {
+export function WatermarkModeControl({ value, signatureUnlocked, stickerUnlocked, onChange }: WatermarkModeControlProps) {
   const selected = OPTIONS.find((opt) => opt.value === value) ?? OPTIONS[0]
 
   return (
     <div className="space-y-1.5">
       <p className="text-xs font-medium">Watermark</p>
-      <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Watermark type">
+      <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Watermark type">
         {OPTIONS.map((opt) => {
           const isSelected = value === opt.value
-          const locked = opt.value === "signature" && !signatureUnlocked
+          const locked = (opt.value === "signature" && !signatureUnlocked) || (opt.value === "sticker" && !stickerUnlocked)
           const Icon = opt.icon
           return (
             <button
@@ -33,7 +36,9 @@ export function WatermarkModeControl({ value, signatureUnlocked, onChange }: Wat
               type="button"
               onClick={() => {
                 if (locked) {
-                  toast("Signature watermarks are included with Spark and Forge. Those plans are not for sale.")
+                  toast(opt.value === "sticker"
+                    ? "The sticker pack is included with Spark and Forge. Those plans are not for sale."
+                    : "Signature watermarks are included with Spark and Forge. Those plans are not for sale.")
                   return
                 }
                 onChange(opt.value)

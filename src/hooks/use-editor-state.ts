@@ -33,6 +33,7 @@ import {
 } from "@/lib/editor-types"
 import { isExportFormat, type PresetSettings } from "@/lib/preset-settings"
 import { scheduleThumb, thumbnailBlob } from "@/lib/image-resources"
+import { createLayer, layerName, type MarkLayer, type MarkSnap } from "@/lib/mark-layer"
 import type { EditorInitialData } from "@/App"
 
 export interface EditorPhoto {
@@ -149,6 +150,21 @@ export function useEditorState(initialData?: EditorInitialData) {
     if (typeof n !== "number" || !Number.isFinite(n)) return 0
     return ((Math.round(n) % 4) + 4) % 4
   })
+  const [emoji, setEmoji] = useState(typeof init.emoji === "string" && init.emoji ? init.emoji : DEFAULT_EDITOR_STATE.emoji)
+  const [stickerId, setStickerId] = useState(typeof init.stickerId === "string" && init.stickerId ? init.stickerId : DEFAULT_EDITOR_STATE.stickerId)
+  const [freeX, setFreeX] = useState<number | null>(typeof init.freeX === "number" ? init.freeX : null)
+  const [freeY, setFreeY] = useState<number | null>(typeof init.freeY === "number" ? init.freeY : null)
+  const [gradientOn, setGradientOn] = useState(init.gradientOn === true)
+  const [gradientA, setGradientA] = useState(typeof init.gradientA === "string" ? init.gradientA : DEFAULT_EDITOR_STATE.gradientA)
+  const [gradientB, setGradientB] = useState(typeof init.gradientB === "string" ? init.gradientB : DEFAULT_EDITOR_STATE.gradientB)
+  const [gradientC, setGradientC] = useState(typeof init.gradientC === "string" ? init.gradientC : DEFAULT_EDITOR_STATE.gradientC)
+  const [gradientAngle, setGradientAngle] = useState(() => {
+    const n = init.gradientAngle
+    if (typeof n !== "number" || !Number.isFinite(n)) return DEFAULT_EDITOR_STATE.gradientAngle
+    return Math.min(360, Math.max(0, Math.round(n)))
+  })
+  const [grayscale, setGrayscale] = useState(init.grayscale === true)
+  const [keepInfo, setKeepInfo] = useState(init.keepInfo === true)
   const [signaturePreviewUrl, setSignaturePreviewUrl] = useState<string | null>(null)
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
   const [logoName, setLogoName] = useState<string | null>(null)
@@ -431,6 +447,18 @@ export function useEditorState(initialData?: EditorInitialData) {
     setDateStamp(DEFAULT_EDITOR_STATE.dateStamp)
     setCropAspect(DEFAULT_EDITOR_STATE.cropAspect)
     setQuarterTurns(DEFAULT_EDITOR_STATE.quarterTurns)
+    setEmoji(DEFAULT_EDITOR_STATE.emoji)
+    setStickerId(DEFAULT_EDITOR_STATE.stickerId)
+    setFreeX(null)
+    setFreeY(null)
+    setGradientOn(false)
+    setGradientA(DEFAULT_EDITOR_STATE.gradientA)
+    setGradientB(DEFAULT_EDITOR_STATE.gradientB)
+    setGradientC("")
+    setGradientAngle(DEFAULT_EDITOR_STATE.gradientAngle)
+    setGrayscale(false)
+    setKeepInfo(false)
+    setLayers([createLayer({}, "Text")])
     releaseLogo()
     clearSignature()
     setError(null)
@@ -468,7 +496,223 @@ export function useEditorState(initialData?: EditorInitialData) {
     setDateStamp(settings.dateStamp)
     setCropAspect(settings.cropAspect)
     setQuarterTurns(settings.quarterTurns)
+    setEmoji(settings.emoji)
+    setStickerId(settings.stickerId)
+    setFreeX(settings.freeX)
+    setFreeY(settings.freeY)
+    setGradientOn(settings.gradientOn)
+    setGradientA(settings.gradientA)
+    setGradientB(settings.gradientB)
+    setGradientC(settings.gradientC)
+    setGradientAngle(settings.gradientAngle)
+    setGrayscale(settings.grayscale)
+    setKeepInfo(settings.keepInfo)
+    if (settings.layers && settings.layers.length > 0) {
+      skipSync.current += 1
+      setLayers(settings.layers)
+      setActiveLayerId(settings.layers[0].id)
+    }
     setError(null)
+  }, [])
+
+  const snapNow = useCallback((): MarkSnap => ({
+    watermarkMode, watermarkText, emoji, stickerId, fontFamily, fontSize, color, opacity, rotation,
+    placement, freeX, freeY, textDirection, coverageMode, pattern, density, curveOrientation,
+    stampSize, qrUrl, qrColor, outlineWidth, outlineColor, shadowEnabled, shadowColor, shadowBlur,
+    shadowOffsetX, shadowOffsetY, dateStamp, gradientOn, gradientA, gradientB, gradientC, gradientAngle,
+  }), [
+    watermarkMode, watermarkText, emoji, stickerId, fontFamily, fontSize, color, opacity, rotation,
+    placement, freeX, freeY, textDirection, coverageMode, pattern, density, curveOrientation,
+    stampSize, qrUrl, qrColor, outlineWidth, outlineColor, shadowEnabled, shadowColor, shadowBlur,
+    shadowOffsetX, shadowOffsetY, dateStamp, gradientOn, gradientA, gradientB, gradientC, gradientAngle,
+  ])
+
+  const [layers, setLayers] = useState<MarkLayer[]>(() => [createLayer({}, "Text")])
+  const [activeLayerId, setActiveLayerId] = useState(() => "")
+  const skipSync = useRef(0)
+  const past = useRef<string[]>([])
+  const future = useRef<string[]>([])
+  const [historyTick, setHistoryTick] = useState(0)
+  const bootLayer = useRef(false)
+
+  useEffect(() => {
+    if (bootLayer.current) return
+    bootLayer.current = true
+    setLayers((current) => {
+      const first = current[0]
+      if (!first) return current
+      setActiveLayerId(first.id)
+      return [{ ...first, snap: snapNow() }]
+    })
+    // Only the first settings.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!activeLayerId) return
+    if (skipSync.current > 0) {
+      skipSync.current -= 1
+      return
+    }
+    const snap = snapNow()
+    setLayers((current) => current.map((layer) => (
+      layer.id === activeLayerId ? { ...layer, name: layerName(snap.watermarkMode), snap } : layer
+    )))
+  }, [activeLayerId, snapNow])
+
+  const applySnap = useCallback((snap: MarkSnap) => {
+    skipSync.current += 1
+    setWatermarkMode(snap.watermarkMode)
+    setWatermarkText(snap.watermarkText)
+    setEmoji(snap.emoji)
+    setStickerId(snap.stickerId)
+    setFontFamily(snap.fontFamily)
+    setFontSize(snap.fontSize)
+    setColor(snap.color)
+    setOpacity(snap.opacity)
+    setRotation(snap.rotation)
+    setPlacement(snap.placement)
+    setFreeX(snap.freeX)
+    setFreeY(snap.freeY)
+    setTextDirection(snap.textDirection)
+    setCoverageMode(snap.coverageMode)
+    setPattern(snap.pattern)
+    setDensity(snap.density)
+    setCurveOrientation(snap.curveOrientation)
+    setStampSize(snap.stampSize)
+    setQrUrl(snap.qrUrl)
+    setQrColor(snap.qrColor)
+    setOutlineWidth(snap.outlineWidth)
+    setOutlineColor(snap.outlineColor)
+    setShadowEnabled(snap.shadowEnabled)
+    setShadowColor(snap.shadowColor)
+    setShadowBlur(snap.shadowBlur)
+    setShadowOffsetX(snap.shadowOffsetX)
+    setShadowOffsetY(snap.shadowOffsetY)
+    setDateStamp(snap.dateStamp)
+    setGradientOn(snap.gradientOn)
+    setGradientA(snap.gradientA)
+    setGradientB(snap.gradientB)
+    setGradientC(snap.gradientC)
+    setGradientAngle(snap.gradientAngle)
+  }, [])
+
+  const lastRecorded = useRef("")
+  const skipHistory = useRef(false)
+
+  useEffect(() => {
+    const payload = JSON.stringify({ layers, activeLayerId })
+    if (skipHistory.current) {
+      skipHistory.current = false
+      lastRecorded.current = payload
+      return
+    }
+    const timer = window.setTimeout(() => {
+      if (lastRecorded.current && lastRecorded.current !== payload) {
+        past.current.push(lastRecorded.current)
+        if (past.current.length > 40) past.current.shift()
+        future.current = []
+        setHistoryTick((n) => n + 1)
+      }
+      lastRecorded.current = payload
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [layers, activeLayerId])
+
+  const restoreHistory = useCallback((raw: string) => {
+    const parsed = JSON.parse(raw) as { layers: MarkLayer[]; activeLayerId: string }
+    skipHistory.current = true
+    skipSync.current += 1
+    setLayers(parsed.layers)
+    setActiveLayerId(parsed.activeLayerId)
+    const active = parsed.layers.find((layer) => layer.id === parsed.activeLayerId) ?? parsed.layers[0]
+    if (active) applySnap(active.snap)
+  }, [applySnap])
+
+  const undo = useCallback(() => {
+    const previous = past.current.pop()
+    if (!previous) return
+    future.current.push(JSON.stringify({ layers, activeLayerId }))
+    restoreHistory(previous)
+    setHistoryTick((n) => n + 1)
+  }, [layers, activeLayerId, restoreHistory])
+
+  const redo = useCallback(() => {
+    const next = future.current.pop()
+    if (!next) return
+    past.current.push(JSON.stringify({ layers, activeLayerId }))
+    restoreHistory(next)
+    setHistoryTick((n) => n + 1)
+  }, [layers, activeLayerId, restoreHistory])
+
+  const selectLayer = useCallback((id: string) => {
+    if (id === activeLayerId) return
+    const target = layers.find((layer) => layer.id === id)
+    if (!target) return
+    skipSync.current += 1
+    setLayers((current) => current.map((layer) => (
+      layer.id === activeLayerId ? { ...layer, snap: snapNow() } : layer
+    )))
+    applySnap(target.snap)
+    setActiveLayerId(id)
+  }, [activeLayerId, layers, snapNow, applySnap])
+
+  const addLayer = useCallback((limit: number) => {
+    if (layers.length >= limit) return false
+    const created = createLayer({ watermarkText: "Your Text" }, `Mark ${layers.length + 1}`)
+    skipSync.current += 1
+    setLayers((current) => [
+      ...current.map((layer) => layer.id === activeLayerId ? { ...layer, snap: snapNow() } : layer),
+      created,
+    ])
+    applySnap(created.snap)
+    setActiveLayerId(created.id)
+    return true
+  }, [layers.length, activeLayerId, snapNow, applySnap])
+
+  const duplicateLayer = useCallback((limit: number) => {
+    if (layers.length >= limit) return false
+    const current = layers.find((layer) => layer.id === activeLayerId)
+    if (!current) return false
+    const copy = createLayer(snapNow(), `${current.name} copy`)
+    setLayers((list) => [...list, copy])
+    return true
+  }, [layers, activeLayerId, snapNow])
+
+  const deleteLayer = useCallback((id: string) => {
+    const target = layers.find((layer) => layer.id === id)
+    if (!target || target.locked) return
+    if (layers.length === 1) return
+    const next = layers.filter((layer) => layer.id !== id)
+    setLayers(next)
+    if (id === activeLayerId) {
+      const fallback = next[0]
+      if (fallback) {
+        skipSync.current += 1
+        applySnap(fallback.snap)
+        setActiveLayerId(fallback.id)
+      }
+    }
+  }, [layers, activeLayerId, applySnap])
+
+  const moveLayer = useCallback((id: string, direction: -1 | 1) => {
+    setLayers((current) => {
+      const index = current.findIndex((layer) => layer.id === id)
+      const nextIndex = index + direction
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current
+      const copy = current.slice()
+      const [item] = copy.splice(index, 1)
+      copy.splice(nextIndex, 0, item)
+      return copy
+    })
+  }, [])
+
+  const toggleLayerHidden = useCallback((id: string) => {
+    setLayers((current) => current.map((layer) => layer.id === id ? { ...layer, hidden: !layer.hidden } : layer))
+  }, [])
+
+  const toggleLayerLocked = useCallback((id: string) => {
+    setLayers((current) => current.map((layer) => layer.id === id ? { ...layer, locked: !layer.locked } : layer))
   }, [])
 
   const activePhoto = batch.photos.find((photo) => photo.id === batch.activeId) ?? null
@@ -505,6 +749,17 @@ export function useEditorState(initialData?: EditorInitialData) {
     dateStamp,
     cropAspect,
     quarterTurns,
+    emoji,
+    stickerId,
+    freeX,
+    freeY,
+    gradientOn,
+    gradientA,
+    gradientB,
+    gradientC,
+    gradientAngle,
+    grayscale,
+    keepInfo,
     logoPreviewUrl,
     logoName,
     signaturePreviewUrl,
@@ -526,7 +781,6 @@ export function useEditorState(initialData?: EditorInitialData) {
     setColor,
     setOpacity,
     setRotation,
-    setPlacement,
     setTextDirection,
     setCoverageMode,
     setPattern,
@@ -548,6 +802,35 @@ export function useEditorState(initialData?: EditorInitialData) {
     setDateStamp,
     setCropAspect,
     setQuarterTurns,
+    setEmoji,
+    setStickerId,
+    setFreeX,
+    setFreeY,
+    setGradientOn,
+    setGradientA,
+    setGradientB,
+    setGradientC,
+    setGradientAngle,
+    setGrayscale,
+    setKeepInfo,
+    setPlacement: (value: Placement) => {
+      setPlacement(value)
+      setFreeX(null)
+      setFreeY(null)
+    },
+    layers,
+    activeLayerId,
+    canUndo: historyTick >= 0 && past.current.length > 0,
+    canRedo: future.current.length > 0,
+    undo,
+    redo,
+    selectLayer,
+    addLayer,
+    duplicateLayer,
+    deleteLayer,
+    moveLayer,
+    toggleLayerHidden,
+    toggleLayerLocked,
     applySettings,
     setLogo,
     clearLogo: releaseLogo,

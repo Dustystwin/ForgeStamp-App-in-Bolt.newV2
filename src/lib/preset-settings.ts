@@ -68,6 +68,18 @@ export interface PresetSettings {
   dateStamp: DateStampFormat
   cropAspect: CropAspect
   quarterTurns: number
+  emoji: string
+  stickerId: string
+  freeX: number | null
+  freeY: number | null
+  gradientOn: boolean
+  gradientA: string
+  gradientB: string
+  gradientC: string
+  gradientAngle: number
+  grayscale: boolean
+  keepInfo: boolean
+  layers?: import("@/lib/mark-layer").MarkLayer[]
 }
 
 const PLACEMENTS = new Set<string>(PLACEMENT_GRID.map((item) => item.value))
@@ -134,6 +146,17 @@ export function settingsFromEditor(state: EditorState): PresetSettings {
     dateStamp: state.dateStamp,
     cropAspect: state.cropAspect,
     quarterTurns: state.quarterTurns,
+    emoji: state.emoji,
+    stickerId: state.stickerId,
+    freeX: state.freeX,
+    freeY: state.freeY,
+    gradientOn: state.gradientOn,
+    gradientA: state.gradientA,
+    gradientB: state.gradientB,
+    gradientC: state.gradientC,
+    gradientAngle: state.gradientAngle,
+    grayscale: state.grayscale,
+    keepInfo: state.keepInfo,
   }
 }
 
@@ -175,5 +198,17 @@ export function parsePresetSettings(raw: unknown): PresetSettings | null {
     dateStamp: isDateStampFormat(row.dateStamp) ? row.dateStamp : "off",
     cropAspect: isCropAspect(row.cropAspect) ? row.cropAspect : "original",
     quarterTurns: clampNumber(row.quarterTurns, 0, 3, 0),
+    emoji: typeof row.emoji === "string" && row.emoji ? row.emoji.slice(0, 8) : defaults.emoji,
+    stickerId: typeof row.stickerId === "string" && row.stickerId ? row.stickerId.slice(0, 40) : defaults.stickerId,
+    freeX: typeof row.freeX === "number" && Number.isFinite(row.freeX) ? row.freeX : null,
+    freeY: typeof row.freeY === "number" && Number.isFinite(row.freeY) ? row.freeY : null,
+    gradientOn: row.gradientOn === true,
+    gradientA: hexColor(row.gradientA, defaults.gradientA),
+    gradientB: hexColor(row.gradientB, defaults.gradientB),
+    gradientC: typeof row.gradientC === "string" ? hexColor(row.gradientC, "") : "",
+    gradientAngle: clampNumber(row.gradientAngle, 0, 360, defaults.gradientAngle),
+    grayscale: row.grayscale === true,
+    keepInfo: row.keepInfo === true,
+    layers: Array.isArray(row.layers) ? row.layers as PresetSettings["layers"] : undefined,
   }
 }

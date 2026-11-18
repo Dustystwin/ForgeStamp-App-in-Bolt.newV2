@@ -7,6 +7,7 @@ export interface TextPaint {
   shadowBlur: number
   shadowOffsetX: number
   shadowOffsetY: number
+  gradient?: { colors: string[]; angle: number }
 }
 
 export function scaledTextPaint(input: {
@@ -19,11 +20,18 @@ export function scaledTextPaint(input: {
   shadowBlur: number
   shadowOffsetX: number
   shadowOffsetY: number
+  gradientOn?: boolean
+  gradientColors?: string[]
+  gradientAngle?: number
 }): TextPaint | undefined {
   const scale = input.scaledFont / Math.max(1, input.fontSize)
   const outlineWidth = input.outlineWidth > 0 ? input.outlineWidth * scale : 0
   const shadow = input.shadowEnabled
-  if (outlineWidth <= 0 && !shadow) return undefined
+  const colors = (input.gradientColors ?? []).filter((color) => color.trim().length > 0)
+  const gradient = input.gradientOn && colors.length >= 2
+    ? { colors, angle: input.gradientAngle ?? 90 }
+    : undefined
+  if (outlineWidth <= 0 && !shadow && !gradient) return undefined
   return {
     outlineWidth,
     outlineColor: input.outlineColor,
@@ -31,6 +39,7 @@ export function scaledTextPaint(input: {
     shadowBlur: shadow ? input.shadowBlur * scale : 0,
     shadowOffsetX: shadow ? input.shadowOffsetX * scale : 0,
     shadowOffsetY: shadow ? input.shadowOffsetY * scale : 0,
+    gradient,
   }
 }
 
@@ -70,7 +79,23 @@ export function paintFill(
       ctx.shadowOffsetY = 0
     }
   }
+  const previousFill = ctx.fillStyle
+  if (paint?.gradient && paint.gradient.colors.length >= 2) {
+    const angle = (paint.gradient.angle * Math.PI) / 180
+    const span = 90
+    const gradient = ctx.createLinearGradient(
+      -Math.cos(angle) * span,
+      -Math.sin(angle) * span,
+      Math.cos(angle) * span,
+      Math.sin(angle) * span,
+    )
+    paint.gradient.colors.forEach((stop, index) => {
+      gradient.addColorStop(index / (paint.gradient!.colors.length - 1), stop)
+    })
+    ctx.fillStyle = gradient
+  }
   ctx.fillText(text, x, y)
+  ctx.fillStyle = previousFill
   if (shadow) {
     ctx.shadowColor = "transparent"
     ctx.shadowBlur = 0
