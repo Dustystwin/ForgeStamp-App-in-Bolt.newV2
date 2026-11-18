@@ -2,7 +2,7 @@ import { useRef } from "react"
 import { Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ACCEPTED_IMAGE_TYPES } from "@/lib/editor-types"
-import { FREE_BATCH_LIMIT, PRO_BATCH_LIMIT } from "@/lib/builder-mode"
+import { FORGE_BATCH_LIMIT, FREE_BATCH_LIMIT, SPARK_BATCH_LIMIT } from "@/lib/plans"
 import type { EditorPhoto } from "@/hooks/use-editor-state"
 import { cn } from "@/lib/utils"
 
@@ -98,12 +98,14 @@ export function BatchStrip({
       </div>
 
       <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-        {paid
-          ? full
-            ? `This batch is full at ${limit} photos. Unlimited batches are not available yet.`
-            : "The same watermark is applied to every photo. More than one photo downloads as a ZIP."
-          : full
-            ? `This batch is full at ${limit} photos. A ${PRO_BATCH_LIMIT}-photo batch will be available with paid plans. Those plans are not for sale yet.`
+        {full
+          ? limit >= FORGE_BATCH_LIMIT
+            ? `This batch is full at ${limit} photos.`
+            : limit >= SPARK_BATCH_LIMIT
+              ? `This batch is full at ${limit} photos. Forge can export up to ${FORGE_BATCH_LIMIT}.`
+              : `This batch is full at ${limit} photos. Spark can export up to ${SPARK_BATCH_LIMIT}, and Forge up to ${FORGE_BATCH_LIMIT}. Those plans are not for sale.`
+          : paid
+            ? `Up to ${limit} photos. The same watermark goes on each one. More than one downloads as a ZIP.`
             : `Up to ${limit} photos on Free. The same watermark goes on each one. More than one downloads as a ZIP.`}
       </p>
     </div>

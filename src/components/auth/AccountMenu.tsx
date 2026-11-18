@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/context/AuthContext"
 import { useNavigation } from "@/App"
+import { normalizeTier, planName } from "@/lib/plans"
 
 export function AccountMenu() {
   const { profile, signOut } = useAuth()
@@ -29,11 +30,9 @@ export function AccountMenu() {
         <DropdownMenuLabel className="font-normal text-xs text-muted-foreground truncate">
           {profile.email}
         </DropdownMenuLabel>
-        {profile.tier === "pro" && (
-          <DropdownMenuLabel className="font-semibold text-xs text-primary py-0 pb-1">
-            Pro
-          </DropdownMenuLabel>
-        )}
+        <DropdownMenuLabel className="font-semibold text-xs text-primary py-0 pb-1">
+          {planName(normalizeTier(profile.tier))}
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="gap-2 cursor-pointer"

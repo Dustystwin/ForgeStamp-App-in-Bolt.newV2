@@ -114,9 +114,9 @@ export function AuthModal({ open, defaultMode = "sign-in", onClose, onSuccess }:
   const title = mode === "sign-in" ? "Sign In" : mode === "sign-up" ? "Create Account" : "Reset Password"
   const description =
     mode === "sign-in"
-      ? "Sign in to save your watermarked images for 30 days."
+      ? "Sign in to save watermarked images for 30 days (up to 20)."
       : mode === "sign-up"
-      ? "Create a free account to save and manage your watermarked images."
+      ? "Create a free account to save images for 30 days (up to 20)."
       : "Enter your email and we'll send you a reset link."
 
   return (

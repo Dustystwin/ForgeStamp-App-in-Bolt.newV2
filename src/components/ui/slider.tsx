@@ -9,17 +9,31 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  onValueChange,
+  onPointerDownCapture,
+  onPointerUpCapture,
+  onPointerCancelCapture,
+  onLostPointerCapture,
+  onKeyDownCapture,
+  onKeyUpCapture,
+  onBlurCapture,
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root>) {
+  // A single thumb unless the caller passes a range. The old fallback of
+  // [min, max] drew two thumbs for one value and could commit a jump.
   const _values = React.useMemo(
     () =>
       Array.isArray(value)
         ? value
         : Array.isArray(defaultValue)
           ? defaultValue
-          : [min, max],
-    [value, defaultValue, min, max]
+          : [min],
+    [value, defaultValue, min]
   )
+  // Ignore value changes that are not from a pointer or key on this slider.
+  // Switching Full Coverage mounts another slider and reflows the panel; that
+  // must not move the font size on its own.
+  const interacting = React.useRef(false)
 
   return (
     <SliderPrimitive.Root
@@ -28,6 +42,38 @@ function Slider({
       value={value}
       min={min}
       max={max}
+      onValueChange={(next) => {
+        if (!interacting.current) return
+        onValueChange?.(next)
+      }}
+      onPointerDownCapture={(event) => {
+        interacting.current = true
+        onPointerDownCapture?.(event)
+      }}
+      onPointerUpCapture={(event) => {
+        onPointerUpCapture?.(event)
+        interacting.current = false
+      }}
+      onPointerCancelCapture={(event) => {
+        onPointerCancelCapture?.(event)
+        interacting.current = false
+      }}
+      onLostPointerCapture={(event) => {
+        onLostPointerCapture?.(event)
+        interacting.current = false
+      }}
+      onKeyDownCapture={(event) => {
+        interacting.current = true
+        onKeyDownCapture?.(event)
+      }}
+      onKeyUpCapture={(event) => {
+        onKeyUpCapture?.(event)
+        interacting.current = false
+      }}
+      onBlurCapture={(event) => {
+        onBlurCapture?.(event)
+        interacting.current = false
+      }}
       className={cn(
         "relative flex w-full touch-none items-center select-none data-[disabled]:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col",
         className

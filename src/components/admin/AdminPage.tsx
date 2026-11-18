@@ -167,7 +167,7 @@ export function AdminPage() {
     loadImages()
   }, [profile, loadStats, loadUsers, loadImages])
 
-  const handleSetTier = useCallback(async (userId: string, tier: "free" | "pro") => {
+  const handleSetTier = useCallback(async (userId: string, tier: "free" | "spark" | "forge") => {
     setActionId(userId)
     try {
       await adminFetch("/set-tier", {
@@ -416,17 +416,21 @@ export function AdminPage() {
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-1.5">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-[10px]"
-                              disabled={actionId === u.id}
-                              onClick={() => handleSetTier(u.id, u.tier === "pro" ? "free" : "pro")}
-                            >
-                              {actionId === u.id ? <Loader2 className="size-3 animate-spin" /> : (
-                                u.tier === "pro" ? "→ Free" : "→ Pro"
-                              )}
-                            </Button>
+                            {(["free", "spark", "forge"] as const).map((tier) => {
+                              const current = u.tier === tier || (tier === "forge" && u.tier === "pro")
+                              return (
+                                <Button
+                                  key={tier}
+                                  variant={current ? "default" : "outline"}
+                                  size="sm"
+                                  className="h-7 px-2 text-[10px] capitalize"
+                                  disabled={actionId === u.id || current}
+                                  onClick={() => handleSetTier(u.id, tier)}
+                                >
+                                  {tier}
+                                </Button>
+                              )
+                            })}
                             <Button
                               variant="outline"
                               size="sm"

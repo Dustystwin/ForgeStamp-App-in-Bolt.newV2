@@ -4,7 +4,7 @@ export const UPLOAD_FILE_LIMIT_BYTES = 15 * 1024 * 1024
 export const FILE_TOO_LARGE_MESSAGE = "This file is too large. The limit is 15 MB."
 
 /**
- * Largest finished PNG the bucket accepts after migration
+ * Largest finished PNG, JPG, or WebP the bucket accepts after migration
  * 20261113031848_allow_larger_watermarked_saves. The Free Supabase plan
  * cannot store a single file bigger than this.
  */
@@ -36,13 +36,10 @@ export function isFileTooLargeMessage(message: string): boolean {
   )
 }
 
-/** The server still has the old 15 MB bucket, or the PNG is over the finished-image cap. */
+/** The server still has the old 15 MB bucket, or the file is over the finished-image cap. */
 export function shouldRetryOutputCompact(contentType: string, byteSize: number, errorMessage: string): boolean {
-  return (
-    contentType === "image/png" &&
-    byteSize > UPLOAD_FILE_LIMIT_BYTES &&
-    isFileTooLargeMessage(errorMessage)
-  )
+  const storable = contentType === "image/png" || contentType === "image/jpeg" || contentType === "image/webp"
+  return storable && byteSize > UPLOAD_FILE_LIMIT_BYTES && isFileTooLargeMessage(errorMessage)
 }
 
 export interface SaveFailure {
@@ -50,19 +47,29 @@ export interface SaveFailure {
   message: string
 }
 
+export function savedDownloadName(filename: string, outputPath: string): string {
+  const cleaned = filename.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/^\.+/, "")
+  const base = cleaned || "forgestamp-image"
+  if (/\.(png|jpe?g|webp)$/i.test(base)) return base
+  const ext = outputPath.split(".").pop()?.toLowerCase()
+  const suffix = ext === "jpeg" || ext === "jpg" ? "jpg" : ext === "webp" ? "webp" : "png"
+  return `${base}.${suffix}`
+}
+
 export function saveResultMessages(
   savedCount: number,
   total: number,
   failures: SaveFailure[],
+  retention = "Expires in 30 days.",
 ): { success?: string; error?: string } {
   let success: string | undefined
   if (savedCount > 0) {
     if (savedCount === total && total === 1) {
-      success = "Saved to My Images. Expires in 30 days."
+      success = `Saved to My Images. ${retention}`
     } else if (savedCount === total) {
-      success = `Saved ${savedCount} images to My Images. Each expires in 30 days.`
+      success = `Saved ${savedCount} images to My Images. ${retention}`
     } else {
-      success = `Saved ${savedCount} of ${total} images to My Images. Each expires in 30 days.`
+      success = `Saved ${savedCount} of ${total} images to My Images. ${retention}`
     }
   }
 

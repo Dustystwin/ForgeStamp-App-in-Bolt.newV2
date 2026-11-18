@@ -22,11 +22,11 @@ const PRO_VALUES: ReadonlySet<string> = new Set(PRO_FONTS.map((f) => f.value))
 
 export function FontControl({ value, onChange }: FontControlProps) {
   const { profile } = useAuth()
-  const premiumUnlocked = canUsePremiumFeatures(profile?.tier)
+  const premiumUnlocked = canUsePremiumFeatures(profile?.tier, Boolean(profile?.is_admin))
 
   const handleValueChange = (val: string) => {
     if (PRO_VALUES.has(val) && !premiumUnlocked) {
-      toast("Pro fonts will be available with paid plans.")
+      toast("Premium fonts are included with Spark and Forge. Those plans are not for sale.")
       return
     }
     onChange(val)
@@ -56,7 +56,7 @@ export function FontControl({ value, onChange }: FontControlProps) {
           </SelectGroup>
           <SelectGroup>
             <SelectLabel className="text-[10px] uppercase tracking-wider flex items-center gap-1.5">
-              <span className="text-muted-foreground/60">Pro</span>
+              <span className="text-muted-foreground/60">Premium</span>
               {BUILDER_MODE && (
                 <span className="rounded px-1 py-0.5 text-[7px] font-semibold bg-primary/10 text-primary leading-none">
                   UNLOCKED
@@ -70,7 +70,7 @@ export function FontControl({ value, onChange }: FontControlProps) {
                 style={{ fontFamily: font.value }}
                 className={premiumUnlocked ? "" : "text-muted-foreground"}
               >
-                {font.label}{!premiumUnlocked ? " (Pro)" : ""}
+                {font.label}{!premiumUnlocked ? " (Spark)" : ""}
               </SelectItem>
             ))}
           </SelectGroup>

@@ -35,18 +35,16 @@ export const WORKFLOW_STEPS = [
   },
 ] as const
 
-// PRICING PLANS — preview only
-// ---------------------------------------------------------------------------
-// Free is the only plan someone can buy today. Spark and Forge stay unavailable.
-// Prices on those cards are planned prices, not something the app charges.
-// There is no checkout. A Pro account, which an admin can turn on for testing,
-// can export a batch of 25 photos. Free can export 3. Unlimited batch is not built.
+// Prices on Spark and Forge are a preview. Nothing on this page charges a card.
+// The features are real for an account that is already on that plan.
+// Every plan exports at the photo's original size. There is no separate
+// high-resolution tier, no processing queue, and no monthly batch counter.
 export const PRICING_PLANS = [
   {
     name: "Free",
     tagline: "Use it today",
     badge: null as string | null,
-    description: "Enough to place text, a logo, or a QR code, and download a PNG.",
+    description: "Place text, a logo, or a QR code, and download a PNG at the photo's original size.",
     monthlyPrice: "$0",
     annualPrice: "$0",
     annualSavings: null as string | null,
@@ -60,14 +58,14 @@ export const PRICING_PLANS = [
       "All watermark placements",
       "All watermark patterns",
       "Opacity, size, and rotation",
-      "PNG export",
+      "PNG export at the original photo size",
       "Live watermark preview",
+      "Saved images kept 30 days (up to 20)",
     ],
     batch: {
       title: "Batch processing",
       items: [
         "Up to 3 photos in one export",
-        "Monthly batch allowance (coming soon)",
       ],
     } as { title: string; items: string[] } | null,
     cta: "Try a watermark",
@@ -78,7 +76,7 @@ export const PRICING_PLANS = [
     name: "Spark",
     tagline: "For regular use",
     badge: "Recommended" as string | null,
-    description: "A look at the planned extras. The price is a preview, and Spark is not for sale.",
+    description: "These extras work on a Spark account. Spark is not for sale on this page.",
     monthlyPrice: "$8.99",
     annualPrice: "$69.99",
     annualSavings: "Save 35%" as string | null,
@@ -86,20 +84,18 @@ export const PRICING_PLANS = [
     features: [
       "Premium font library",
       "Premium color library",
-      "High-resolution exports (coming soon)",
-      "JPG export (coming soon)",
-      "WebP export (coming soon)",
-      "Save watermark presets (coming soon)",
-      "Expanded export history (coming soon)",
+      "JPG export",
+      "WebP export",
+      "10 saved watermark presets",
+      "Saved images kept 180 days (up to 100)",
     ],
     batch: {
       title: "Batch processing",
       items: [
         "Up to 25 photos in one export",
-        "Monthly batch allowance (coming soon)",
       ],
     } as { title: string; items: string[] } | null,
-    cta: "Coming soon",
+    cta: "Not for sale",
     available: false,
     highlighted: true,
   },
@@ -107,20 +103,22 @@ export const PRICING_PLANS = [
     name: "Forge",
     tagline: "For everyday work",
     badge: null as string | null,
-    description: "A look at the fuller toolkit. The price is a preview, and Forge is not for sale.",
+    description: "These extras work on a Forge account. Forge is not for sale on this page.",
     monthlyPrice: "$14.99",
     annualPrice: "$119.99",
     annualSavings: "Save 33%" as string | null,
     featuresIntro: "Everything in Spark, plus:" as string | null,
     features: [
-      "Unlimited watermark presets (coming soon)",
-      "Unlimited export history (coming soon)",
-      "Unlimited batch processing (coming soon)",
-      "Priority processing (coming soon)",
-      "Early access to new features",
+      "Up to 200 saved watermark presets",
+      "Saved images stay until you delete them (500 MB storage limit)",
     ],
-    batch: null as { title: string; items: string[] } | null,
-    cta: "Coming soon",
+    batch: {
+      title: "Batch processing",
+      items: [
+        "Up to 50 photos in one export",
+      ],
+    } as { title: string; items: string[] } | null,
+    cta: "Not for sale",
     available: false,
     highlighted: false,
   },

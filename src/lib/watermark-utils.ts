@@ -668,6 +668,8 @@ export function drawImageWatermark(
   ctx.restore()
 }
 
+export type ImageExportFormat = "png" | "jpeg" | "webp"
+
 export interface CanvasWatermarkOptions {
   mode?: WatermarkMode
   text: string
@@ -687,6 +689,8 @@ export interface CanvasWatermarkOptions {
   qrUrl?: string | null
   imageWidth: number
   imageHeight: number
+  // JPEG has no transparency. A white matte keeps a transparent PNG from turning black.
+  matte?: string
 }
 
 async function loadStampSource(opts: CanvasWatermarkOptions): Promise<HTMLImageElement | null> {
@@ -716,6 +720,10 @@ export async function drawWatermarkOnCanvas(
   canvas.height = imageHeight
 
   const ctx = canvas.getContext("2d")!
+  if (opts.matte) {
+    ctx.fillStyle = opts.matte
+    ctx.fillRect(0, 0, imageWidth, imageHeight)
+  }
   ctx.drawImage(image, 0, 0, imageWidth, imageHeight)
 
   if (mode === "logo" || mode === "qr") {
@@ -838,35 +846,63 @@ export async function drawWatermarkOnCanvas(
   }
 }
 
-export async function exportToPng(
+const EXPORT_MIME: Record<ImageExportFormat, { mime: string; quality?: number }> = {
+  png: { mime: "image/png" },
+  jpeg: { mime: "image/jpeg", quality: 0.92 },
+  webp: { mime: "image/webp", quality: 0.92 },
+}
+
+export async function exportWatermarked(
   image: File,
-  opts: CanvasWatermarkOptions
+  opts: CanvasWatermarkOptions,
+  format: ImageExportFormat = "png"
 ): Promise<string> {
   const bitmap = await createImageBitmap(image)
   const canvas = document.createElement("canvas")
   const offscreenImg = document.createElement("img")
+  const { mime, quality } = EXPORT_MIME[format]
 
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(image)
+    const release = () => {
+      try {
+        bitmap.close()
+      } catch {
+        // The bitmap may already have been closed.
+      }
+      URL.revokeObjectURL(url)
+    }
     offscreenImg.onload = async () => {
       try {
         await drawWatermarkOnCanvas(canvas, offscreenImg, {
           ...opts,
           imageWidth: bitmap.width,
           imageHeight: bitmap.height,
+          matte: format === "jpeg" ? "#ffffff" : opts.matte,
         })
-        bitmap.close()
-        URL.revokeObjectURL(url)
-        resolve(canvas.toDataURL("image/png"))
+        const dataUrl = canvas.toDataURL(mime, quality)
+        release()
+        if (!dataUrl.startsWith(`data:${mime}`)) {
+          reject(new Error("This browser could not export that format."))
+          return
+        }
+        resolve(dataUrl)
       } catch (err) {
-        URL.revokeObjectURL(url)
+        release()
         reject(err)
       }
     }
     offscreenImg.onerror = () => {
-      URL.revokeObjectURL(url)
+      release()
       reject(new Error("Failed to load image for export"))
     }
     offscreenImg.src = url
   })
+}
+
+export async function exportToPng(
+  image: File,
+  opts: CanvasWatermarkOptions
+): Promise<string> {
+  return exportWatermarked(image, opts, "png")
 }

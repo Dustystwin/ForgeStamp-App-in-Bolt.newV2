@@ -3,7 +3,7 @@ import { FREE_COLORS, PRO_COLORS } from "@/lib/editor-types"
 import { BUILDER_MODE, canUsePremiumFeatures } from "@/lib/builder-mode"
 import { useAuth } from "@/context/AuthContext"
 import { cn } from "@/lib/utils"
-import { Check } from "lucide-react"
+import { Check, Lock } from "lucide-react"
 import { toast } from "sonner"
 
 interface ColorControlProps {
@@ -13,13 +13,13 @@ interface ColorControlProps {
 
 export function ColorControl({ value, onChange }: ColorControlProps) {
   const { profile } = useAuth()
-  const premiumUnlocked = canUsePremiumFeatures(profile?.tier)
+  const premiumUnlocked = canUsePremiumFeatures(profile?.tier, Boolean(profile?.is_admin))
 
   const handleProClick = (colorValue: string) => {
     if (premiumUnlocked) {
       onChange(colorValue)
     } else {
-      toast("Pro colors will be available with paid plans.")
+      toast("Premium colors are included with Spark and Forge. Those plans are not for sale.")
     }
   }
 
@@ -67,7 +67,7 @@ export function ColorControl({ value, onChange }: ColorControlProps) {
 
       <div className="space-y-2">
         <p className="text-[10px] font-medium uppercase tracking-wider flex items-center gap-1.5">
-          <span className="text-muted-foreground/60">Pro</span>
+          <span className="text-muted-foreground/60">Premium</span>
           {BUILDER_MODE && (
             <span className="rounded px-1 py-0.5 text-[8px] font-semibold bg-primary/10 text-primary leading-none">
               UNLOCKED
@@ -82,9 +82,9 @@ export function ColorControl({ value, onChange }: ColorControlProps) {
                 key={preset.value}
                 type="button"
                 onClick={() => handleProClick(preset.value)}
-                aria-label={`${preset.label}${premiumUnlocked ? "" : " (Pro)"}${isSelected ? " (selected)" : ""}`}
+                aria-label={`${preset.label}${premiumUnlocked ? "" : " (Spark and Forge)"}${isSelected ? " (selected)" : ""}`}
                 aria-pressed={isSelected}
-                title={`${preset.label}${premiumUnlocked ? "" : " (Pro)"}`}
+                title={`${preset.label}${premiumUnlocked ? "" : " — included with Spark and Forge"}`}
                 className={cn(
                   "relative h-7 w-7 rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                   premiumUnlocked
@@ -102,12 +102,10 @@ export function ColorControl({ value, onChange }: ColorControlProps) {
                   />
                 )}
                 {!premiumUnlocked && (
-                  <span
-                    className="absolute inset-0 flex items-center justify-center text-[7px] font-bold text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.7)]"
+                  <Lock
+                    className="absolute inset-0 m-auto size-3 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.7)]"
                     aria-hidden="true"
-                  >
-                    PRO
-                  </span>
+                  />
                 )}
               </button>
             )

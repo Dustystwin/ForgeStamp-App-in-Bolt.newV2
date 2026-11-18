@@ -1,4 +1,6 @@
-// Deletes saved images after their 30-day expiry.
+// Deletes saved images once expires_at has passed.
+// Free images last 30 days, Spark 180 days, and Forge images stay until
+// the person deletes them (their expires_at is far in the future).
 //
 // Deploy from a machine logged into the Supabase CLI:
 //   supabase functions deploy cleanup-expired-images --no-verify-jwt

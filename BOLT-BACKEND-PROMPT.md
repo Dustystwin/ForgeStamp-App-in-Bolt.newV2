@@ -1,5 +1,11 @@
 # ForgeStamp — Phase 2 Backend Specification
 
+This file is the original backend brief. The live app now has Free, Spark,
+and Forge. Spark and Forge are not for sale. See README.md for the current
+plan numbers. Do not rebuild the app from this brief.
+
+
+
 INSTRUCTIONS FOR ME (the owner): In Bolt, first connect Supabase using Bolt's
 built-in Supabase integration button. Then paste everything below this line as
 ONE message to Bolt. Answer its questions with "follow the spec" unless it

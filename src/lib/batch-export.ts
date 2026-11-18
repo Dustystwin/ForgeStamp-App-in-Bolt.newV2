@@ -8,7 +8,7 @@ export function dataUrlToBytes(dataUrl: string): Uint8Array {
   return bytes
 }
 
-export function zipPngs(files: { name: string; bytes: Uint8Array }[]): Blob {
+export function zipFiles(files: { name: string; bytes: Uint8Array }[]): Blob {
   const entries: Record<string, Uint8Array> = {}
   for (const file of files) entries[file.name] = file.bytes
   const zipped = zipSync(entries, { level: 0 })
@@ -30,9 +30,16 @@ export function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-export function stampedFileName(file: File, index: number, total: number, stamp: string): string {
-  if (total === 1) return `forgestamp-export-${stamp}.png`
+export function stampedFileName(
+  file: File,
+  index: number,
+  total: number,
+  stamp: string,
+  extension = "png"
+): string {
+  const ext = extension.replace(/^\.+/, "") || "png"
+  if (total === 1) return `forgestamp-export-${stamp}.${ext}`
   const raw = file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9-_]+/g, "-").replace(/^-+|-+$/g, "")
   const stem = (raw || "photo").slice(0, 40)
-  return `${String(index + 1).padStart(2, "0")}-${stem}.png`
+  return `${String(index + 1).padStart(2, "0")}-${stem}.${ext}`
 }

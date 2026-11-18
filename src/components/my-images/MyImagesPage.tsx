@@ -1,16 +1,36 @@
 import { useState, useEffect, useCallback } from "react"
 import { ArrowLeft, Download, Trash2, CreditCard as Edit2, Images, Loader as Loader2, TriangleAlert as AlertTriangle, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 import { supabase, type StoredImage } from "@/lib/supabase"
 import { useAuth } from "@/context/AuthContext"
 import { useNavigation } from "@/App"
 import { cn } from "@/lib/utils"
+import { savedDownloadName } from "@/lib/save-messages"
+import { effectivePlan, historySummary, planName } from "@/lib/plans"
 import type { EditorInitialData } from "@/App"
 
 function daysUntil(dateStr: string): number {
   const ms = new Date(dateStr).getTime() - Date.now()
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)))
+}
+
+function retentionBadge(expiresAt: string): string {
+  const days = daysUntil(expiresAt)
+  // Forge rows are stored with a far-future expiry so they stay until deleted.
+  if (days > 365 * 5) return "Kept until you delete it"
+  if (days === 0) return "Expires today"
+  return `${days}d left`
 }
 
 function formatBytes(bytes: number): string {
@@ -30,7 +50,8 @@ interface ImageCardProps {
 function ImageCard({ image, onDelete, onEdit, onDownload, isDeleting }: ImageCardProps) {
   const [thumbUrl, setThumbUrl] = useState<string | null>(null)
   const days = daysUntil(image.expires_at)
-  const isExpiringSoon = days <= 5
+  const kept = days > 365 * 5
+  const isExpiringSoon = !kept && days <= 5
 
   useEffect(() => {
     supabase.storage
@@ -67,7 +88,7 @@ function ImageCard({ image, onDelete, onEdit, onDownload, isDeleting }: ImageCar
           )}
         >
           <Clock className="size-3" />
-          {days === 0 ? "Expires today" : `${days}d left`}
+          {retentionBadge(image.expires_at)}
         </div>
       </div>
 
@@ -128,6 +149,7 @@ export function MyImagesPage() {
   const [images, setImages] = useState<StoredImage[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<StoredImage | null>(null)
 
   useEffect(() => {
     if (!session) {
@@ -177,6 +199,7 @@ export function MyImagesPage() {
   }, [images])
 
   const handleDownload = useCallback(async (image: StoredImage) => {
+    const filename = savedDownloadName(image.filename, image.output_path)
     const { data, error } = await supabase.storage
       .from("watermark-images")
       .createSignedUrl(image.output_path, 60)
@@ -186,12 +209,21 @@ export function MyImagesPage() {
       return
     }
 
-    const a = document.createElement("a")
-    a.href = data.signedUrl
-    a.download = image.filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    try {
+      const response = await fetch(data.signedUrl)
+      if (!response.ok) throw new Error("Could not download that image.")
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not download that image.")
+    }
   }, [])
 
   const handleEdit = useCallback(async (image: StoredImage) => {
@@ -227,6 +259,9 @@ export function MyImagesPage() {
 
   if (!session) return null
 
+  const plan = effectivePlan(profile?.tier, Boolean(profile?.is_admin))
+  const planLabel = profile?.is_admin ? "Admin" : planName(plan)
+
   return (
     <div className="min-h-svh bg-background">
       {/* Header */}
@@ -260,7 +295,7 @@ export function MyImagesPage() {
           <div>
             <h1 className="text-xl font-bold">My Images</h1>
             <p className="text-sm text-muted-foreground">
-              {profile?.tier === "pro" ? "Pro" : "Free"} &middot; Stored 30 days
+              {planLabel} &middot; {historySummary(plan)}
             </p>
           </div>
         </div>
@@ -296,7 +331,10 @@ export function MyImagesPage() {
                 <ImageCard
                   key={img.id}
                   image={img}
-                  onDelete={handleDelete}
+                  onDelete={(id) => {
+                    const image = images.find((item) => item.id === id)
+                    if (image) setPendingDelete(image)
+                  }}
                   onEdit={handleEdit}
                   onDownload={handleDownload}
                   isDeleting={deletingId === img.id}
@@ -306,6 +344,33 @@ export function MyImagesPage() {
           </>
         )}
       </main>
+
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open && !deletingId) setPendingDelete(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this image?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the saved original and the watermarked copy
+              {pendingDelete ? ` “${pendingDelete.filename}”` : ""}. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingId !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deletingId !== null}
+              onClick={() => {
+                if (!pendingDelete) return
+                const image = pendingDelete
+                setPendingDelete(null)
+                void handleDelete(image.id)
+              }}
+            >
+              {deletingId ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

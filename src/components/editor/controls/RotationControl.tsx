@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { ROTATION_MIN, ROTATION_MAX } from "@/lib/editor-types"
+import { useBlockNumberWheel } from "@/hooks/use-block-number-wheel"
 
 interface RotationControlProps {
   value: number
@@ -10,6 +11,7 @@ interface RotationControlProps {
 }
 
 export function RotationControl({ value, onChange }: RotationControlProps) {
+  const numberRef = useBlockNumberWheel()
   const clamp = useCallback((v: number) => {
     return Math.min(ROTATION_MAX, Math.max(ROTATION_MIN, Math.round(v)))
   }, [])
@@ -43,6 +45,7 @@ export function RotationControl({ value, onChange }: RotationControlProps) {
         />
         <div className="flex items-center gap-0.5">
           <Input
+            ref={numberRef}
             id="rotation"
             type="number"
             inputMode="numeric"
