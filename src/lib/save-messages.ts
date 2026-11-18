@@ -1,3 +1,5 @@
+import { STORAGE_FULL_NOTE } from "@/lib/plans"
+
 /** Photos a person uploads. Matches the editor and the database trigger. */
 export const UPLOAD_FILE_LIMIT_BYTES = 15 * 1024 * 1024
 
@@ -79,18 +81,10 @@ export function saveResultMessages(
   const other = failures.filter((failure) => !isSavedImageCapMessage(failure.message))
 
   if (capFailures.length > 0 && other.length === 0) {
-    const spark = capFailures.some((failure) => failure.message.toLowerCase().includes("spark"))
-    const planLine = spark
+    if (savedCount === 0) return { warning: STORAGE_FULL_NOTE }
+    const planLine = capFailures.some((failure) => failure.message.toLowerCase().includes("spark"))
       ? "A Spark account can keep 100 saved images."
       : "A Free account can keep 20 saved images."
-    if (savedCount === 0) {
-      const lead = total === 1
-        ? "This image was not saved."
-        : `None of these ${total} images were saved.`
-      return {
-        warning: `Downloaded. ${lead} ${planLine} Delete some in My Images to make room.`,
-      }
-    }
     return {
       warning: `Downloaded. Saved ${savedCount} of ${total}. ${planLine} The rest were not saved.`,
     }

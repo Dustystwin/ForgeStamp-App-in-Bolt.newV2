@@ -4,13 +4,18 @@ import { readPublicTrackPage, recordTrackScan, type TrackPage } from "@/lib/trac
 export function TrackPageView({ slug }: { slug: string }) {
   const [page, setPage] = useState<TrackPage | null>(null)
   const [missing, setMissing] = useState(false)
+  const [schemaMissing, setSchemaMissing] = useState(false)
 
   useEffect(() => {
     let gone = false
     readPublicTrackPage(slug).then((found) => {
       if (gone) return
-      if (!found) setMissing(true)
-      else setPage({ ...found })
+      if (found.schemaMissing) {
+        setSchemaMissing(true)
+        return
+      }
+      if (!found.page) setMissing(true)
+      else setPage({ ...found.page })
     })
     void recordTrackScan(slug)
     return () => {
@@ -22,12 +27,15 @@ export function TrackPageView({ slug }: { slug: string }) {
     <main className="fs-studio min-h-svh px-4 py-10">
       <div className="mx-auto max-w-md rounded-2xl bg-white p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">ForgeStamp</p>
-        {missing && (
+        {schemaMissing && (
           <p className="mt-3 text-sm leading-relaxed">
             This link is not ready yet. The photo tracking database update has not been applied.
           </p>
         )}
-        {!missing && !page && <p className="mt-3 text-sm">Opening this page…</p>}
+        {missing && !schemaMissing && (
+          <p className="mt-3 text-sm leading-relaxed">This link is not ready yet.</p>
+        )}
+        {!missing && !schemaMissing && !page && <p className="mt-3 text-sm">Opening this page…</p>}
         {page && (
           <div className="mt-3 space-y-3">
             <h1 className="text-2xl font-semibold">{page.slug}</h1>

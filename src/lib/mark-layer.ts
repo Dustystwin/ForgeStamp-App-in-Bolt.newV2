@@ -76,10 +76,10 @@ export function blankSnap(partial: Partial<MarkSnap> = {}): MarkSnap {
     shadowOffsetY: DEFAULT_EDITOR_STATE.shadowOffsetY,
     dateStamp: DEFAULT_EDITOR_STATE.dateStamp,
     gradientOn: false,
-    gradientA: "#FF8A00",
-    gradientB: "#FFFFFF",
+    gradientA: DEFAULT_EDITOR_STATE.gradientA,
+    gradientB: DEFAULT_EDITOR_STATE.gradientB,
     gradientC: "",
-    gradientAngle: 90,
+    gradientAngle: DEFAULT_EDITOR_STATE.gradientAngle,
     handlePlatform: "none",
     ...partial,
   }

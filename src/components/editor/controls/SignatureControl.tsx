@@ -2,7 +2,7 @@ import { useEffect, useRef, type PointerEvent } from "react"
 import { Eraser } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { canvasToBlob } from "@/lib/image-resources"
+import { canvasToBlob, releaseCanvas } from "@/lib/image-resources"
 
 interface SignatureControlProps {
   onChange: (blob: Blob) => void
@@ -12,6 +12,73 @@ interface SignatureControlProps {
 interface Point {
   x: number
   y: number
+}
+
+function paintStrokes(
+  ctx: CanvasRenderingContext2D,
+  strokes: Point[][],
+  lineWidth: number,
+  offsetX = 0,
+  offsetY = 0,
+) {
+  ctx.lineCap = "round"
+  ctx.lineJoin = "round"
+  ctx.strokeStyle = "#1a1a1a"
+  ctx.lineWidth = lineWidth
+  for (const points of strokes) {
+    if (points.length === 0) continue
+    ctx.beginPath()
+    ctx.moveTo(points[0].x + offsetX, points[0].y + offsetY)
+    if (points.length === 1) {
+      ctx.lineTo(points[0].x + offsetX + 0.1, points[0].y + offsetY)
+    } else {
+      for (let i = 1; i < points.length - 1; i++) {
+        const midX = (points[i].x + points[i + 1].x) / 2
+        const midY = (points[i].y + points[i + 1].y) / 2
+        ctx.quadraticCurveTo(points[i].x + offsetX, points[i].y + offsetY, midX + offsetX, midY + offsetY)
+      }
+      const last = points[points.length - 1]
+      ctx.lineTo(last.x + offsetX, last.y + offsetY)
+    }
+    ctx.stroke()
+  }
+}
+
+/**
+ * The pad is mostly empty. Stamping that whole rectangle shrinks the ink
+ * to a hairline. Fit the strokes to their own bounds and keep the pen a
+ * steady share of that mark, so size changes the signature itself.
+ */
+function renderSignatureMark(strokes: Point[][]): HTMLCanvasElement | null {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const stroke of strokes) {
+    for (const point of stroke) {
+      if (point.x < minX) minX = point.x
+      if (point.y < minY) minY = point.y
+      if (point.x > maxX) maxX = point.x
+      if (point.y > maxY) maxY = point.y
+    }
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null
+  const inkW = Math.max(1, maxX - minX)
+  const inkH = Math.max(1, maxY - minY)
+  const longSide = Math.max(inkW, inkH)
+  const pen = Math.max(2, longSide * 0.045)
+  const margin = pen * 1.6
+  const width = inkW + margin * 2
+  const height = inkH + margin * 2
+  const scale = Math.max(2, 640 / Math.max(width, height))
+  const canvas = document.createElement("canvas")
+  canvas.width = Math.max(1, Math.round(width * scale))
+  canvas.height = Math.max(1, Math.round(height * scale))
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return null
+  ctx.setTransform(scale, 0, 0, scale, 0, 0)
+  paintStrokes(ctx, strokes, pen, margin - minX, margin - minY)
+  return canvas
 }
 
 export function SignatureControl({ onChange, onClear }: SignatureControlProps) {
@@ -34,29 +101,9 @@ export function SignatureControl({ onChange, onClear }: SignatureControlProps) {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, width, height)
-    ctx.lineCap = "round"
-    ctx.lineJoin = "round"
-    ctx.strokeStyle = "#1a1a1a"
-    ctx.lineWidth = 2.75
-    const paint = (points: Point[]) => {
-      if (points.length === 0) return
-      ctx.beginPath()
-      ctx.moveTo(points[0].x, points[0].y)
-      if (points.length === 1) {
-        ctx.lineTo(points[0].x + 0.1, points[0].y)
-      } else {
-        for (let i = 1; i < points.length - 1; i++) {
-          const midX = (points[i].x + points[i + 1].x) / 2
-          const midY = (points[i].y + points[i + 1].y) / 2
-          ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY)
-        }
-        const last = points[points.length - 1]
-        ctx.lineTo(last.x, last.y)
-      }
-      ctx.stroke()
-    }
-    for (const stroke of strokes.current) paint(stroke)
-    if (active.current) paint(active.current)
+    const pen = Math.max(2.75, Math.min(width, height) * 0.02)
+    const marks = active.current ? [...strokes.current, active.current] : strokes.current
+    paintStrokes(ctx, marks, pen)
   }
 
   useEffect(() => {
@@ -74,9 +121,11 @@ export function SignatureControl({ onChange, onClear }: SignatureControlProps) {
   }
 
   const publish = () => {
-    const canvas = canvasRef.current
-    if (!canvas || strokes.current.length === 0) return
-    void canvasToBlob(canvas, "image/png").then((blob) => {
+    if (strokes.current.length === 0) return
+    const mark = renderSignatureMark(strokes.current)
+    if (!mark) return
+    void canvasToBlob(mark, "image/png").then((blob) => {
+      releaseCanvas(mark)
       if (blob) onChange(blob)
     })
   }

@@ -23,10 +23,15 @@ export function TrackQrControl({ onUseLink }: { onUseLink: (url: string) => void
   const [socials, setSocials] = useState<TrackSocials>(EMPTY_SOCIALS)
   const [scans, setScans] = useState<number | null>(null)
   const [id, setId] = useState<string | undefined>()
+  const [schemaMissing, setSchemaMissing] = useState(false)
 
   useEffect(() => {
     if (!forge || !session) return
-    loadOwnTrackPage().then((page) => {
+    let gone = false
+    loadOwnTrackPage().then((result) => {
+      if (gone) return
+      setSchemaMissing(result.schemaMissing)
+      const page = result.page
       if (!page) return
       setId(page.id)
       setSlug(page.slug)
@@ -35,6 +40,9 @@ export function TrackQrControl({ onUseLink }: { onUseLink: (url: string) => void
       setSocials(page.socials)
       setScans(page.scans ?? 0)
     })
+    return () => {
+      gone = true
+    }
   }, [forge, session])
 
   if (!forge) {
@@ -57,9 +65,12 @@ export function TrackQrControl({ onUseLink }: { onUseLink: (url: string) => void
       const saved = await saveTrackPage({ id, slug: tidySlug(slug), shopUrl, contact, socials })
       setId(saved.id)
       setSlug(saved.slug)
+      setSchemaMissing(false)
       toast.success("Tracking page saved.")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save that page.")
+      const message = error instanceof Error ? error.message : "Could not save that page."
+      if (message.includes("has not been run")) setSchemaMissing(true)
+      toast.error(message)
     }
   }
 
@@ -67,7 +78,8 @@ export function TrackQrControl({ onUseLink }: { onUseLink: (url: string) => void
     <section data-panel="tracking" className="space-y-2">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Photo tracking</p>
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        The QR opens your page. Scans are counted at most once a minute for each visitor. The database update is included and has not been applied yet.
+        The QR opens your page. Scans are counted at most once a minute for each visitor.
+        {schemaMissing ? " The database update is included and has not been applied yet." : ""}
       </p>
       <Input value={slug} aria-label="Link name" onChange={(event) => setSlug(event.target.value)} />
       <Input value={shopUrl} aria-label="Shop link" onChange={(event) => setShopUrl(event.target.value)} />
