@@ -40,6 +40,7 @@ export function RotationControl({ value, onChange }: RotationControlProps) {
           min={ROTATION_MIN}
           max={ROTATION_MAX}
           step={1}
+          suffix="°"
           className="flex-1"
           aria-label="Rotation slider"
         />

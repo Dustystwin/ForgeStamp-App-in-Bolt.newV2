@@ -112,6 +112,7 @@ export function ExportFormatControl({
             min={60}
             max={100}
             step={1}
+            suffix="%"
             onValueChange={([next]) => onQualityChange(next)}
             aria-label="Export quality"
           />

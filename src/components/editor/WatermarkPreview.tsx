@@ -18,6 +18,7 @@ import {
   stampPixelSize,
 } from "@/lib/watermark-utils"
 import { renderQrDataUrl } from "@/lib/qr-watermark"
+import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import { ImageIcon } from "lucide-react"
 
@@ -767,14 +768,14 @@ function StrengthBar({
         <p className="text-[11px] text-muted-foreground">Before / after</p>
       </div>
       <p className="text-[11px] leading-relaxed text-muted-foreground">{result.note}</p>
-      <input
-        type="range"
+      <Slider
         min={0}
         max={100}
-        value={compare}
+        step={1}
+        suffix="%"
+        value={[compare]}
         aria-label="Compare before and after"
-        className="w-full accent-orange-500"
-        onChange={(event) => onCompare(Number(event.target.value))}
+        onValueChange={([next]) => onCompare(next)}
       />
     </div>
   )

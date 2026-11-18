@@ -44,6 +44,7 @@ import { canUseSparkTools, effectivePlan } from "@/lib/plans"
 import { toast } from "sonner"
 import type { PresetSettings } from "@/lib/preset-settings"
 import { Separator } from "@/components/ui/separator"
+import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
@@ -293,8 +294,17 @@ export function WatermarkControls({
                 <input aria-label="Gradient start" type="color" value={state.gradientA} onChange={(e) => onGradientAChange(e.target.value)} className="h-8 w-10" />
                 <input aria-label="Gradient middle" type="color" value={state.gradientB} onChange={(e) => onGradientBChange(e.target.value)} className="h-8 w-10" />
                 <input aria-label="Gradient end" type="color" value={state.gradientC || "#111111"} onChange={(e) => onGradientCChange(e.target.value)} className="h-8 w-10" />
-                <label className="text-[10px] text-muted-foreground">Angle {state.gradientAngle}</label>
-                <input aria-label="Gradient angle" type="range" min={0} max={360} value={state.gradientAngle} onChange={(e) => onGradientAngleChange(Number(e.target.value))} className="w-full" />
+                <label className="text-[10px] text-muted-foreground">Angle {state.gradientAngle}°</label>
+                <Slider
+                  aria-label="Gradient angle"
+                  min={0}
+                  max={360}
+                  step={1}
+                  suffix="°"
+                  value={[state.gradientAngle]}
+                  onValueChange={([next]) => onGradientAngleChange(next)}
+                  className="w-full"
+                />
               </div>
             )}
           </div>
