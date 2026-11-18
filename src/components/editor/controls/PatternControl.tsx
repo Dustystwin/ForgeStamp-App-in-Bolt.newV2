@@ -16,30 +16,35 @@ const THUMB_CSS = 64
 function Thumb({ pattern }: { pattern: Pattern | null }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
-    const canvas = ref.current
-    if (!canvas) return
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    // Match the screen, and never use a bitmap smaller than twice the CSS
-    // size. A normal screen gets 3x so the letters stay sharp. The bitmap
-    // is never stretched up by CSS.
-    const native = window.devicePixelRatio || 1
-    const dpr = native <= 1 ? 3 : Math.max(2, native)
-    canvas.width = THUMB_CSS * dpr
-    canvas.height = THUMB_CSS * dpr
-    canvas.style.width = `${THUMB_CSS}px`
-    canvas.style.height = `${THUMB_CSS}px`
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.imageSmoothingEnabled = false
-    paintPatternThumb(ctx, pattern, THUMB_CSS, THUMB_CSS)
+    if (!ref.current) return
+    let cancel = false
+    const draw = () => {
+      if (cancel || !ref.current) return
+      const live = ref.current
+      const dpr = Math.max(1, window.devicePixelRatio || 1)
+      live.width = Math.round(THUMB_CSS * dpr)
+      live.height = Math.round(THUMB_CSS * dpr)
+      live.style.width = `${THUMB_CSS}px`
+      live.style.height = `${THUMB_CSS}px`
+      const next = live.getContext("2d")
+      if (!next) return
+      next.setTransform(dpr, 0, 0, dpr, 0, 0)
+      paintPatternThumb(next, pattern, THUMB_CSS, THUMB_CSS)
+    }
+    draw()
+    document.fonts
+      ?.load(`bold 48px Inter`, "Your Text")
+      .then(() => { if (!cancel) draw() })
+      .catch(() => {})
+    return () => { cancel = true }
   }, [pattern])
   return (
     <canvas
       ref={ref}
       aria-hidden="true"
-      width={THUMB_CSS * 3}
-      height={THUMB_CSS * 3}
-      className="rounded-md bg-[#f4f1ec]"
+      width={THUMB_CSS}
+      height={THUMB_CSS}
+      className="block shrink-0 rounded-md bg-[#f4f1ec]"
       style={{ width: THUMB_CSS, height: THUMB_CSS }}
     />
   )

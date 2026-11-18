@@ -488,24 +488,33 @@ export function getPatternPoints(
       }
     }
   } else if (pattern === "spiral") {
-    const ringGap = Math.max(spacing * 0.8, markH + gap)
-    const b = ringGap / (2 * Math.PI)
-    const along = Math.max(markW + gap, spacing * 0.45)
-    let phi = Math.max(markH * 1.6, markW * 0.45) / Math.max(b, 0.001)
-    for (let guard = 0; guard < 4000; guard++) {
-      const r = b * phi
-      if (r > maxRadius + ringGap) break
-      const dx = b * Math.cos(phi) - r * Math.sin(phi)
-      const dy = b * Math.sin(phi) + r * Math.cos(phi)
-      let angle = (Math.atan2(dy, dx) * 180) / Math.PI
-      if (orientation === "readable") angle = upright(angle)
-      push({
-        x: centerX + r * Math.cos(phi),
-        y: centerY + r * Math.sin(phi),
-        angle,
-      })
-      phi += along / Math.max(Math.hypot(dx, dy), 1)
+    // One Archimedean arm, r = b·θ, with the same scale on x and y so the
+    // loops stay circles on a wide photo. Turns are a fixed distance apart.
+    // Copies sit at equal distances along the curve, each turned to the
+    // spiral's own tangent, with no flip. Returned as-is so a later overlap
+    // pass cannot knock copies off the arm.
+    const turnGap = Math.max(markH * 1.45, spacing * 0.55, 16)
+    const b = turnGap / (2 * Math.PI)
+    const along = Math.max(markW + Math.max(8, gap * 0.6), spacing * 0.7)
+    const firstR = Math.max(turnGap * 0.85, along / (2 * Math.PI), markH)
+    let theta = firstR / Math.max(b, 0.001)
+    const limit = Math.hypot(width, height) / 2 + turnGap * 0.45
+    const arm: GridPoint[] = []
+    for (let guard = 0; guard < 8000; guard++) {
+      const r = b * theta
+      if (r > limit) break
+      const dx = b * Math.cos(theta) - r * Math.sin(theta)
+      const dy = b * Math.sin(theta) + r * Math.cos(theta)
+      const speed = Math.max(Math.hypot(dx, dy), 1)
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+      const x = centerX + r * Math.cos(theta)
+      const y = centerY + r * Math.sin(theta)
+      if (x > -markW && y > -markH && x < width + markW && y < height + markH) {
+        arm.push({ x, y, angle })
+      }
+      theta += along / speed
     }
+    return arm
   } else if (pattern === "concentric") {
     // Same centered circles as the original rings, with a little extra room
     // along each ring and between rings. Rings that are too small for a

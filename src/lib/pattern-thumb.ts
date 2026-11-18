@@ -1,59 +1,67 @@
 import type { Pattern } from "@/lib/editor-types"
-import { getPatternPoints } from "@/lib/pattern-layout"
-import { measureTextStamp } from "@/lib/pattern-layout"
+import { releaseCanvas } from "@/lib/image-resources"
+import { getPatternPoints, measureTextStamp, scaledStampFont } from "@/lib/pattern-layout"
 import { drawStamp } from "@/lib/watermark-utils"
 
 const SAMPLE = "Your Text"
+const VIRTUAL = 384
+const PHOTO_FONT = 48
+const PHOTO_DENSITY = 90
 
 /**
- * Mini pattern drawn with the same stamp layout the preview and export use.
- * The font is chosen so several copies fit in the little square.
+ * Draw the real pattern at photo-like proportions on a square, then shrink it
+ * smoothly into the button. Tiny letters drawn directly at 64px turn to mush.
  */
 export function paintPatternThumb(
   ctx: CanvasRenderingContext2D,
   pattern: Pattern | null,
-  width: number,
-  height: number,
+  cssWidth: number,
+  cssHeight: number,
 ) {
-  ctx.clearRect(0, 0, width, height)
-  ctx.fillStyle = "#f4f1ec"
-  ctx.fillRect(0, 0, width, height)
-  ctx.fillStyle = "#3f2a22"
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
-  ctx.globalAlpha = 1
-
-  // Whole pixels only, and large enough that the letters stay formed
-  // when the canvas is shown at its real size.
-  let fontPx = Math.max(11, Math.round(Math.min(width, height) * 0.2))
-  ctx.font = `bold ${fontPx}px Inter, sans-serif`
-  let box = measureTextStamp(ctx, SAMPLE, fontPx, "Inter", false)
-  const target = width * 0.42
-  if (box.width > target && box.width > 1) {
-    fontPx = Math.max(10, Math.round(fontPx * (target / box.width)))
-    ctx.font = `bold ${fontPx}px Inter, sans-serif`
-    box = measureTextStamp(ctx, SAMPLE, fontPx, "Inter", false)
-  }
-
-  if (!pattern) {
-    ctx.fillText(SAMPLE, width / 2, height / 2)
+  const off = document.createElement("canvas")
+  off.width = VIRTUAL
+  off.height = VIRTUAL
+  const pen = off.getContext("2d")
+  if (!pen) {
+    releaseCanvas(off)
     return
   }
+  pen.fillStyle = "#f4f1ec"
+  pen.fillRect(0, 0, VIRTUAL, VIRTUAL)
+  pen.fillStyle = "#3f2a22"
+  pen.textAlign = "center"
+  pen.textBaseline = "middle"
+  pen.globalAlpha = 1
 
-  const spacing = Math.max(box.height * 0.8, Math.min(width, height) * 0.18)
-  const points = getPatternPoints(
-    width,
-    height,
-    pattern,
-    spacing,
-    box.width,
-    box.height,
-    "readable",
-    false,
-    0,
-  )
-  ctx.font = `bold ${fontPx}px Inter, sans-serif`
-  for (const point of points) {
-    drawStamp(ctx, SAMPLE, point, 0, "readable")
+  const fontPx = scaledStampFont(PHOTO_FONT, VIRTUAL, VIRTUAL)
+  pen.font = `bold ${fontPx}px Inter, sans-serif`
+  if (!pattern) {
+    pen.fillText(SAMPLE, VIRTUAL / 2, VIRTUAL / 2)
+  } else {
+    const box = measureTextStamp(pen, SAMPLE, fontPx, "Inter", false)
+    const spacing = PHOTO_DENSITY * (Math.sqrt(VIRTUAL * VIRTUAL) / 800)
+    const points = getPatternPoints(
+      VIRTUAL,
+      VIRTUAL,
+      pattern,
+      spacing,
+      box.width,
+      box.height,
+      "readable",
+      false,
+      0,
+    )
+    pen.font = `bold ${fontPx}px Inter, sans-serif`
+    for (const point of points) {
+      drawStamp(pen, SAMPLE, point, 0, "readable")
+    }
   }
+
+  ctx.save()
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = "high"
+  ctx.clearRect(0, 0, cssWidth, cssHeight)
+  ctx.drawImage(off, 0, 0, cssWidth, cssHeight)
+  ctx.restore()
+  releaseCanvas(off)
 }
