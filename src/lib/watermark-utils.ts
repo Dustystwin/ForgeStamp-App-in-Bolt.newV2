@@ -600,6 +600,7 @@ export async function drawWatermarkOnCanvas(
 
   if (coverageMode === "full") {
     const normalizedSpacing = density * sizeScale
+    const rawGlyphs = Array.from(text || "\u00A0").map((ch) => ctx.measureText(ch).width)
     const points = getPatternPoints(
       imageWidth,
       imageHeight,
@@ -610,6 +611,7 @@ export async function drawWatermarkOnCanvas(
       curveOrientation,
       stacked && !isShapePattern,
       totalRotation,
+      rawGlyphs,
     )
     for (const pt of points) {
       const chosen = adapt(pt.x, pt.y, measured.width, measured.height)

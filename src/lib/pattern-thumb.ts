@@ -39,6 +39,7 @@ export function paintPatternThumb(
     pen.fillText(SAMPLE, VIRTUAL / 2, VIRTUAL / 2)
   } else {
     const box = measureTextStamp(pen, SAMPLE, fontPx, "Inter", false)
+    const glyphs = Array.from(SAMPLE).map((ch) => pen.measureText(ch).width)
     const spacing = PHOTO_DENSITY * (Math.sqrt(VIRTUAL * VIRTUAL) / 800)
     const points = getPatternPoints(
       VIRTUAL,
@@ -50,6 +51,7 @@ export function paintPatternThumb(
       "readable",
       false,
       0,
+      glyphs,
     )
     pen.font = `bold ${fontPx}px Inter, sans-serif`
     for (const point of points) {
