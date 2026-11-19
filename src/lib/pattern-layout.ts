@@ -147,6 +147,13 @@ function boxesOverlap(
   return true
 }
 
+/**
+ * Which spiral the editor draws.
+ * "B" is the smooth round spiral with every word kept readable.
+ * "A" is the spiral from pull request 13, commit 2498472, unchanged.
+ */
+export const SPIRAL_OPTION: "A" | "B" = "B"
+
 function upright(angle: number): number {
   const wrapped = ((angle % 360) + 360) % 360
   return wrapped > 90 && wrapped < 270 ? angle - 180 : angle
@@ -487,12 +494,30 @@ export function getPatternPoints(
         })
       }
     }
+  } else if (pattern === "spiral" && SPIRAL_OPTION === "A") {
+    // Pull request 13, merge commit 2498472. Geometry and orientation unchanged.
+    const ringGap = Math.max(spacing * 0.8, markH + gap)
+    const b = ringGap / (2 * Math.PI)
+    const along = Math.max(markW + gap, spacing * 0.45)
+    let phi = Math.max(markH * 1.6, markW * 0.45) / Math.max(b, 0.001)
+    for (let guard = 0; guard < 4000; guard++) {
+      const r = b * phi
+      if (r > maxRadius + ringGap) break
+      const dx = b * Math.cos(phi) - r * Math.sin(phi)
+      const dy = b * Math.sin(phi) + r * Math.cos(phi)
+      let angle = (Math.atan2(dy, dx) * 180) / Math.PI
+      if (orientation === "readable") angle = upright(angle)
+      push({
+        x: centerX + r * Math.cos(phi),
+        y: centerY + r * Math.sin(phi),
+        angle,
+      })
+      phi += along / Math.max(Math.hypot(dx, dy), 1)
+    }
   } else if (pattern === "spiral") {
-    // One Archimedean arm, r = b·θ, with the same scale on x and y so the
-    // loops stay circles on a wide photo. Turns are a fixed distance apart.
-    // Copies sit at equal distances along the curve, each turned to the
-    // spiral's own tangent, with no flip. Returned as-is so a later overlap
-    // pass cannot knock copies off the arm.
+    // Option B. Same circle scale on x and y, even gaps, even steps along
+    // the curve. A copy that would sit upside down is turned 180 degrees.
+    // The step does not change at that point, so the spacing stays even.
     const turnGap = Math.max(markH * 1.45, spacing * 0.55, 16)
     const b = turnGap / (2 * Math.PI)
     const along = Math.max(markW + Math.max(8, gap * 0.6), spacing * 0.7)
@@ -506,11 +531,11 @@ export function getPatternPoints(
       const dx = b * Math.cos(theta) - r * Math.sin(theta)
       const dy = b * Math.sin(theta) + r * Math.cos(theta)
       const speed = Math.max(Math.hypot(dx, dy), 1)
-      const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+      const tangent = (Math.atan2(dy, dx) * 180) / Math.PI
       const x = centerX + r * Math.cos(theta)
       const y = centerY + r * Math.sin(theta)
       if (x > -markW && y > -markH && x < width + markW && y < height + markH) {
-        arm.push({ x, y, angle })
+        arm.push({ x, y, angle: upright(tangent) })
       }
       theta += along / speed
     }
