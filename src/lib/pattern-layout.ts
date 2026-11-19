@@ -148,11 +148,11 @@ function boxesOverlap(
 }
 
 /**
- * Off. The spiral is the original curved-letter layout from commit 85c85bc.
- * Turn this on only to drop copies that would sit on top of each other.
- * It does not move the copies that remain.
+ * On. The spiral is still the original curved-letter layout from commit 85c85bc.
+ * A copy that would sit on top of its neighbor is left out. The ones that
+ * remain stay exactly where they were.
  */
-export const SPIRAL_SKIP_OVERLAP = false
+export const SPIRAL_SKIP_OVERLAP = true
 
 function upright(angle: number): number {
   const wrapped = ((angle % 360) + 360) % 360
