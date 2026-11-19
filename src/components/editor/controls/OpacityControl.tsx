@@ -40,6 +40,7 @@ export function OpacityControl({ value, onChange }: OpacityControlProps) {
           min={OPACITY_MIN}
           max={OPACITY_MAX}
           step={1}
+          suffix="%"
           className="flex-1"
           aria-label="Opacity slider"
         />

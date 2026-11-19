@@ -1,5 +1,5 @@
 import { zipFiles } from "@/lib/batch-export"
-import { frameBitmap } from "@/lib/frame-image"
+import { frameBitmap, type FrameRequest } from "@/lib/frame-image"
 import { canvasToBlob, closeBitmap, releaseCanvas } from "@/lib/image-resources"
 import { drawWatermarkOnCanvas, type CanvasWatermarkOptions } from "@/lib/watermark-utils"
 
@@ -39,7 +39,15 @@ function centerCrop(
 /** One photo, six center-cropped sizes, zipped. The watermark is drawn on each crop. */
 export async function exportSocialZip(file: File, opts: CanvasWatermarkOptions): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
-  const turned = frameBitmap(bitmap, "original", opts.quarterTurns ?? 0, null)
+  const request: FrameRequest = {
+    aspect: opts.frameAspect ?? "original",
+    mode: opts.frameMode ?? "fit",
+    quarterTurns: opts.quarterTurns ?? 0,
+    flipHorizontal: opts.flipHorizontal === true,
+    flipVertical: opts.flipVertical === true,
+    longEdge: null,
+  }
+  const turned = frameBitmap(bitmap, request)
   closeBitmap(bitmap)
   const files: { name: string; bytes: Uint8Array }[] = []
   try {

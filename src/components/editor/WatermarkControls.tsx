@@ -8,6 +8,7 @@ import type {
   WatermarkMode,
   DateStampFormat,
   CropAspect,
+  FrameMode,
 } from "@/lib/editor-types"
 import { STAMP_SIZE_MAX, STAMP_SIZE_MIN } from "@/lib/editor-types"
 import { TextControl } from "./controls/TextControl"
@@ -43,6 +44,7 @@ import { canUseSparkTools, effectivePlan } from "@/lib/plans"
 import { toast } from "sonner"
 import type { PresetSettings } from "@/lib/preset-settings"
 import { Separator } from "@/components/ui/separator"
+import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
@@ -78,7 +80,10 @@ interface WatermarkControlsProps {
   onShadowOffsetYChange: (value: number) => void
   onDateStampChange: (value: DateStampFormat) => void
   onCropAspectChange: (value: CropAspect) => void
+  onFrameModeChange: (value: FrameMode) => void
   onQuarterTurnsChange: (value: number) => void
+  onFlipHorizontalChange: (value: boolean) => void
+  onFlipVerticalChange: (value: boolean) => void
   onEmojiChange: (value: string) => void
   onStickerChange: (value: string) => void
   onGradientOnChange: (value: boolean) => void
@@ -144,7 +149,10 @@ export function WatermarkControls({
   onShadowOffsetYChange,
   onDateStampChange,
   onCropAspectChange,
+  onFrameModeChange,
   onQuarterTurnsChange,
+  onFlipHorizontalChange,
+  onFlipVerticalChange,
   onEmojiChange,
   onStickerChange,
   onGradientOnChange,
@@ -216,10 +224,16 @@ export function WatermarkControls({
       <WatermarkModeControl value={mode} signatureUnlocked={spark} stickerUnlocked={spark} onChange={onModeChange} />
       <FrameControl
         aspect={state.cropAspect}
+        mode={state.frameMode}
         quarterTurns={state.quarterTurns}
+        flipHorizontal={state.flipHorizontal}
+        flipVertical={state.flipVertical}
         grayscale={state.grayscale}
         onAspectChange={onCropAspectChange}
+        onModeChange={onFrameModeChange}
         onQuarterTurnsChange={onQuarterTurnsChange}
+        onFlipHorizontalChange={onFlipHorizontalChange}
+        onFlipVerticalChange={onFlipVerticalChange}
         onGrayscaleChange={onGrayscaleChange}
       />
       <PresetControl state={state} onApply={onApplySettings} />
@@ -280,8 +294,17 @@ export function WatermarkControls({
                 <input aria-label="Gradient start" type="color" value={state.gradientA} onChange={(e) => onGradientAChange(e.target.value)} className="h-8 w-10" />
                 <input aria-label="Gradient middle" type="color" value={state.gradientB} onChange={(e) => onGradientBChange(e.target.value)} className="h-8 w-10" />
                 <input aria-label="Gradient end" type="color" value={state.gradientC || "#111111"} onChange={(e) => onGradientCChange(e.target.value)} className="h-8 w-10" />
-                <label className="text-[10px] text-muted-foreground">Angle {state.gradientAngle}</label>
-                <input aria-label="Gradient angle" type="range" min={0} max={360} value={state.gradientAngle} onChange={(e) => onGradientAngleChange(Number(e.target.value))} className="w-full" />
+                <label className="text-[10px] text-muted-foreground">Angle {state.gradientAngle}°</label>
+                <Slider
+                  aria-label="Gradient angle"
+                  min={0}
+                  max={360}
+                  step={1}
+                  suffix="°"
+                  value={[state.gradientAngle]}
+                  onValueChange={([next]) => onGradientAngleChange(next)}
+                  className="w-full"
+                />
               </div>
             )}
           </div>

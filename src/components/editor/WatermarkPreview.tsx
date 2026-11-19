@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useLayoutEffect, useMemo } from "react"
 import { canvasToBlob, releaseCanvas } from "@/lib/image-resources"
-import { frameFile } from "@/lib/frame-image"
+import { frameFile, needsFrame, type FrameRequest } from "@/lib/frame-image"
 import { composeWatermarkText, scaledTextPaint, textPaintPadding } from "@/lib/text-style"
 import { watermarkStrength } from "@/lib/watermark-strength"
 import { useAuth } from "@/context/AuthContext"
@@ -18,6 +18,7 @@ import {
   stampPixelSize,
 } from "@/lib/watermark-utils"
 import { renderQrDataUrl } from "@/lib/qr-watermark"
+import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import { ImageIcon } from "lucide-react"
 
@@ -85,7 +86,10 @@ export function WatermarkPreview({
     shadowOffsetY,
     dateStamp,
     cropAspect,
+    frameMode,
     quarterTurns,
+    flipHorizontal,
+    flipVertical,
     emoji,
     stickerId,
     freeX,
@@ -102,10 +106,12 @@ export function WatermarkPreview({
 
   const label = composeWatermarkText(watermarkText, dateStamp)
 
+  const slotRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const imageRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [containerWidth, setContainerWidth] = useState(600)
-  const [containerHeight, setContainerHeight] = useState(400)
+  const [containerWidth, setContainerWidth] = useState(0)
+  const [containerHeight, setContainerHeight] = useState(0)
   const [stampSource, setStampSource] = useState<{ src: string; image: HTMLImageElement } | null>(null)
   const [framedUrl, setFramedUrl] = useState<string | null>(null)
   const [compare, setCompare] = useState(100)
@@ -125,37 +131,68 @@ export function WatermarkPreview({
         ? qrDataUrl
         : null
 
+  const frameRequest: FrameRequest = {
+    aspect: cropAspect,
+    mode: frameMode,
+    quarterTurns,
+    flipHorizontal,
+    flipVertical,
+    longEdge: 1600,
+  }
+
   useEffect(() => {
-    if (!state.image || (cropAspect === "original" && quarterTurns % 4 === 0)) {
-      setFramedUrl(null)
+    const file = state.image
+    if (!file) {
+      setFramedUrl((current) => {
+        if (current) URL.revokeObjectURL(current)
+        return null
+      })
       return
     }
     let cancelled = false
-    let url: string | null = null
-    frameFile(state.image, cropAspect, quarterTurns, 1600)
-      .then(async (canvas) => {
-        const blob = await canvasToBlob(canvas, "image/jpeg", 0.85)
+    let committed = false
+    let nextUrl: string | null = null
+    const run = async () => {
+      // Original + Fit, with no turn or flip, is the photo itself.
+      if (!needsFrame(1, 1, { ...frameRequest, longEdge: null })) {
+        if (!cancelled) {
+          setFramedUrl((current) => {
+            if (current) URL.revokeObjectURL(current)
+            return null
+          })
+        }
+        return
+      }
+      try {
+        const canvas = await frameFile(file, frameRequest)
+        const blob = await canvasToBlob(canvas, "image/jpeg", 0.92)
         releaseCanvas(canvas)
         if (!blob || cancelled) return
-        url = URL.createObjectURL(blob)
+        nextUrl = URL.createObjectURL(blob)
         if (cancelled) {
-          URL.revokeObjectURL(url)
+          URL.revokeObjectURL(nextUrl)
           return
         }
-        setFramedUrl(url)
-      })
-      .catch(() => {
-        if (!cancelled) setFramedUrl(null)
-      })
+        setFramedUrl((current) => {
+          if (current && current !== nextUrl) URL.revokeObjectURL(current)
+          return nextUrl
+        })
+        committed = true
+      } catch {
+        if (!cancelled) {
+          setFramedUrl((current) => {
+            if (current) URL.revokeObjectURL(current)
+            return null
+          })
+        }
+      }
+    }
+    void run()
     return () => {
       cancelled = true
-      if (url) URL.revokeObjectURL(url)
-      setFramedUrl((current) => {
-        if (current && current !== url) URL.revokeObjectURL(current)
-        return null
-      })
+      if (nextUrl && !committed) URL.revokeObjectURL(nextUrl)
     }
-  }, [state.image, cropAspect, quarterTurns])
+  }, [state.image, cropAspect, frameMode, quarterTurns, flipHorizontal, flipVertical])
 
   useEffect(() => {
     if (!stampSrc) {
@@ -183,25 +220,44 @@ export function WatermarkPreview({
     }
   }, [])
 
-  // Track container size via ResizeObserver. Guarded so we only update state
-  // when the size actually changed (by more than a fraction of a pixel) —
-  // this avoids any chance of redundant re-render churn from the observer
-  // firing with an unchanged or near-identical size.
+  // Size the stage from the photo's real pixels, fitted into the column.
+  // The old stage stretched to the full column, so a short photo sat on the
+  // left and the watermark canvas painted across the empty checkerboard.
+  const measureStage = () => {
+    const img = imageRef.current
+    const slot = slotRef.current
+    if (!img || !slot) return
+    const naturalW = img.naturalWidth
+    const naturalH = img.naturalHeight
+    if (naturalW < 1 || naturalH < 1) return
+    const maxW = Math.max(1, slot.clientWidth)
+    const maxH = window.innerWidth >= 768
+      ? Math.min(window.innerHeight * 0.45, 460)
+      : Math.max(160, window.innerHeight * 0.45)
+    let width = maxW
+    let height = width * (naturalH / naturalW)
+    if (height > maxH) {
+      height = maxH
+      width = height * (naturalW / naturalH)
+    }
+    const nextW = Math.max(1, Math.round(width))
+    const nextH = Math.max(1, Math.round(height))
+    setContainerWidth((prev) => (prev === nextW ? prev : nextW))
+    setContainerHeight((prev) => (prev === nextH ? prev : nextH))
+  }
+
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect
-        if (width > 0 && height > 0) {
-          setContainerWidth((prev) => (Math.abs(prev - width) > 0.5 ? width : prev))
-          setContainerHeight((prev) => (Math.abs(prev - height) > 0.5 ? height : prev))
-        }
-      }
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
+    measureStage()
+    const slot = slotRef.current
+    if (!slot) return
+    const observer = new ResizeObserver(() => measureStage())
+    observer.observe(slot)
+    window.addEventListener("resize", measureStage)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", measureStage)
+    }
+  }, [imagePreviewUrl, framedUrl])
 
 
   // Full-coverage draw effect.
@@ -235,8 +291,11 @@ export function WatermarkPreview({
     }
 
     const draw = () => {
-      canvas.width = containerWidth
-      canvas.height = containerHeight
+      const dpr = Math.min(2, window.devicePixelRatio || 1)
+      canvas.width = Math.max(1, Math.round(containerWidth * dpr))
+      canvas.height = Math.max(1, Math.round(containerHeight * dpr))
+      const prep = canvas.getContext("2d")
+      if (prep) prep.setTransform(dpr, 0, 0, dpr, 0, 0)
       const visible = layers.filter((layer) => !layer.hidden)
       const marks = visible.length > 0 ? visible : []
       void (async () => {
@@ -481,40 +540,45 @@ export function WatermarkPreview({
   return (
     <div
       className={cn(
-        "flex w-full flex-col items-stretch justify-center rounded-xl border border-border/40 overflow-hidden",
-        !imagePreviewUrl &&
-          "min-h-[260px] md:min-h-[360px] bg-gradient-to-br from-orange-50/70 via-amber-50/40 to-background"
+        "flex w-full flex-col items-stretch justify-center overflow-hidden",
+        !imagePreviewUrl && "min-h-[260px] md:min-h-[360px]"
       )}
     >
+      <div
+        ref={slotRef}
+        className={cn(
+          "flex w-full justify-center",
+          !imagePreviewUrl && "min-h-[260px] md:min-h-[360px]"
+        )}
+      >
       <div
         ref={containerRef}
         className={cn(
           "relative",
           imagePreviewUrl
-            ? "inline-block max-h-full max-w-full bg-[repeating-conic-gradient(oklch(0.93_0_0)_0%_25%,oklch(0.97_0_0)_0%_50%)] bg-[length:16px_16px]"
+            ? "bg-[#f3f1ee]"
             : "w-full min-h-[260px] md:min-h-[360px]"
         )}
-        onLoad={() => {
-          if (containerRef.current) {
-            setContainerWidth(containerRef.current.offsetWidth)
-            setContainerHeight(containerRef.current.offsetHeight)
-          }
-        }}
+        style={
+          imagePreviewUrl && containerWidth > 0
+            ? { width: containerWidth, height: containerHeight }
+            : undefined
+        }
       >
-        {/* Uploaded image */}
+        {/* Uploaded image. Width and height match its aspect, so it fills this box. */}
         {imagePreviewUrl ? (
           <img
+            ref={imageRef}
             src={framedUrl ?? imagePreviewUrl}
-            style={grayscale ? { filter: "grayscale(1)" } : undefined}
-            alt="Uploaded image preview"
-            className="block max-h-[45vh] md:max-h-[min(45vh,460px)] max-w-full object-contain"
-            draggable={false}
-            onLoad={() => {
-              if (containerRef.current) {
-                setContainerWidth(containerRef.current.offsetWidth)
-                setContainerHeight(containerRef.current.offsetHeight)
-              }
+            style={{
+              width: containerWidth > 0 ? containerWidth : undefined,
+              height: containerHeight > 0 ? containerHeight : undefined,
+              filter: grayscale ? "grayscale(1)" : undefined,
             }}
+            alt="Uploaded image preview"
+            className="block max-w-full object-fill"
+            draggable={false}
+            onLoad={measureStage}
           />
         ) : null}
 
@@ -681,6 +745,7 @@ export function WatermarkPreview({
           </div>
         )}
       </div>
+      </div>
       <StrengthBar state={state} compare={compare} onCompare={setCompare} />
     </div>
   )
@@ -703,14 +768,14 @@ function StrengthBar({
         <p className="text-[11px] text-muted-foreground">Before / after</p>
       </div>
       <p className="text-[11px] leading-relaxed text-muted-foreground">{result.note}</p>
-      <input
-        type="range"
+      <Slider
         min={0}
         max={100}
-        value={compare}
+        step={1}
+        suffix="%"
+        value={[compare]}
         aria-label="Compare before and after"
-        className="w-full accent-orange-500"
-        onChange={(event) => onCompare(Number(event.target.value))}
+        onValueChange={([next]) => onCompare(next)}
       />
     </div>
   )
