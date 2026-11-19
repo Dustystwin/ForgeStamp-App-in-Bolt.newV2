@@ -148,11 +148,11 @@ function boxesOverlap(
 }
 
 /**
- * Which spiral the editor draws.
- * "B" is the smooth round spiral with every word kept readable.
- * "A" is the spiral from pull request 13, commit 2498472, unchanged.
+ * Off. The spiral is the original curved-letter layout from commit 85c85bc.
+ * Turn this on only to drop copies that would sit on top of each other.
+ * It does not move the copies that remain.
  */
-export const SPIRAL_OPTION: "A" | "B" = "B"
+export const SPIRAL_SKIP_OVERLAP = false
 
 function upright(angle: number): number {
   const wrapped = ((angle % 360) + 360) % 360
@@ -494,52 +494,37 @@ export function getPatternPoints(
         })
       }
     }
-  } else if (pattern === "spiral" && SPIRAL_OPTION === "A") {
-    // Pull request 13, merge commit 2498472. Geometry and orientation unchanged.
-    const ringGap = Math.max(spacing * 0.8, markH + gap)
-    const b = ringGap / (2 * Math.PI)
-    const along = Math.max(markW + gap, spacing * 0.45)
-    let phi = Math.max(markH * 1.6, markW * 0.45) / Math.max(b, 0.001)
-    for (let guard = 0; guard < 4000; guard++) {
-      const r = b * phi
-      if (r > maxRadius + ringGap) break
-      const dx = b * Math.cos(phi) - r * Math.sin(phi)
-      const dy = b * Math.sin(phi) + r * Math.cos(phi)
-      let angle = (Math.atan2(dy, dx) * 180) / Math.PI
-      if (orientation === "readable") angle = upright(angle)
-      push({
-        x: centerX + r * Math.cos(phi),
-        y: centerY + r * Math.sin(phi),
-        angle,
-      })
-      phi += along / Math.max(Math.hypot(dx, dy), 1)
-    }
   } else if (pattern === "spiral") {
-    // Option B. Same circle scale on x and y, even gaps, even steps along
-    // the curve. A copy that would sit upside down is turned 180 degrees.
-    // The step does not change at that point, so the spacing stays even.
-    const turnGap = Math.max(markH * 1.45, spacing * 0.55, 16)
-    const b = turnGap / (2 * Math.PI)
-    const along = Math.max(markW + Math.max(8, gap * 0.6), spacing * 0.7)
-    const firstR = Math.max(turnGap * 0.85, along / (2 * Math.PI), markH)
-    let theta = firstR / Math.max(b, 0.001)
-    const limit = Math.hypot(width, height) / 2 + turnGap * 0.45
+    // Restored from 85c85bc, the last main commit before pull request 13.
+    // Each copy is bent along a circle around the photo's center.
+    const ringStep = Math.max(spacing * 0.75, markH * 2)
+    const b = ringStep / (2 * Math.PI)
+    const arcStep = Math.max(spacing * 0.7, markW * 0.8 + spacing * 0.15)
+    // Start where the curve is wide enough for the text to bend along it
+    // (radius >= textWidth/2.5 keeps the arc under the curved-render limit).
+    let phi = Math.max(ringStep * 0.55, markW / 2.5) / b
     const arm: GridPoint[] = []
-    for (let guard = 0; guard < 8000; guard++) {
-      const r = b * theta
-      if (r > limit) break
-      const dx = b * Math.cos(theta) - r * Math.sin(theta)
-      const dy = b * Math.sin(theta) + r * Math.cos(theta)
-      const speed = Math.max(Math.hypot(dx, dy), 1)
-      const tangent = (Math.atan2(dy, dx) * 180) / Math.PI
-      const x = centerX + r * Math.cos(theta)
-      const y = centerY + r * Math.sin(theta)
-      if (x > -markW && y > -markH && x < width + markW && y < height + markH) {
-        arm.push({ x, y, angle: upright(tangent) })
+    for (;;) {
+      const r = b * phi
+      if (r > maxRadius + ringStep) break
+      const x = centerX + r * Math.cos(phi)
+      const y = centerY + r * Math.sin(phi)
+      if (x >= -markW / 2 && x <= width + markW / 2 && y >= -markH && y <= height + markH) {
+        arm.push({ x, y, angle: 0, arc: { cx: centerX, cy: centerY, r } })
       }
-      theta += along / speed
+      phi += arcStep / Math.max(r, 1)
     }
-    return arm
+    if (!SPIRAL_SKIP_OVERLAP) return arm
+    const kept: GridPoint[] = []
+    const boxes: { x: number; y: number; w: number; h: number; angle: number }[] = []
+    const pad = Math.max(3, gap * 0.25)
+    for (const pt of arm) {
+      const box = layoutStampBox(pt, markW, markH, baseRotation, stackedMode)
+      if (boxes.some((other) => boxesOverlap(box, other, pad))) continue
+      kept.push(pt)
+      boxes.push(box)
+    }
+    return kept
   } else if (pattern === "concentric") {
     // Same centered circles as the original rings, with a little extra room
     // along each ring and between rings. Rings that are too small for a
