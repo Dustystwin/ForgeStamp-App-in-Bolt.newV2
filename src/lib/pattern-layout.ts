@@ -185,7 +185,10 @@ export function getPatternPoints(
 ): GridPoint[] {
   const markW = Math.max(8, textWidth)
   const markH = Math.max(8, textHeight)
-  spacing = Math.max(1, Math.min(spacing, Math.min(width, height) / 2))
+  // The Spacing slider is allowed to run to its own top. Capping it against
+  // the short side of the photo froze wide and thin pictures partway up,
+  // and made a small preview disagree with the full-size export.
+  spacing = Math.max(1, spacing)
   const gap = Math.max(8, Math.min(markW, markH) * 0.22)
   const centerX = width / 2
   const centerY = height / 2
