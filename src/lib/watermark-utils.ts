@@ -616,7 +616,18 @@ export async function drawWatermarkOnCanvas(
     for (const pt of points) {
       const chosen = adapt(pt.x, pt.y, measured.width, measured.height)
       ctx.fillStyle = chosen.fill
-      drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward, chosen.stampPaint)
+      // Shape patterns are spaced from one line of text. Stacking those letters
+      // into a column paints outside that line and lands on the next copy.
+      drawStamp(
+        ctx,
+        text || "\u00A0",
+        pt,
+        totalRotation,
+        curveOrientation,
+        isShapePattern ? undefined : stackedLineHeight,
+        stackUpward,
+        chosen.stampPaint,
+      )
     }
   } else {
     const { x, y } = opts.freeX != null && opts.freeY != null
