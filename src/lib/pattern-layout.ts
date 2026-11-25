@@ -262,11 +262,7 @@ export function getPatternPoints(
     const alongB = projectExtent(finalB, -tilt, markW / 2, markH / 2) * 2 + crossGap
     const sepNeed = Math.max(boxA.halfW + boxB.halfW, boxA.halfH + boxB.halfH) + crossGap
     const tight = Math.max(alongA, alongB, sepNeed * Math.SQRT2)
-    const wanted = room(tight) * 1.06
-    // Half a step is where the nearest word sits. Stop opening once that
-    // word would leave the photo, so a high setting stays an X instead of blank.
-    const nearest = Math.min(width, height) / 2 + Math.min(markW, markH) * 0.45
-    const step = Math.min(wanted, Math.max(tight * 1.06, nearest * 2))
+    const step = room(tight) * 1.06
     const ux = Math.cos(theta)
     const uy = Math.sin(theta)
     const vx = Math.cos(-theta)
@@ -290,6 +286,13 @@ export function getPatternPoints(
           angle: -tilt,
         })
       }
+    }
+    // A very open step can throw the whole lattice past the edges. Leave one
+    // word on each diagonal so the photo is not blank, still clear of each other.
+    if (candidates.length === 0) {
+      const apart = Math.min(tight, Math.max(width, height) * 0.55)
+      push({ x: centerX - apart / 2, y: centerY, angle: tilt })
+      push({ x: centerX + apart / 2, y: centerY, angle: -tilt })
     }
   } else if (pattern === "diagonal" || pattern === "reverse-diagonal") {
     const tilt = pattern === "diagonal" ? -25 : 25
@@ -500,10 +503,13 @@ export function getPatternPoints(
       r0 = need
       if (need <= maxRadius * 0.72) break
     }
-    const rays = Math.max(3, Math.min(fitted, Math.round(fitted / (1 + 0.95 * Math.max(0, openness - 0.444)))))
-    const innerCap = maxRadius * 0.7
-    r0 = Math.min(Math.max(r0, r0 * (1 + 0.18 * Math.max(0, openness - 0.444))), Math.max(r0, innerCap))
+    const rays = Math.max(1, Math.min(fitted, Math.round(fitted / (1 + 0.95 * Math.max(0, openness - 0.444)))))
     const outer = maxRadius + markH * 0.2
+    const grown = r0 * (1 + 0.18 * Math.max(0, openness - 0.444))
+    // Below the usual setting the ring stays inside the old limit. Above it,
+    // the ring may move out toward the edge instead of freezing.
+    const cap = maxRadius * (0.7 + 0.22 * Math.min(1, Math.max(0, openness - 1)))
+    r0 = Math.min(Math.max(r0, grown), Math.max(r0, cap))
     for (let i = 0; i < rays; i++) {
       const theta = (i * 2 * Math.PI) / rays
       let raw = (theta * 180) / Math.PI
@@ -544,9 +550,14 @@ export function getPatternPoints(
       phi += arcStep / Math.max(r, 1)
     }
     if (!SPIRAL_SKIP_OVERLAP) return arm
-    // Same per-letter widths the painter uses. Scaling them to the padded
-    // word width would miss letters that stick out past the collision box.
-    const widths = charWidths.length > 0 && charWidths.some((w) => w > 0) ? charWidths : [markW]
+    // Same per-letter widths the painter uses. Do not shrink them to the
+    // measured word, or a kerned letter sticks out of the box. An outline
+    // makes the word wider than the letters; cover that extra, and ignore
+    // a one-pixel measuring difference.
+    const rawWidths = charWidths.length > 0 && charWidths.some((w) => w > 0) ? charWidths : [markW]
+    const rawSum = rawWidths.reduce((sum, w) => sum + w, 0) || markW
+    const slack = markW - rawSum
+    const widths = slack > markH * 0.15 ? rawWidths.map((w) => w + slack / rawWidths.length) : rawWidths
     const touch = Math.max(3, markH * 0.08)
     const kept: GridPoint[] = []
     const placed: { x: number; y: number; w: number; h: number; angle: number }[] = []
