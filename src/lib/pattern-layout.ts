@@ -91,6 +91,81 @@ export function measureTextStamp(
   return { width: Math.max(1, ctx.measureText(raw).width), height: fontPx }
 }
 
+/** Smallest clear space between two copies, as a fraction of the text height. */
+export const MIN_COPY_GAP_RATIO = 0.3
+
+type StampBox = { x: number; y: number; w: number; h: number; angle: number }
+
+/**
+ * The boxes that actually get painted for one copy. Curved text is one box
+ * per letter, matching the painter. A logo or QR is one rotated square.
+ */
+export function copyFootprints(
+  pt: GridPoint,
+  markWidth: number,
+  markHeight: number,
+  baseRotation: number,
+  stackedMode: boolean,
+  orientation: CurveOrientation,
+  charWidths: number[],
+): StampBox[] {
+  const arc = pt.arc
+  const scale = pt.fontScale != null && pt.fontScale > 0 ? pt.fontScale : 1
+  if (!arc || arc.r <= 4 || charWidths.length === 0 || !charWidths.some((w) => w > 0)) {
+    return [layoutStampBox(pt, markWidth, markHeight, baseRotation, stackedMode)]
+  }
+  const raw = charWidths
+  const rawSum = raw.reduce((sum, w) => sum + w, 0) || markWidth
+  const slack = markWidth - rawSum
+  const grown = slack > markHeight * 0.15 ? raw.map((w) => w + slack / raw.length) : raw
+  const widths = grown.map((w) => w * scale)
+  const letterH = Math.max(1, markHeight * scale)
+  const { cx, cy, r } = arc
+  const total = widths.reduce((sum, w) => sum + w, 0)
+  const totalArc = total / Math.max(r, 0.001)
+  const centerAngle = Math.atan2(pt.y - cy, pt.x - cx) + (baseRotation * Math.PI) / 180
+  if (totalArc > Math.PI * 1.2) {
+    return [layoutStampBox(pt, markWidth, markHeight, baseRotation, stackedMode)]
+  }
+  const flip = !arc.continuous && orientation === "readable" && Math.sin(centerAngle) > 0
+  const dir = flip ? -1 : 1
+  let cursor = centerAngle - (dir * totalArc) / 2
+  const boxes: StampBox[] = []
+  for (const w of widths) {
+    const charArc = w / Math.max(r, 0.001)
+    const mid = cursor + (dir * charArc) / 2
+    boxes.push({
+      x: cx + r * Math.cos(mid),
+      y: cy + r * Math.sin(mid),
+      w,
+      h: letterH,
+      angle: ((mid + (dir * Math.PI) / 2) * 180) / Math.PI,
+    })
+    cursor += dir * charArc
+  }
+  return boxes
+}
+
+/** True when every copy stays at least `minGap` away from the others. */
+export function copiesAreClear(
+  points: GridPoint[],
+  markWidth: number,
+  markHeight: number,
+  baseRotation: number,
+  stackedMode: boolean,
+  orientation: CurveOrientation,
+  charWidths: number[],
+  minGap: number,
+): boolean {
+  const placed: StampBox[] = []
+  for (const pt of points) {
+    const boxes = copyFootprints(pt, markWidth, markHeight, baseRotation, stackedMode, orientation, charWidths)
+    if (boxes.some((box) => placed.some((other) => boxesOverlap(box, other, minGap)))) return false
+    placed.push(...boxes)
+  }
+  return true
+}
+
 /** The box actually drawn for a pattern stamp. Shared by preview and export. */
 export function layoutStampBox(
   pt: GridPoint,
@@ -189,7 +264,8 @@ export function getPatternPoints(
   // the short side of the photo froze wide and thin pictures partway up,
   // and made a small preview disagree with the full-size export.
   spacing = Math.max(1, spacing)
-  const gap = Math.max(8, Math.min(markW, markH) * 0.22)
+  // About a third of the letter height, so copies never sit against each other.
+  const gap = Math.max(4, markH * MIN_COPY_GAP_RATIO)
   const centerX = width / 2
   const centerY = height / 2
   const maxRadius = Math.hypot(width, height) / 2
@@ -329,8 +405,10 @@ export function getPatternPoints(
         if (hash2(row, col, 1) < 0.12) continue
         const jx = hash2(row, col, 2) * 2 - 1
         const jy = hash2(row, col, 3) * 2 - 1
-        const x = Math.min(width - markW / 2, Math.max(markW / 2, (col + 0.5) * cellW + jx * freeX))
-        const y = Math.min(height - markH / 2, Math.max(markH / 2, (row + 0.5) * cellH + jy * freeY))
+        // Do not clamp several cells onto the same edge. That piled copies
+        // on the left and in the middle of the photo.
+        const x = (col + 0.5) * cellW + jx * freeX
+        const y = (row + 0.5) * cellH + jy * freeY
         push({ x, y, angle: 0 })
       }
     }
@@ -455,8 +533,20 @@ export function getPatternPoints(
   } else if (pattern === "lattice") {
     const cellW = room(Math.max(markW * 0.92 + gap, markH * 2.8))
     const cellH = room(Math.max(markH * 2.8, markW * 0.48 + gap))
-    const hScale = Math.min(1, (cellW * 0.62) / markW)
-    const vScale = Math.min(1, (cellH * 0.62) / markW)
+    let hScale = Math.min(1, (cellW * 0.5) / markW)
+    let vScale = Math.min(1, (cellH * 0.5) / markW)
+    // Shrink until a horizontal word and a vertical word clear at the corner.
+    for (let guard = 0; guard < 12; guard++) {
+      const hHalf = (markW * hScale) / 2
+      const vHalf = (markW * vScale) / 2
+      const hThick = (markH * hScale) / 2
+      const vThick = (markH * vScale) / 2
+      const clearX = cellW / 2 - hHalf - vThick >= gap
+      const clearY = cellH / 2 - vHalf - hThick >= gap
+      if (clearX && clearY) break
+      hScale *= 0.9
+      vScale *= 0.9
+    }
     const seen = new Set<string>()
     const quant = Math.max(2, Math.min(cellW, cellH) * 0.08)
     const cols = Math.ceil(width / cellW) + 2
@@ -490,7 +580,7 @@ export function getPatternPoints(
         const rayDeg = (theta * 180) / Math.PI
         const halfAlong = projectExtent(final, rayDeg, markW / 2, markH / 2)
         const halfAcross = projectExtent(final, rayDeg + 90, markW / 2, markH / 2)
-        const chord = halfAcross * 2 + gap
+    const chord = halfAcross * 2 + gap * 2
         need = Math.max(need, halfAlong + chord / (2 * Math.sin(dTheta / 2)))
       }
       return need
@@ -550,48 +640,11 @@ export function getPatternPoints(
       phi += arcStep / Math.max(r, 1)
     }
     if (!SPIRAL_SKIP_OVERLAP) return arm
-    // Same per-letter widths the painter uses. Do not shrink them to the
-    // measured word, or a kerned letter sticks out of the box. An outline
-    // makes the word wider than the letters; cover that extra, and ignore
-    // a one-pixel measuring difference.
-    const rawWidths = charWidths.length > 0 && charWidths.some((w) => w > 0) ? charWidths : [markW]
-    const rawSum = rawWidths.reduce((sum, w) => sum + w, 0) || markW
-    const slack = markW - rawSum
-    const widths = slack > markH * 0.15 ? rawWidths.map((w) => w + slack / rawWidths.length) : rawWidths
-    const touch = Math.max(3, markH * 0.08)
     const kept: GridPoint[] = []
-    const placed: { x: number; y: number; w: number; h: number; angle: number }[] = []
-    const lettersOf = (pt: GridPoint) => {
-      const arc = pt.arc
-      if (!arc) return [layoutStampBox(pt, markW, markH, baseRotation, stackedMode)]
-      const { cx, cy, r } = arc
-      const total = widths.reduce((sum, w) => sum + w, 0)
-      const totalArc = total / Math.max(r, 0.001)
-      const centerAngle = Math.atan2(pt.y - cy, pt.x - cx) + (baseRotation * Math.PI) / 180
-      if (totalArc > Math.PI * 1.2) {
-        return [{ x: pt.x, y: pt.y, w: total, h: markH, angle: (centerAngle * 180) / Math.PI }]
-      }
-      const flip = !arc.continuous && orientation === "readable" && Math.sin(centerAngle) > 0
-      const dir = flip ? -1 : 1
-      let cursor = centerAngle - (dir * totalArc) / 2
-      const boxes: { x: number; y: number; w: number; h: number; angle: number }[] = []
-      for (const w of widths) {
-        const charArc = w / Math.max(r, 0.001)
-        const mid = cursor + (dir * charArc) / 2
-        boxes.push({
-          x: cx + r * Math.cos(mid),
-          y: cy + r * Math.sin(mid),
-          w,
-          h: markH,
-          angle: ((mid + (dir * Math.PI) / 2) * 180) / Math.PI,
-        })
-        cursor += dir * charArc
-      }
-      return boxes
-    }
+    const placed: StampBox[] = []
     for (const pt of arm) {
-      const letters = lettersOf(pt)
-      if (letters.some((letter) => placed.some((other) => boxesOverlap(letter, other, touch)))) continue
+      const letters = copyFootprints(pt, markW, markH, baseRotation, stackedMode, orientation, charWidths)
+      if (letters.some((letter) => placed.some((other) => boxesOverlap(letter, other, gap)))) continue
       kept.push(pt)
       placed.push(...letters)
     }
@@ -650,13 +703,12 @@ export function getPatternPoints(
   }
 
   const kept: GridPoint[] = []
-  const boxes: { x: number; y: number; w: number; h: number; angle: number }[] = []
-  const pad = Math.max(3, gap * 0.25)
+  const placed: StampBox[] = []
   for (const pt of candidates) {
-    const box = layoutStampBox(pt, markW, markH, baseRotation, stackedMode)
-    if (boxes.some((other) => boxesOverlap(box, other, pad))) continue
+    const boxes = copyFootprints(pt, markW, markH, baseRotation, stackedMode, orientation, charWidths)
+    if (boxes.some((box) => placed.some((other) => boxesOverlap(box, other, gap)))) continue
     kept.push(pt)
-    boxes.push(box)
+    placed.push(...boxes)
   }
   return kept
 }
