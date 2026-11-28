@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
@@ -12,17 +12,18 @@ interface DensityControlProps {
 
 export function DensityControl({ value, onChange }: DensityControlProps) {
   const numberRef = useBlockNumberWheel()
+  // Keep the raw text while typing. Clamping each key turns "220" into 40,
+  // because "2" is below the minimum before the rest of the number arrives.
+  const [draft, setDraft] = useState<string | null>(null)
   const clamp = useCallback((v: number) => {
     return Math.min(DENSITY_MAX, Math.max(DENSITY_MIN, Math.round(v)))
   }, [])
 
-  const handleInputBlur = useCallback(
-    (e: React.FocusEvent<HTMLInputElement>) => {
-      const parsed = parseInt(e.target.value, 10)
-      onChange(isNaN(parsed) ? DENSITY_MIN : clamp(parsed))
-    },
-    [onChange, clamp]
-  )
+  const commit = useCallback((raw: string) => {
+    const parsed = parseInt(raw, 10)
+    onChange(Number.isNaN(parsed) ? DENSITY_MIN : clamp(parsed))
+    setDraft(null)
+  }, [onChange, clamp])
 
   return (
     <div className="space-y-1.5">
@@ -32,7 +33,10 @@ export function DensityControl({ value, onChange }: DensityControlProps) {
       <div className="flex items-center gap-3">
         <Slider
           value={[value]}
-          onValueChange={([v]) => onChange(v)}
+          onValueChange={([v]) => {
+            setDraft(null)
+            onChange(v)
+          }}
           min={DENSITY_MIN}
           max={DENSITY_MAX}
           step={1}
@@ -46,12 +50,21 @@ export function DensityControl({ value, onChange }: DensityControlProps) {
           inputMode="numeric"
           min={DENSITY_MIN}
           max={DENSITY_MAX}
-          value={value}
+          value={draft ?? String(value)}
+          onFocus={(e) => e.target.select()}
           onChange={(e) => {
-            const parsed = parseInt(e.target.value, 10)
-            if (!isNaN(parsed)) onChange(clamp(parsed))
+            const next = e.target.value
+            setDraft(next)
+            const parsed = parseInt(next, 10)
+            if (!Number.isNaN(parsed) && parsed >= DENSITY_MIN && parsed <= DENSITY_MAX) onChange(parsed)
           }}
-          onBlur={handleInputBlur}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              commit(e.currentTarget.value)
+              e.currentTarget.blur()
+            }
+          }}
           className="h-8 w-16 text-center text-xs"
           aria-label="Spacing value"
         />
