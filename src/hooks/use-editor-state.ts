@@ -20,6 +20,7 @@ import {
   type ExportFormat,
   type DateStampFormat,
   type CropAspect,
+  type FrameMode,
   OUTLINE_WIDTH_MIN,
   OUTLINE_WIDTH_MAX,
   SHADOW_BLUR_MIN,
@@ -29,7 +30,8 @@ import {
   EXPORT_QUALITY_MIN,
   EXPORT_QUALITY_MAX,
   isDateStampFormat,
-  isCropAspect,
+  isFrameMode,
+  readCropAspect,
 } from "@/lib/editor-types"
 import { isExportFormat, type PresetSettings } from "@/lib/preset-settings"
 import { scheduleThumb, thumbnailBlob } from "@/lib/image-resources"
@@ -142,14 +144,17 @@ export function useEditorState(initialData?: EditorInitialData) {
   const [dateStamp, setDateStamp] = useState<DateStampFormat>(
     isDateStampFormat(init.dateStamp) ? init.dateStamp : "off"
   )
-  const [cropAspect, setCropAspect] = useState<CropAspect>(
-    isCropAspect(init.cropAspect) ? init.cropAspect : "original"
+  const [cropAspect, setCropAspect] = useState<CropAspect>(readCropAspect(init.cropAspect))
+  const [frameMode, setFrameMode] = useState<FrameMode>(
+    isFrameMode(init.frameMode) ? init.frameMode : "fit"
   )
   const [quarterTurns, setQuarterTurns] = useState(() => {
     const n = init.quarterTurns
     if (typeof n !== "number" || !Number.isFinite(n)) return 0
     return ((Math.round(n) % 4) + 4) % 4
   })
+  const [flipHorizontal, setFlipHorizontal] = useState(init.flipHorizontal === true)
+  const [flipVertical, setFlipVertical] = useState(init.flipVertical === true)
   const [emoji, setEmoji] = useState(typeof init.emoji === "string" && init.emoji ? init.emoji : DEFAULT_EDITOR_STATE.emoji)
   const [stickerId, setStickerId] = useState(typeof init.stickerId === "string" && init.stickerId ? init.stickerId : DEFAULT_EDITOR_STATE.stickerId)
   const [freeX, setFreeX] = useState<number | null>(typeof init.freeX === "number" ? init.freeX : null)
@@ -448,7 +453,10 @@ export function useEditorState(initialData?: EditorInitialData) {
     setShadowOffsetY(DEFAULT_EDITOR_STATE.shadowOffsetY)
     setDateStamp(DEFAULT_EDITOR_STATE.dateStamp)
     setCropAspect(DEFAULT_EDITOR_STATE.cropAspect)
+    setFrameMode(DEFAULT_EDITOR_STATE.frameMode)
     setQuarterTurns(DEFAULT_EDITOR_STATE.quarterTurns)
+    setFlipHorizontal(DEFAULT_EDITOR_STATE.flipHorizontal)
+    setFlipVertical(DEFAULT_EDITOR_STATE.flipVertical)
     setEmoji(DEFAULT_EDITOR_STATE.emoji)
     setStickerId(DEFAULT_EDITOR_STATE.stickerId)
     setFreeX(null)
@@ -499,7 +507,10 @@ export function useEditorState(initialData?: EditorInitialData) {
     setShadowOffsetY(settings.shadowOffsetY)
     setDateStamp(settings.dateStamp)
     setCropAspect(settings.cropAspect)
+    setFrameMode(settings.frameMode)
     setQuarterTurns(settings.quarterTurns)
+    setFlipHorizontal(settings.flipHorizontal)
+    setFlipVertical(settings.flipVertical)
     setEmoji(settings.emoji)
     setStickerId(settings.stickerId)
     setFreeX(settings.freeX)
@@ -757,7 +768,10 @@ export function useEditorState(initialData?: EditorInitialData) {
     shadowOffsetY,
     dateStamp,
     cropAspect,
+    frameMode,
     quarterTurns,
+    flipHorizontal,
+    flipVertical,
     emoji,
     stickerId,
     freeX,
@@ -812,7 +826,10 @@ export function useEditorState(initialData?: EditorInitialData) {
     setShadowOffsetY,
     setDateStamp,
     setCropAspect,
+    setFrameMode,
     setQuarterTurns,
+    setFlipHorizontal,
+    setFlipVertical,
     setEmoji,
     setStickerId,
     setFreeX,

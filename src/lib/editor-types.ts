@@ -17,7 +17,10 @@ export type ExportFormat = "png" | "jpeg" | "webp"
 
 export type DateStampFormat = "off" | "medium" | "numeric" | "year"
 
-export type CropAspect = "original" | "1:1" | "4:5" | "3:4" | "2:3" | "9:16" | "16:9"
+export type CropAspect = "original" | "1:1" | "4:5" | "3:4" | "4:3" | "9:16" | "16:9"
+
+/** How the photo sits in a frame that is not the original shape. */
+export type FrameMode = "fit" | "fill" | "stretch"
 
 export function isWatermarkMode(value: unknown): value is WatermarkMode {
   return value === "text" || value === "logo" || value === "qr" || value === "signature" || value === "emoji" || value === "sticker"
@@ -28,7 +31,17 @@ export function isDateStampFormat(value: unknown): value is DateStampFormat {
 }
 
 export function isCropAspect(value: unknown): value is CropAspect {
-  return value === "original" || value === "1:1" || value === "4:5" || value === "3:4" || value === "2:3" || value === "9:16" || value === "16:9"
+  return value === "original" || value === "1:1" || value === "4:5" || value === "3:4" || value === "4:3" || value === "9:16" || value === "16:9"
+}
+
+/** Older looks used 2:3. That ratio is now 3:4 so a saved preset still opens as a portrait frame. */
+export function readCropAspect(value: unknown): CropAspect {
+  if (value === "2:3") return "3:4"
+  return isCropAspect(value) ? value : "original"
+}
+
+export function isFrameMode(value: unknown): value is FrameMode {
+  return value === "fit" || value === "fill" || value === "stretch"
 }
 
 export type Pattern =
@@ -86,7 +99,10 @@ export interface EditorState {
   shadowOffsetY: number
   dateStamp: DateStampFormat
   cropAspect: CropAspect
+  frameMode: FrameMode
   quarterTurns: number
+  flipHorizontal: boolean
+  flipVertical: boolean
   emoji: string
   stickerId: string
   freeX: number | null
@@ -226,7 +242,10 @@ export const DEFAULT_EDITOR_STATE: Omit<EditorState, "image" | "imagePreviewUrl"
   shadowOffsetY: 3,
   dateStamp: "off",
   cropAspect: "original",
+  frameMode: "fit",
   quarterTurns: 0,
+  flipHorizontal: false,
+  flipVertical: false,
   emoji: "📷",
   stickerId: "heart",
   freeX: null,

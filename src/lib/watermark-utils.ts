@@ -9,8 +9,8 @@ import {
 } from "@/lib/editor-types"
 import { renderQrDataUrl } from "@/lib/qr-watermark"
 import { canvasToBlob, closeBitmap, releaseCanvas, scaledPreviewBlob } from "@/lib/image-resources"
-import { frameBitmap, needsFrame } from "@/lib/frame-image"
-import type { CropAspect, DateStampFormat } from "@/lib/editor-types"
+import { frameBitmap, needsFrame, type FrameRequest } from "@/lib/frame-image"
+import type { CropAspect, DateStampFormat, FrameMode } from "@/lib/editor-types"
 import { composeWatermarkText, paintFill, scaledTextPaint, textPaintPadding, type TextPaint } from "@/lib/text-style"
 import { stickerUrl } from "@/lib/stickers"
 import { copyJpegExif } from "@/lib/keep-photo-info"
@@ -386,7 +386,10 @@ export interface CanvasWatermarkOptions {
   marksOnly?: boolean
   extraMarks?: CanvasWatermarkOptions[]
   frameAspect?: CropAspect
+  frameMode?: FrameMode
   quarterTurns?: number
+  flipHorizontal?: boolean
+  flipVertical?: boolean
   longEdge?: number | null
   exportQuality?: number
   imageWidth: number
@@ -597,6 +600,7 @@ export async function drawWatermarkOnCanvas(
 
   if (coverageMode === "full") {
     const normalizedSpacing = density * sizeScale
+    const rawGlyphs = Array.from(text || "\u00A0").map((ch) => ctx.measureText(ch).width)
     const points = getPatternPoints(
       imageWidth,
       imageHeight,
@@ -607,11 +611,23 @@ export async function drawWatermarkOnCanvas(
       curveOrientation,
       stacked && !isShapePattern,
       totalRotation,
+      rawGlyphs,
     )
     for (const pt of points) {
       const chosen = adapt(pt.x, pt.y, measured.width, measured.height)
       ctx.fillStyle = chosen.fill
-      drawStamp(ctx, text || "\u00A0", pt, totalRotation, curveOrientation, stackedLineHeight, stackUpward, chosen.stampPaint)
+      // Shape patterns are spaced from one line of text. Stacking those letters
+      // into a column paints outside that line and lands on the next copy.
+      drawStamp(
+        ctx,
+        text || "\u00A0",
+        pt,
+        totalRotation,
+        curveOrientation,
+        isShapePattern ? undefined : stackedLineHeight,
+        stackUpward,
+        chosen.stampPaint,
+      )
     }
   } else {
     const { x, y } = opts.freeX != null && opts.freeY != null
@@ -671,14 +687,19 @@ export async function exportWatermarked(
       ? defaultQuality
       : Math.min(1, Math.max(0.6, requested > 1 ? requested / 100 : requested))
   try {
-    const aspect = opts.frameAspect ?? "original"
-    const turns = opts.quarterTurns ?? 0
-    const longEdge = opts.longEdge ?? null
+    const request: FrameRequest = {
+      aspect: opts.frameAspect ?? "original",
+      mode: opts.frameMode ?? "fit",
+      quarterTurns: opts.quarterTurns ?? 0,
+      flipHorizontal: opts.flipHorizontal === true,
+      flipVertical: opts.flipVertical === true,
+      longEdge: opts.longEdge ?? null,
+    }
     let source: CanvasImageSource = bitmap
     let width = bitmap.width
     let height = bitmap.height
-    if (needsFrame(bitmap.width, bitmap.height, aspect, turns, longEdge)) {
-      framed = frameBitmap(bitmap, aspect, turns, longEdge)
+    if (needsFrame(bitmap.width, bitmap.height, request)) {
+      framed = frameBitmap(bitmap, request)
       source = framed
       width = framed.width
       height = framed.height

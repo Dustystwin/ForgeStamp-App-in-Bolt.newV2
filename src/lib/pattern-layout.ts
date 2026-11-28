@@ -147,6 +147,13 @@ function boxesOverlap(
   return true
 }
 
+/**
+ * On. The spiral is still the original curved-letter layout from commit 85c85bc.
+ * A copy that would sit on top of its neighbor is left out. The ones that
+ * remain stay exactly where they were.
+ */
+export const SPIRAL_SKIP_OVERLAP = true
+
 function upright(angle: number): number {
   const wrapped = ((angle % 360) + 360) % 360
   return wrapped > 90 && wrapped < 270 ? angle - 180 : angle
@@ -174,18 +181,29 @@ export function getPatternPoints(
   orientation: CurveOrientation = "readable",
   stackedMode = false,
   baseRotation = 0,
+  charWidths: number[] = [],
 ): GridPoint[] {
   const markW = Math.max(8, textWidth)
   const markH = Math.max(8, textHeight)
-  spacing = Math.max(1, Math.min(spacing, Math.min(width, height) / 2))
+  // The Spacing slider is allowed to run to its own top. Capping it against
+  // the short side of the photo froze wide and thin pictures partway up,
+  // and made a small preview disagree with the full-size export.
+  spacing = Math.max(1, spacing)
   const gap = Math.max(8, Math.min(markW, markH) * 0.22)
   const centerX = width / 2
   const centerY = height / 2
   const maxRadius = Math.hypot(width, height) / 2
   const candidates: GridPoint[] = []
+  // 1 at the usual Spacing setting. The slider runs from about 0.44 to 4.4.
+  const openness = spacing / Math.max(1, (Math.sqrt(Math.max(width, 1) * Math.max(height, 1)) / 800) * 90)
 
   const need = (finalDeg: number, dirDeg: number) =>
     projectExtent(finalDeg, dirDeg, markW / 2, markH / 2) * 2 + gap
+
+  // Lowest setting sits just clear of the stamp. Higher settings open the
+  // same gap by a fraction of the stamp, so a large font moves as much as a
+  // small one, and copies still cannot land on each other.
+  const room = (minimum: number) => minimum * (1 + 0.34 * Math.max(0, openness - 0.444))
 
   const push = (pt: GridPoint) => {
     const scale = pt.fontScale != null && pt.fontScale > 0 ? pt.fontScale : 1
@@ -197,8 +215,8 @@ export function getPatternPoints(
 
   if (pattern === "grid" || pattern === "checkerboard") {
     const ext = rotatedHalfExtents(markW, markH, baseRotation)
-    const xStep = Math.max(spacing, ext.halfW * 2 + gap)
-    const yStep = Math.max(spacing, ext.halfH * 2 + gap)
+    const xStep = room(ext.halfW * 2 + gap)
+    const yStep = room(ext.halfH * 2 + gap)
     const ys = axisCenters(height, yStep)
     const xs = axisCenters(width, xStep)
     ys.forEach((y, row) => {
@@ -213,8 +231,8 @@ export function getPatternPoints(
     const ext = rotatedHalfExtents(markW, markH, baseRotation)
     const hGap = Math.max(gap, markW * 0.34, markH * 0.5)
     const vGap = Math.max(gap, markH * 0.7)
-    const xStep = Math.max(spacing, ext.halfW * 2 + hGap)
-    const yStep = Math.max(spacing * 0.85, ext.halfH * 2 + vGap)
+    const xStep = room(ext.halfW * 2 + hGap)
+    const yStep = room(ext.halfH * 2 + vGap)
     const ys = axisCenters(height, yStep)
     const xs = axisCenters(width, xStep)
     // A one-column portrait still offsets every other row, but only as far as
@@ -243,7 +261,8 @@ export function getPatternPoints(
     const alongA = projectExtent(finalA, tilt, markW / 2, markH / 2) * 2 + crossGap
     const alongB = projectExtent(finalB, -tilt, markW / 2, markH / 2) * 2 + crossGap
     const sepNeed = Math.max(boxA.halfW + boxB.halfW, boxA.halfH + boxB.halfH) + crossGap
-    const step = Math.max(spacing, alongA, alongB, sepNeed * Math.SQRT2) * 1.06
+    const tight = Math.max(alongA, alongB, sepNeed * Math.SQRT2)
+    const step = room(tight) * 1.06
     const ux = Math.cos(theta)
     const uy = Math.sin(theta)
     const vx = Math.cos(-theta)
@@ -268,11 +287,18 @@ export function getPatternPoints(
         })
       }
     }
+    // A very open step can throw the whole lattice past the edges. Leave one
+    // word on each diagonal so the photo is not blank, still clear of each other.
+    if (candidates.length === 0) {
+      const apart = Math.min(tight, Math.max(width, height) * 0.55)
+      push({ x: centerX - apart / 2, y: centerY, angle: tilt })
+      push({ x: centerX + apart / 2, y: centerY, angle: -tilt })
+    }
   } else if (pattern === "diagonal" || pattern === "reverse-diagonal") {
     const tilt = pattern === "diagonal" ? -25 : 25
     const final = baseRotation + tilt
-    const along = Math.max(spacing, need(final, tilt))
-    const across = Math.max(spacing * 0.85, need(final, tilt + 90))
+    const along = room(need(final, tilt))
+    const across = room(need(final, tilt + 90)) * 0.92
     const rad = (tilt * Math.PI) / 180
     const cos = Math.cos(rad)
     const sin = Math.sin(rad)
@@ -291,10 +317,11 @@ export function getPatternPoints(
       }
     }
   } else if (pattern === "scattered") {
-    const cellW = Math.max(spacing, markW + gap) * 1.38
-    const cellH = Math.max(spacing, markH + gap) * 1.5
-    const freeX = (cellW - markW - gap) / 2
-    const freeY = (cellH - markH - gap) / 2
+    const spread = 1.2 + 0.5 * Math.max(0, openness - 0.444)
+    const cellW = (markW + gap) * spread
+    const cellH = (markH + gap) * spread * 1.12
+    const freeX = Math.max(0, (cellW - markW - gap) / 2)
+    const freeY = Math.max(0, (cellH - markH - gap) / 2)
     const cols = Math.ceil(width / cellW) + 1
     const rows = Math.ceil(height / cellH) + 1
     for (let row = 0; row < rows; row++) {
@@ -315,8 +342,8 @@ export function getPatternPoints(
     const slopeDeg = (slope * 180) / Math.PI
     const tilted = rotatedHalfExtents(markW, markH, baseRotation + slopeDeg)
     const flat = rotatedHalfExtents(markW, markH, baseRotation)
-    const xStep = Math.max(spacing, Math.max(tilted.halfW, flat.halfW) * 2 + gap)
-    const yStep = Math.max(spacing, Math.max(tilted.halfH, flat.halfH) * 2 + gap + 2 * amp)
+    const xStep = room(Math.max(tilted.halfW, flat.halfW) * 2 + gap)
+    const yStep = room(Math.max(tilted.halfH, flat.halfH) * 2 + gap + 2 * amp)
     const freq = (2 * Math.PI * 1.6) / Math.max(width, 1)
     axisCenters(height, yStep).forEach((y0) => {
       axisCenters(width, xStep).forEach((x, col) => {
@@ -346,7 +373,7 @@ export function getPatternPoints(
       projectExtent(baseRotation + 45, 45, markW / 2, markH / 2),
       projectExtent(baseRotation - 45, -45, markW / 2, markH / 2),
     ) * 2 + edgeGap
-    const edgeLen = Math.max(markW + edgeGap, alongEdge, sep * Math.SQRT2, spacing) * 1.08
+    const edgeLen = room(Math.max(markW + edgeGap, alongEdge, sep * Math.SQRT2)) * 1.08
     const cell = edgeLen * Math.SQRT2
     const cols = Math.ceil(width / cell) + 1
     const rows = Math.ceil(height / cell) + 1
@@ -386,11 +413,9 @@ export function getPatternPoints(
     const sides = 6
     // Keep the shapes small enough that several of them fit, and shrink the
     // words to the edge instead of growing one giant cell around the words.
-    const edgeCap = Math.min(width, height) / 2.45
-    const targetEdge = Math.max(
-      markH * 2.5,
-      Math.min(edgeCap, Math.max(spacing * 1.25, markW * 0.7)),
-    )
+    const textFloor = Math.max(markH * 2.5, markW * 0.7)
+    const edgeCap = Math.min(width, height) / 2.45 + spacing * 0.7
+    const targetEdge = Math.min(edgeCap, textFloor + spacing * 0.9)
     const R = targetEdge
     const edgeLen = R
     let scale = Math.min(1, (edgeLen * 0.58) / markW)
@@ -428,8 +453,8 @@ export function getPatternPoints(
       }
     }
   } else if (pattern === "lattice") {
-    const cellW = Math.max(spacing * 1.55, markW * 0.92 + gap, markH * 2.8)
-    const cellH = Math.max(spacing * 1.25, markH * 2.8, markW * 0.48 + gap)
+    const cellW = room(Math.max(markW * 0.92 + gap, markH * 2.8))
+    const cellH = room(Math.max(markH * 2.8, markW * 0.48 + gap))
     const hScale = Math.min(1, (cellW * 0.62) / markW)
     const vScale = Math.min(1, (cellH * 0.62) / markW)
     const seen = new Set<string>()
@@ -450,14 +475,11 @@ export function getPatternPoints(
       }
     }
   } else if (pattern === "radial") {
-    const along = Math.max(spacing, markW + gap)
+    const along = room(markW + gap)
     const across = Math.max(markH + gap, 12)
-    // The first ring has to clear the inner corners of neighboring copies.
-    // A square QR is widest on the diagonal, so the old inner radius let the
-    // codes nearly touch around the middle.
-    let rays = 16
-    let r0 = across
-    for (let tryRays = 16; tryRays >= 5; tryRays--) {
+    // Fewer rays as Spacing opens up. The inner ring still starts far enough
+    // out that neighboring copies clear each other.
+    const clearance = (tryRays: number) => {
       const dTheta = (2 * Math.PI) / tryRays
       let need = across
       for (let i = 0; i < tryRays; i++) {
@@ -471,15 +493,28 @@ export function getPatternPoints(
         const chord = halfAcross * 2 + gap
         need = Math.max(need, halfAlong + chord / (2 * Math.sin(dTheta / 2)))
       }
-      rays = tryRays
-      r0 = need
-      if (r0 <= maxRadius * 0.72) break
+      return need
     }
+    let fitted = 4
+    let r0 = across
+    for (let tryRays = 16; tryRays >= 4; tryRays--) {
+      const need = clearance(tryRays)
+      fitted = tryRays
+      r0 = need
+      if (need <= maxRadius * 0.72) break
+    }
+    const rays = Math.max(1, Math.min(fitted, Math.round(fitted / (1 + 0.95 * Math.max(0, openness - 0.444)))))
+    const outer = maxRadius + markH * 0.2
+    const grown = r0 * (1 + 0.18 * Math.max(0, openness - 0.444))
+    // Below the usual setting the ring stays inside the old limit. Above it,
+    // the ring may move out toward the edge instead of freezing.
+    const cap = maxRadius * (0.7 + 0.22 * Math.min(1, Math.max(0, openness - 1)))
+    r0 = Math.min(Math.max(r0, grown), Math.max(r0, cap))
     for (let i = 0; i < rays; i++) {
       const theta = (i * 2 * Math.PI) / rays
       let raw = (theta * 180) / Math.PI
       if (orientation === "readable") raw = upright(raw)
-      for (let r = r0; r <= maxRadius + along * 0.2; r += along) {
+      for (let r = r0; r <= outer; r += along) {
         push({
           x: centerX + r * Math.cos(theta),
           y: centerY + r * Math.sin(theta),
@@ -488,36 +523,94 @@ export function getPatternPoints(
       }
     }
   } else if (pattern === "spiral") {
-    const ringGap = Math.max(spacing * 0.8, markH + gap)
-    const b = ringGap / (2 * Math.PI)
-    const along = Math.max(markW + gap, spacing * 0.45)
-    let phi = Math.max(markH * 1.6, markW * 0.45) / Math.max(b, 0.001)
-    for (let guard = 0; guard < 4000; guard++) {
+    // Restored from 85c85bc, the last main commit before pull request 13.
+    // Each copy is still bent along a perfect circle around the photo's center.
+    // The old step ignored the Spacing slider until it was huge, because the
+    // text size was used as a floor. The gap between circles and the gap along
+    // each circle now both follow the slider. The usual setting keeps the
+    // original distance between circles. The along-circle gap stays just wider
+    // than the word, then opens up as Spacing goes up.
+    const sizeScale = Math.sqrt(Math.max(width, 1) * Math.max(height, 1)) / 800
+    const openness = spacing / Math.max(1, 90 * sizeScale)
+    const ringStep = markH * (1.15 + 0.85 * openness)
+    const arcStep = markW * (1.08 + 0.72 * Math.max(0, openness - 0.444))
+    const b = ringStep / (2 * Math.PI)
+    // Start where the curve is wide enough for the text to bend along it
+    // (radius >= textWidth/2.5 keeps the arc under the curved-render limit).
+    let phi = Math.max(ringStep * 0.55, markW / 2.5) / b
+    const arm: GridPoint[] = []
+    for (;;) {
       const r = b * phi
-      if (r > maxRadius + ringGap) break
-      const dx = b * Math.cos(phi) - r * Math.sin(phi)
-      const dy = b * Math.sin(phi) + r * Math.cos(phi)
-      let angle = (Math.atan2(dy, dx) * 180) / Math.PI
-      if (orientation === "readable") angle = upright(angle)
-      push({
-        x: centerX + r * Math.cos(phi),
-        y: centerY + r * Math.sin(phi),
-        angle,
-      })
-      phi += along / Math.max(Math.hypot(dx, dy), 1)
+      if (r > maxRadius + ringStep) break
+      const x = centerX + r * Math.cos(phi)
+      const y = centerY + r * Math.sin(phi)
+      if (x >= -markW / 2 && x <= width + markW / 2 && y >= -markH && y <= height + markH) {
+        arm.push({ x, y, angle: 0, arc: { cx: centerX, cy: centerY, r } })
+      }
+      phi += arcStep / Math.max(r, 1)
     }
+    if (!SPIRAL_SKIP_OVERLAP) return arm
+    // Same per-letter widths the painter uses. Do not shrink them to the
+    // measured word, or a kerned letter sticks out of the box. An outline
+    // makes the word wider than the letters; cover that extra, and ignore
+    // a one-pixel measuring difference.
+    const rawWidths = charWidths.length > 0 && charWidths.some((w) => w > 0) ? charWidths : [markW]
+    const rawSum = rawWidths.reduce((sum, w) => sum + w, 0) || markW
+    const slack = markW - rawSum
+    const widths = slack > markH * 0.15 ? rawWidths.map((w) => w + slack / rawWidths.length) : rawWidths
+    const touch = Math.max(3, markH * 0.08)
+    const kept: GridPoint[] = []
+    const placed: { x: number; y: number; w: number; h: number; angle: number }[] = []
+    const lettersOf = (pt: GridPoint) => {
+      const arc = pt.arc
+      if (!arc) return [layoutStampBox(pt, markW, markH, baseRotation, stackedMode)]
+      const { cx, cy, r } = arc
+      const total = widths.reduce((sum, w) => sum + w, 0)
+      const totalArc = total / Math.max(r, 0.001)
+      const centerAngle = Math.atan2(pt.y - cy, pt.x - cx) + (baseRotation * Math.PI) / 180
+      if (totalArc > Math.PI * 1.2) {
+        return [{ x: pt.x, y: pt.y, w: total, h: markH, angle: (centerAngle * 180) / Math.PI }]
+      }
+      const flip = !arc.continuous && orientation === "readable" && Math.sin(centerAngle) > 0
+      const dir = flip ? -1 : 1
+      let cursor = centerAngle - (dir * totalArc) / 2
+      const boxes: { x: number; y: number; w: number; h: number; angle: number }[] = []
+      for (const w of widths) {
+        const charArc = w / Math.max(r, 0.001)
+        const mid = cursor + (dir * charArc) / 2
+        boxes.push({
+          x: cx + r * Math.cos(mid),
+          y: cy + r * Math.sin(mid),
+          w,
+          h: markH,
+          angle: ((mid + (dir * Math.PI) / 2) * 180) / Math.PI,
+        })
+        cursor += dir * charArc
+      }
+      return boxes
+    }
+    for (const pt of arm) {
+      const letters = lettersOf(pt)
+      if (letters.some((letter) => placed.some((other) => boxesOverlap(letter, other, touch)))) continue
+      kept.push(pt)
+      placed.push(...letters)
+    }
+    return kept
   } else if (pattern === "concentric") {
     // Same centered circles as the original rings, with a little extra room
     // along each ring and between rings. Rings that are too small for a
     // curved word are skipped so a straight stamp does not sit in the middle.
-    const ringStep = Math.max(spacing, markH + gap * 2.4)
+    const ringStep = room(markH + gap * 2.4)
     const arcGap = Math.max(gap * 1.8, markH * 0.36)
-    const slot = markW + arcGap
+    const baseSlot = markW + Math.max(arcGap, markH * 0.9)
+    const slot = room(baseSlot)
     const first = Math.max(ringStep, markW * 0.78, markH * 2.2)
     let ring = 0
     for (let r = first; r <= maxRadius + ringStep * 0.2; r += ringStep, ring++) {
       if (markW / r > Math.PI * 0.72) continue
-      const n = Math.floor((2 * Math.PI * r) / slot)
+      const circ = 2 * Math.PI * r
+      let n = Math.floor(circ / slot)
+      if (n < 2 && Math.floor(circ / baseSlot) >= 2) n = 2
       if (n < 2) continue
       const offset = ring % 2 === 1 ? Math.PI / n : 0
       for (let k = 0; k < n; k++) {
@@ -537,7 +630,7 @@ export function getPatternPoints(
     const margin = Math.max(8, gap * 0.45)
     const edgeY = margin + markH / 2
     const edgeX = margin + markH / 2
-    const step = markW + gap
+    const step = room(markW + gap)
     const hLo = edgeX + markH / 2 + gap + markW / 2
     const hHi = width - hLo
     const vLo = edgeY + markH / 2 + gap + markW / 2
